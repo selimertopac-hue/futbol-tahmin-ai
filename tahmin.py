@@ -7,7 +7,7 @@ import requests
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
-st.set_page_config(page_title="UltraSkor Pro: Master Engine", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Spectrum AI", page_icon="🛡️", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -99,7 +99,7 @@ gelecek = [m for m in m_data if m['status'] in ['SCHEDULED', 'TIMED', 'POSTPONED
 if gelecek:
     for m in gelecek[:15]:
         ev_ad, dep_ad = m['homeTeam']['name'], m['awayTeam']['name']
-        res = master_analiz_et(ev_ad, dep_ad, m_data)
+        res = master_anal_et(ev_ad, dep_ad, m_data)
         
         if res:
             with st.expander(f"🏟️ {ev_ad} vs {dep_ad}"):
@@ -117,4 +117,8 @@ if gelecek:
                     st.caption(f"xG: {res['dep_xg']:.2f}")
 
                 st.divider()
-                f
+                f1, f2, f3 = st.columns(3)
+                f1.metric("📍 Standart", res['alg_1'])
+                f2.metric("🎯 Ofansif", res['alg_2'])
+                f3.metric("🛡️ Spektrum", res['alg_3'])
+                st.markdown(f"<div class='strategy-box'>💡 <b>Analiz:</b> {res['not']}</div>", unsafe_allow_html=True)
