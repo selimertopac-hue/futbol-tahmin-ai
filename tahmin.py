@@ -8,76 +8,57 @@ import requests
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 ODDS_API_KEY = "b4040bb05379cd7d9b94f18f2b74b133"
 
-st.set_page_config(page_title="UltraSkor AI: Pro Analiz", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro AI", page_icon="🛡️", layout="wide")
 
 # --- GELİŞMİŞ STİL ---
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #FFFFFF; }
-    .stat-card { background-color: #161B22; border: 1px solid #30363D; padding: 10px; border-radius: 8px; text-align: center; }
     .best-card { background-color: #161B22; border: 2px solid #58A6FF; padding: 15px; border-radius: 12px; text-align: center; }
+    .stat-card { background-color: #1C2128; border: 1px solid #30363D; padding: 12px; border-radius: 10px; text-align: center; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- DERİN ANALİZ FONKSİYONU (Advanced xG) ---
+# --- DERİN ANALİZ FONKSİYONU ---
 def derin_analiz_et(ev, dep, matches):
     df = pd.DataFrame([m for m in matches if m['status'] == 'FINISHED'])
     if df.empty: return None
 
-    # Verileri hazırla
     df['H'], df['A'] = df['homeTeam'].apply(lambda x: x['name']), df['awayTeam'].apply(lambda x: x['name'])
     df['HG'], df['AG'] = df['score'].apply(lambda x: x['fullTime']['home']), df['score'].apply(lambda x: x['fullTime']['away'])
 
-    # 1. Lig Geneli Ortalamalar (Benchmark)
-    lig_ev_gol_ort = df['HG'].mean()
-    lig_dep_gol_ort = df['AG'].mean()
+    lig_ev_ort = df['HG'].mean()
+    lig_dep_ort = df['AG'].mean()
 
-    # 2. Takım Spesifik İstatistikler
-    # Ev sahibinin iç saha hücum gücü / Deplasmanın dış saha savunma zafiyeti
-    ev_ic_saha = df[df['H'] == ev]
-    dep_dis_saha = df[df['A'] == dep]
+    ev_maclar = df[df['H'] == ev]
+    dep_maclar = df[df['A'] == dep]
 
-    if ev_ic_saha.empty or dep_dis_saha.empty:
-        # Yeterli veri yoksa genel ortalamaya dön
-        ev_beklenen = 1.5
-        dep_beklenen = 1.1
+    if ev_maclar.empty or dep_maclar.empty:
+        ev_beklenen, dep_beklenen = 1.5, 1.1
     else:
-        # Hücum ve Savunma Katsayıları Hesaplama
-        ev_hucum_surp = ev_ic_saha['HG'].mean() / lig_ev_gol_ort
-        dep_savunma_surp = dep_dis_saha['HG'].mean() / lig_ev_gol_ort # Rakibe ne kadar gol izni veriyor?
-        
-        dep_hucum_surp = dep_dis_saha['AG'].mean() / lig_dep_gol_ort
-        ev_savunma_surp = ev_ic_saha['AG'].mean() / lig_dep_gol_ort
+        ev_hucum = ev_maclar['HG'].mean() / lig_ev_ort
+        dep_savunma = dep_maclar['HG'].mean() / lig_ev_ort
+        dep_hucum = dep_maclar['AG'].mean() / lig_dep_ort
+        ev_savunma = ev_maclar['AG'].mean() / lig_dep_ort
+        ev_beklenen = ev_hucum * dep_savunma * lig_ev_ort
+        dep_beklenen = dep_hucum * ev_savunma * lig_dep_ort
 
-        # Nihai xG Tahmini
-        ev_beklenen = ev_hucum_surp * dep_savunma_surp * lig_ev_gol_ort
-        dep_beklenen = dep_hucum_surp * ev_savunma_surp * lig_dep_gol_ort
-
-    # 3. Poisson Matrisi
     m = np.outer([poisson.pmf(i, ev_beklenen) for i in range(6)], [poisson.pmf(i, dep_beklenen) for i in range(6)])
     sk = np.unravel_index(np.argmax(m), m.shape)
-
+    
     return {
         "Ev": np.sum(np.tril(m, -1))*100, "Ber": np.sum(np.diag(m))*100, "Dep": np.sum(np.triu(m, 1))*100,
         "Skor": f"{sk[0]} - {sk[1]}", "ev_xg": ev_beklenen, "dep_xg": dep_beklenen
     }
 
-# --- DİĞER FONKSİYONLAR (Oran & Maç Çekme) ---
 @st.cache_data(ttl=3600)
-def oranlari_cek(lig_odds):
-    url = f"https://api.the-odds-api.com/v4/sports/{lig_odds}/odds/?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h"
-    try: return requests.get(url, timeout=10).json()
-    except: return []
+def veri_getir(url, headers={}):
+    try: return requests.get(url, headers=headers, timeout=10).json()
+    except: return {}
 
-@st.cache_data(ttl=3600)
-def maclari_getir(lig_code):
-    url = f"https://api.football-data.org/v4/competitions/{lig_code}/matches"
-    try: return requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=10).json().get('matches', [])
-    except: return []
-
-# --- ARAYÜZ ---
-st.title("🛡️ UltraSkor Pro AI: Derin Rakip Analizi")
+# --- ANA PANEL ---
+st.title("🛡️ UltraSkor Pro AI: Stratejik Radar")
 
 lig_mapping = {
     "İngiltere (PL)": {"code": "PL", "odds": "soccer_epl"},
@@ -86,41 +67,58 @@ lig_mapping = {
     "Almanya (BL1)": {"code": "BL1", "odds": "soccer_germany_bundesliga"}
 }
 secim = st.sidebar.selectbox("🎯 Lig Seç", list(lig_mapping.keys()))
-m_data = maclari_getir(lig_mapping[secim]['code'])
-canli_oranlar = oranlari_cek(lig_mapping[secim]['odds'])
+
+# Verileri Çek
+m_data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_mapping[secim]['code']}/matches", {"X-Auth-Token": FOOTBALL_DATA_KEY}).get('matches', [])
+o_data = veri_getir(f"https://api.the-odds-api.com/v4/sports/{lig_mapping[secim]['odds']}/odds/?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h")
 gelecek = [m for m in m_data if m['status'] in ['SCHEDULED', 'TIMED']]
 
-# --- ANALİZ VE GÖSTERİM ---
+# --- BEST PICK HESAPLAMA (Burada yapılıyor ki yukarıda görünsün) ---
+best_ai = {"mac": "-", "prob": 0, "skor": "-"}
+best_val = {"mac": "-", "avantaj": -100, "oran": 0}
+analiz_listesi = []
+
 if gelecek:
-    st.markdown("### 🏟️ Derinleştirilmiş Maç Analizleri")
-    for m in gelecek[:8]:
-        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
-        res = derin_analiz_et(ev, dep, m_data)
-        
-        with st.expander(f"🔍 {ev} vs {dep} | Taktiksel Görünüm"):
-            col_img1, col_center, col_img2 = st.columns([1, 2, 1])
-            with col_img1: st.image(m['homeTeam']['crest'], width=60)
-            with col_center: st.markdown(f"<h3 style='text-align: center;'>{ev} - {dep}</h3>", unsafe_allow_html=True)
-            with col_img2: st.image(m['awayTeam']['crest'], width=60)
-
-            # Detaylı İstatistik Kartları
-            st.markdown("#### 📊 Maç Dinamikleri")
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.markdown(f"<div class='stat-card'>🔥 Ev Hücum Gücü<br><b>{res['ev_xg']:.2f} Beklenen Gol</b></div>", unsafe_allow_html=True)
-            with c2:
-                st.markdown(f"<div class='stat-card'>🛡️ Savunma Dengesi<br><b>%{(res['Ber']):.1f} Beraberlik Riski</b></div>", unsafe_allow_html=True)
-            with c3:
-                st.markdown(f"<div class='stat-card'>🚀 Dep. Kontra Şansı<br><b>{res['dep_xg']:.2f} Beklenen Gol</b></div>", unsafe_allow_html=True)
+    for m in gelecek[:10]:
+        res = derin_analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
+        if res:
+            # Best AI
+            p = max(res['Ev'], res['Dep'])
+            if p > best_ai['prob']: best_ai = {"mac": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}", "prob": p, "skor": res['Skor']}
             
-            # Oran Karşılaştırma (Value Bet)
-            mac_orani = next((o for o in canli_oranlar if ev[:5].lower() in o['home_team'].lower() or o['home_team'][:5].lower() in ev.lower()), None)
+            # Best Value
+            mac_orani = next((o for o in o_data if m['homeTeam']['name'][:5].lower() in o['home_team'].lower()), None)
+            avantaj = -100
+            oran_ev = 0
             if mac_orani:
-                h2h = mac_orani['bookmakers'][0]['markets'][0]['outcomes']
-                oran_ev = next((o['price'] for o in h2h if o['name'].lower() == mac_orani['home_team'].lower()), 1.0)
+                oran_ev = mac_orani['bookmakers'][0]['markets'][0]['outcomes'][0]['price']
                 avantaj = ((res['Ev'] / 100) * oran_ev) - 1
-                if avantaj > 0.07:
-                    st.success(f"💎 DEĞERLİ FIRSAT: %{avantaj*100:.1f} Avantaj Tespit Edildi!")
+                if avantaj*100 > best_val['avantaj']: best_val = {"mac": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}", "avantaj": avantaj*100, "oran": oran_ev}
+            
+            analiz_listesi.append((m, res, mac_orani, avantaj))
 
-            st.progress(res['Ev']/100)
-            st.write(f"**🤖 AI Skor Tahmini:** {res['Skor']}")
+# --- GÖRSEL PANELLER ---
+st.markdown("### 🌟 Günün Analiz Raporu")
+c_b1, c_b2 = st.columns(2)
+with c_b1:
+    st.markdown(f"<div class='best-card'><h4>🏆 En Yüksek Olasılık</h4><h2>%{best_ai['prob']:.1f} Güven</h2><p>{best_ai['mac']}<br>Tahmin: {best_ai['skor']}</p></div>", unsafe_allow_html=True)
+with c_b2:
+    color = "#34d399" if best_val['avantaj'] > 0 else "#8B949E"
+    st.markdown(f"<div class='best-card' style='border-color: {color};'><h4>💰 En Yüksek Değer</h4><h2>%{best_val['avantaj']:.1f} Avantaj</h2><p>{best_val['mac']}<br>Oran: {best_val['oran']}</p></div>", unsafe_allow_html=True)
+
+st.markdown("---")
+
+if analiz_listesi:
+    for m, res, mac_orani, av in analiz_listesi:
+        with st.expander(f"🔍 {m['homeTeam']['name']} vs {m['awayTeam']['name']}"):
+            col_st, col_tx = st.columns([2, 1])
+            with col_st:
+                st.markdown("#### 📊 Maç Dinamikleri (xG)")
+                ca, cb = st.columns(2)
+                ca.markdown(f"<div class='stat-card'>🏠 Ev xG<br><b>{res['ev_xg']:.2f}</b></div>", unsafe_allow_html=True)
+                cb.markdown(f"<div class='stat-card'>🚀 Dep xG<br><b>{res['dep_xg']:.2f}</b></div>", unsafe_allow_html=True)
+                st.write(f"Olasılıklar: Ev %{res['Ev']:.1f} | Ber %{res['Ber']:.1f} | Dep %{res['Dep']:.1f}")
+                st.progress(res['Ev']/100)
+            with col_tx:
+                st.info(f"🎯 Skor: **{res['Skor']}**")
+                if av > 0.05: st.success(f"🔥 VALUE: %{av*100:.1f}")
