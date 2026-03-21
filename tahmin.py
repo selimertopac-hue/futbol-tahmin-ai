@@ -11,7 +11,7 @@ HEADERS = {"X-Auth-Token": API_KEY}
 
 st.set_page_config(page_title="UltraSkor Pro AI", page_icon="⚽", layout="wide")
 
-# --- VERİ ÇEKME FONKSİYONLARI ---
+# --- FONKSİYONLAR ---
 @st.cache_data(ttl=3600)
 def maclari_getir(lig="PL"):
     url = f"{BASE_URL}competitions/{lig}/matches"
@@ -24,29 +24,18 @@ def maclari_getir(lig="PL"):
 def puan_durumu_getir(lig="PL"):
     url = f"{BASE_URL}competitions/{lig}/standings"
     try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        response = requests.get(url, headers=HEADERS)
         data = response.json()
-        standings = []
-        for team in data['standings'][0]['table']:
-            standings.append({
-                "Sıra": team['position'],
-                "Takım": team['team']['name'],
-                "O": team['playedGames'],
-                "G": team['won'],
-                "B": team['draw'],
-                "M": team['lost'],
-                "Puan": team['points'],
-                "Av": team['goalDifference']
-            })
-        return pd.DataFrame(standings)
+        return pd.DataFrame([{
+            "Sıra": t['position'], "Takım": t['team']['name'], "O": t['playedGames'],
+            "G": t['won'], "B": t['draw'], "M": t['lost'], "P": t['points'], "Av": t['goalDifference']
+        } for t in data['standings'][0]['table']])
     except: return pd.DataFrame()
 
 def form_hesapla(takim_adi, tum_maclar):
-    bitmis = [m for m in tum_maclar if m['status'] == 'FINISHED' and 
-              (m['homeTeam']['name'] == takim_adi or m['awayTeam']['name'] == takim_adi)]
-    son_5 = bitmis[-5:]
+    bitmis = [m for m in tum_maclar if m['status'] == 'FINISHED' and (m['homeTeam']['name'] == takim_adi or m['awayTeam']['name'] == takim_adi)]
     f = ""
-    for m in son_5:
+    for m in bitmis[-5:]:
         sh, sa = m['score']['fullTime']['home'], m['score']['fullTime']['away']
         if m['homeTeam']['name'] == takim_adi:
             if sh > sa: f += "🟢"
@@ -59,75 +48,69 @@ def form_hesapla(takim_adi, tum_maclar):
     return f if f != "" else "Veri Yok"
 
 def analiz_et(ev, dep, tum_maclar):
-    df_bitmis = pd.DataFrame([m for m in tum_maclar if m['status'] == 'FINISHED'])
-    if df_bitmis.empty: return None
-    df_bitmis['H'] = df_bitmis['homeTeam'].apply(lambda x: x['name'])
-    df_bitmis['A'] = df_bitmis['awayTeam'].apply(lambda x: x['name'])
-    df_bitmis['HG'] = df_bitmis['score'].apply(lambda x: x['fullTime']['home'])
-    df_bitmis['AG'] = df_bitmis['score'].apply(lambda x: x['fullTime']['away'])
-
-    ev_xg = df_bitmis[df_bitmis['H'] == ev]['HG'].mean() if not df_bitmis[df_bitmis['H'] == ev].empty else 1.5
-    dep_xg = df_bitmis[df_bitmis['A'] == dep]['AG'].mean() if not df_bitmis[df_bitmis['A'] == dep].empty else 1.2
-    
-    ev_p = [poisson.pmf(i, ev_xg) for i in range(5)]
-    dep_p = [poisson.pmf(i, dep_xg) for i in range(5)]
-    m = np.outer(ev_p, dep_p)
-    skor_indeks = np.unravel_index(np.argmax(m), m.shape)
-    
-    return {
-        "Ev": np.sum(np.tril(m, -1)) * 100,
-        "Ber": np.sum(np.diag(m)) * 100,
-        "Dep": np.sum(np.triu(m, 1)) * 100,
-        "Skor": f"{skor_indeks[0]} - {skor_indeks[1]}"
-    }
+    df = pd.DataFrame([m for m in tum_maclar if m['status'] == 'FINISHED'])
+    if df.empty: return None
+    df['H'], df['A'] = df['homeTeam'].apply(lambda x: x['name']), df['awayTeam'].apply(lambda x: x['name'])
+    df['HG'], df['AG'] = df['score'].apply(lambda x: x['fullTime']['home']), df['score'].apply(lambda x: x['fullTime']['away'])
+    ev_xg = df[df['H'] == ev]['HG'].mean() if not df[df['H'] == ev].empty else 1.5
+    dep_xg = df[df['A'] == dep]['AG'].mean() if not df[df['A'] == dep].empty else 1.2
+    m = np.outer([poisson.pmf(i, ev_xg) for i in range(5)], [poisson.pmf(i, dep_xg) for i in range(5)])
+    sk = np.unravel_index(np.argmax(m), m.shape)
+    return {"Ev": np.sum(np.tril(m, -1))*100, "Ber": np.sum(np.diag(m))*100, "Dep": np.sum(np.triu(m, 1))*100, "Skor": f"{sk[0]} - {sk[1]}"}
 
 # --- ARAYÜZ ---
-st.title("🏆 UltraSkor Pro AI: Global Futbol Portalı")
+st.title("🏆 UltraSkor Pro AI: Akıllı Futbol Analiz Merkezi")
 
-# Yan Menü (Sidebar)
 st.sidebar.header("📊 Lig Yönetimi")
-lig_secenekleri = {"İngiltere (PL)": "PL", "Almanya (BL1)": "BL1", "İtalya (SA)": "SA", "İspanya (PD)": "PD", "Hollanda (DED)": "DED"}
-secili_lig_adi = st.sidebar.selectbox("Lig Seçiniz", list(lig_secenekleri.keys()))
-secili_lig_kodu = lig_secenekleri[secili_lig_adi]
+ligler = {"İngiltere (PL)": "PL", "Almanya (BL1)": "BL1", "İtalya (SA)": "SA", "İspanya (PD)": "PD", "Hollanda (DED)": "DED"}
+secili_lig_adi = st.sidebar.selectbox("Lig Seçiniz", list(ligler.keys()))
+secili_lig_kodu = ligler[secili_lig_adi]
 
-# Veri Çekme
 all_matches = maclari_getir(secili_lig_kodu)
 df_puan = puan_durumu_getir(secili_lig_kodu)
+gelecek = [m for m in all_matches if m['status'] in ['SCHEDULED', 'TIMED']]
 
-# EKRANI İKİYE BÖL (Puan Durumu | Tahminler)
+# --- GÜNÜN FAVORİSİ HESAPLAMA ---
+favori_mac = None
+if gelecek:
+    analizler = []
+    for m in gelecek[:10]:
+        res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], all_matches)
+        if res:
+            guven = max(res['Ev'], res['Dep'])
+            analizler.append({"mac": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}", "guven": guven, "skor": res['Skor']})
+    if analizler:
+        favori_mac = max(analizler, key=lambda x: x['guven'])
+
+# --- GÜNÜN FAVORİSİ PANELİ ---
+if favori_mac:
+    st.success(f"🤖 **YAPAY ZEKA GÜNÜN TAVSİYESİ:** {favori_mac['mac']} | **Tahmin:** {favori_mac['skor']} (Güven: %{favori_mac['guven']:.1f})")
+
+st.markdown("---")
+
+# --- ANA PANEL ---
 col_puan, col_tahmin = st.columns([1.2, 2])
 
 with col_puan:
-    st.subheader(f"📈 {secili_lig_adi} Puan Durumu")
-    if not df_puan.empty:
-        st.dataframe(df_puan, hide_index=True, use_container_width=True)
-    else:
-        st.warning("Puan durumu şu an çekilemiyor.")
+    st.subheader("📈 Puan Durumu")
+    st.dataframe(df_puan, hide_index=True, use_container_width=True)
 
 with col_tahmin:
-    st.subheader("📅 Haftalık Fikstür & AI Tahmini")
-    gelecek_maclar = [m for m in all_matches if m['status'] in ['SCHEDULED', 'TIMED']]
-    
-    if gelecek_maclar:
-        for match in gelecek_maclar[:10]:
-            ev_adi, dep_adi = match['homeTeam']['name'], match['awayTeam']['name']
-            ev_logo, dep_logo = match['homeTeam']['crest'], match['awayTeam']['crest']
-            
-            with st.expander(f"📌 {match['utcDate'][:10]} | {ev_adi} - {dep_adi}"):
-                res = analiz_et(ev_adi, dep_adi, all_matches)
-                
-                # Başlık ve Logolar
+    st.subheader("📅 Haftalık Fikstür")
+    if gelecek:
+        for m in gelecek[:10]:
+            ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
+            res = analiz_et(ev, dep, all_matches)
+            with st.expander(f"⚽ {ev} - {dep}"):
                 c_l, c_m, c_r = st.columns([1, 2, 1])
-                with c_l: st.image(ev_logo, width=50)
-                with c_m: st.markdown(f"<p style='text-align: center; font-weight: bold;'>{ev_adi}<br>vs<br>{dep_adi}</p>", unsafe_allow_html=True)
-                with c_r: st.image(dep_logo, width=50)
-
-                # Oranlar ve Form
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Ev", f"%{res['Ev']:.1f}", delta=form_hesapla(ev_adi, all_matches), delta_color="off")
-                c2.metric("Ber", f"%{res['Ber']:.1f}")
-                c3.metric("Dep", f"%{res['Dep']:.1f}", delta=form_hesapla(dep_adi, all_matches), delta_color="off")
+                with c_l: st.image(m['homeTeam']['crest'], width=50)
+                with c_m: st.markdown(f"<p style='text-align: center;'>{ev}<br>vs<br>{dep}</p>", unsafe_allow_html=True)
+                with c_r: st.image(m['awayTeam']['crest'], width=50)
                 
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Ev", f"%{res['Ev']:.1f}", delta=form_hesapla(ev, all_matches), delta_color="off")
+                c2.metric("Ber", f"%{res['Ber']:.1f}")
+                c3.metric("Dep", f"%{res['Dep']:.1f}", delta=form_hesapla(dep, all_matches), delta_color="off")
                 st.info(f"🎯 Skor Tahmini: **{res['Skor']}**")
     else:
-        st.info("Planlanmış maç bulunamadı.")
+        st.info("Maç bulunamadı.")
