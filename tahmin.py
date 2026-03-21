@@ -64,6 +64,7 @@ st.title("🏆 UltraSkor Pro AI: Akıllı Futbol Analiz Merkezi")
 st.sidebar.header("📊 Lig Yönetimi")
 # BURAYA FRANSA (FL1) EKLEDİM:
 ligler = {
+    "Türkiye Süper Lig (TR)": "TR",
     "İngiltere (PL)": "PL", 
     "Almanya (BL1)": "BL1", 
     "İtalya (SA)": "SA", 
