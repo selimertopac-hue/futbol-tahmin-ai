@@ -62,7 +62,16 @@ def analiz_et(ev, dep, tum_maclar):
 st.title("🏆 UltraSkor Pro AI: Akıllı Futbol Analiz Merkezi")
 
 st.sidebar.header("📊 Lig Yönetimi")
-ligler = {"İngiltere (PL)": "PL", "Almanya (BL1)": "BL1", "İtalya (SA)": "SA", "İspanya (PD)": "PD", "Hollanda (DED)": "DED"}
+# BURAYA FRANSA (FL1) EKLEDİM:
+ligler = {
+    "İngiltere (PL)": "PL", 
+    "Almanya (BL1)": "BL1", 
+    "İtalya (SA)": "SA", 
+    "İspanya (PD)": "PD", 
+    "Fransa (FL1)": "FL1", 
+    "Hollanda (DED)": "DED",
+    "Portekiz (PPL)": "PPL"
+}
 secili_lig_adi = st.sidebar.selectbox("Lig Seçiniz", list(ligler.keys()))
 secili_lig_kodu = ligler[secili_lig_adi]
 
@@ -70,7 +79,7 @@ all_matches = maclari_getir(secili_lig_kodu)
 df_puan = puan_durumu_getir(secili_lig_kodu)
 gelecek = [m for m in all_matches if m['status'] in ['SCHEDULED', 'TIMED']]
 
-# --- GÜNÜN FAVORİSİ HESAPLAMA ---
+# --- GÜNÜN FAVORİSİ ---
 favori_mac = None
 if gelecek:
     analizler = []
@@ -82,18 +91,19 @@ if gelecek:
     if analizler:
         favori_mac = max(analizler, key=lambda x: x['guven'])
 
-# --- GÜNÜN FAVORİSİ PANELİ ---
 if favori_mac:
     st.success(f"🤖 **YAPAY ZEKA GÜNÜN TAVSİYESİ:** {favori_mac['mac']} | **Tahmin:** {favori_mac['skor']} (Güven: %{favori_mac['guven']:.1f})")
 
 st.markdown("---")
 
-# --- ANA PANEL ---
 col_puan, col_tahmin = st.columns([1.2, 2])
 
 with col_puan:
-    st.subheader("📈 Puan Durumu")
-    st.dataframe(df_puan, hide_index=True, use_container_width=True)
+    st.subheader(f"📈 {secili_lig_adi} Puan Durumu")
+    if not df_puan.empty:
+        st.dataframe(df_puan, hide_index=True, use_container_width=True)
+    else:
+        st.error("⚠️ Bu lig ücretsiz API planında desteklenmiyor olabilir.")
 
 with col_tahmin:
     st.subheader("📅 Haftalık Fikstür")
@@ -113,4 +123,4 @@ with col_tahmin:
                 c3.metric("Dep", f"%{res['Dep']:.1f}", delta=form_hesapla(dep, all_matches), delta_color="off")
                 st.info(f"🎯 Skor Tahmini: **{res['Skor']}**")
     else:
-        st.info("Maç bulunamadı.")
+        st.info("Planlanmış maç bulunamadı.")
