@@ -54,48 +54,55 @@ def derin_analiz_et(ev, dep, matches):
 
 @st.cache_data(ttl=3600)
 def veri_getir(url, headers={}):
-    try: return requests.get(url, headers=headers, timeout=10).json()
+    try: 
+        res = requests.get(url, headers=headers, timeout=10)
+        return res.json()
     except: return {}
 
 # --- ANA PANEL ---
 st.title("🛡️ UltraSkor Pro AI: Stratejik Radar")
 
+# LİG MAPPING GÜNCELLENDİ (FRANSA VE HOLLANDA EKLENDİ)
 lig_mapping = {
     "İngiltere (PL)": {"code": "PL", "odds": "soccer_epl"},
     "İspanya (PD)": {"code": "PD", "odds": "soccer_spain_la_liga"},
     "İtalya (SA)": {"code": "SA", "odds": "soccer_italy_serie_a"},
-    "Almanya (BL1)": {"code": "BL1", "odds": "soccer_germany_bundesliga"}
+    "Almanya (BL1)": {"code": "BL1", "odds": "soccer_germany_bundesliga"},
+    "Fransa (FL1)": {"code": "FL1", "odds": "soccer_france_ligue_one"},
+    "Hollanda (DED)": {"code": "DED", "odds": "soccer_netherlands_ere_divisie"}
 }
-secim = st.sidebar.selectbox("🎯 Lig Seç", list(lig_mapping.keys()))
+
+secim = st.sidebar.selectbox("🎯 Analiz Edilecek Lig", list(lig_mapping.keys()))
 
 # Verileri Çek
 m_data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_mapping[secim]['code']}/matches", {"X-Auth-Token": FOOTBALL_DATA_KEY}).get('matches', [])
 o_data = veri_getir(f"https://api.the-odds-api.com/v4/sports/{lig_mapping[secim]['odds']}/odds/?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h")
 gelecek = [m for m in m_data if m['status'] in ['SCHEDULED', 'TIMED']]
 
-# --- BEST PICK HESAPLAMA (Burada yapılıyor ki yukarıda görünsün) ---
+# --- BEST PICK HESAPLAMA ---
 best_ai = {"mac": "-", "prob": 0, "skor": "-"}
 best_val = {"mac": "-", "avantaj": -100, "oran": 0}
 analiz_listesi = []
 
 if gelecek:
-    for m in gelecek[:10]:
+    for m in gelecek[:15]: # Daha fazla maç tarayalım
         res = derin_analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
         if res:
-            # Best AI
             p = max(res['Ev'], res['Dep'])
-            if p > best_ai['prob']: best_ai = {"mac": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}", "prob": p, "skor": res['Skor']}
+            if p > best_ai['prob']: 
+                best_ai = {"mac": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}", "prob": p, "skor": res['Skor']}
             
-            # Best Value
+            # Oran Eşleştirme ve Value Bulma
             mac_orani = next((o for o in o_data if m['homeTeam']['name'][:5].lower() in o['home_team'].lower()), None)
-            avantaj = -100
+            av = -100
             oran_ev = 0
-            if mac_orani:
+            if mac_orani and len(mac_orani['bookmakers']) > 0:
                 oran_ev = mac_orani['bookmakers'][0]['markets'][0]['outcomes'][0]['price']
-                avantaj = ((res['Ev'] / 100) * oran_ev) - 1
-                if avantaj*100 > best_val['avantaj']: best_val = {"mac": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}", "avantaj": avantaj*100, "oran": oran_ev}
+                av = ((res['Ev'] / 100) * oran_ev) - 1
+                if av*100 > best_val['avantaj']: 
+                    best_val = {"mac": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}", "avantaj": av*100, "oran": oran_ev}
             
-            analiz_listesi.append((m, res, mac_orani, avantaj))
+            analiz_listesi.append((m, res, mac_orani, av))
 
 # --- GÖRSEL PANELLER ---
 st.markdown("### 🌟 Günün Analiz Raporu")
@@ -104,10 +111,11 @@ with c_b1:
     st.markdown(f"<div class='best-card'><h4>🏆 En Yüksek Olasılık</h4><h2>%{best_ai['prob']:.1f} Güven</h2><p>{best_ai['mac']}<br>Tahmin: {best_ai['skor']}</p></div>", unsafe_allow_html=True)
 with c_b2:
     color = "#34d399" if best_val['avantaj'] > 0 else "#8B949E"
-    st.markdown(f"<div class='best-card' style='border-color: {color};'><h4>💰 En Yüksek Değer</h4><h2>%{best_val['avantaj']:.1f} Avantaj</h2><p>{best_val['mac']}<br>Oran: {best_val['oran']}</p></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='best-card' style='border-color: {color};'><h4>💰 En Yüksek Değer</h4><h2>%{best_val['avantaj']:.1f} Avantaj</h2><p>{best_val['mac']}<br>Piyasa Oranı: {best_val['oran']}</p></div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
+# --- LİSTE GÖRÜNÜMÜ ---
 if analiz_listesi:
     for m, res, mac_orani, av in analiz_listesi:
         with st.expander(f"🔍 {m['homeTeam']['name']} vs {m['awayTeam']['name']}"):
@@ -120,5 +128,8 @@ if analiz_listesi:
                 st.write(f"Olasılıklar: Ev %{res['Ev']:.1f} | Ber %{res['Ber']:.1f} | Dep %{res['Dep']:.1f}")
                 st.progress(res['Ev']/100)
             with col_tx:
-                st.info(f"🎯 Skor: **{res['Skor']}**")
-                if av > 0.05: st.success(f"🔥 VALUE: %{av*100:.1f}")
+                st.info(f"🎯 Skor Tahmini: **{res['Skor']}**")
+                if av > 0.05: 
+                    st.success(f"🔥 VALUE BULUNDU: %{av*100:.1f}")
+                elif av != -100:
+                    st.write(f"Oran Avant
