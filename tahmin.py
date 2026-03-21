@@ -5,7 +5,6 @@ from scipy.stats import poisson
 import requests
 
 # --- API ANAHTARLARIN ---
-# Bu anahtarlar senin tarafında tanımlı olmalı
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 ODDS_API_KEY = "b4040bb05379cd7d9b94f18f2b74b133"
 
@@ -41,7 +40,6 @@ def maclari_getir(lig_code):
         return []
 
 def analiz_et(ev, dep, matches):
-    # Sadece bitmiş maçları filtrele
     df = pd.DataFrame([m for m in matches if m['status'] == 'FINISHED'])
     if df.empty:
         return {"Ev": 33.3, "Ber": 33.3, "Dep": 33.3, "Skor": "0 - 0"}
@@ -54,7 +52,6 @@ def analiz_et(ev, dep, matches):
     ev_xg = df[df['H'] == ev]['HG'].mean() if not df[df['H'] == ev].empty else 1.5
     dep_xg = df[df['A'] == dep]['AG'].mean() if not df[df['A'] == dep].empty else 1.2
     
-    # NaN kontrolü
     if np.isnan(ev_xg): ev_xg = 1.5
     if np.isnan(dep_xg): dep_xg = 1.2
 
@@ -81,7 +78,6 @@ lig_mapping = {
 
 secim = st.sidebar.selectbox("🎯 Analiz Edilecek Lig", list(lig_mapping.keys()))
 
-# Verileri çek
 m_data = maclari_getir(lig_mapping[secim]['code'])
 canli_oranlar = oranlari_cek(lig_mapping[secim]['odds'])
 
@@ -94,7 +90,6 @@ if gelecek:
         ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
         res = analiz_et(ev, dep, m_data)
         
-        # Takım isimlerini eşleştirirken daha esnek bir arama (isim benzerliği)
         mac_orani = next((o for o in canli_oranlar if ev[:5].lower() in o['home_team'].lower() or o['home_team'][:5].lower() in ev.lower()), None)
         
         with st.expander(f"🔍 {ev} vs {dep}"):
@@ -103,4 +98,23 @@ if gelecek:
             with c1:
                 st.markdown("**🤖 AI Analizi**")
                 st.write(f"🏠 Ev: %{res['Ev']:.1f} | 🤝 Ber: %{res['Ber']:.1f} | 🚀 Dep: %{res['Dep']:.1f}")
-                st.info(f"🎯 Beklenen Skor: {
+                st.info(f"🎯 Beklenen Skor: {res['Skor']}")
+            
+            with c2:
+                st.markdown("**💰 Piyasa Oranı (En Yüksek)**")
+                if mac_orani and 'bookmakers' in mac_orani and len(mac_orani['bookmakers']) > 0:
+                    bm = mac_orani['bookmakers'][0]
+                    h2h = bm['markets'][0]['outcomes']
+                    oran_ev = next((o['price'] for o in h2h if o['name'].lower() == mac_orani['home_team'].lower()), 1.0)
+                    
+                    st.write(f"Piyasa Oranı: **{oran_ev}** ({bm['title']})")
+                    
+                    avantaj = ((res['Ev'] / 100) * oran_ev) - 1
+                    if avantaj > 0.05:
+                        st.markdown(f"<div class='value-card'>🔥 VALUE BULDUM!<br>Avantaj: %{avantaj*100:.1f}</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<p class='no-value'>Matematiksel avantaj bulunamadı.</p>", unsafe_allow_html=True)
+                else:
+                    st.write("❌ Oran verisi şu an eşleşmiyor.")
+else:
+    st.info("Planlanmış maç bulunamadı.")
