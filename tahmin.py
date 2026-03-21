@@ -11,7 +11,7 @@ HEADERS = {"X-Auth-Token": API_KEY}
 
 st.set_page_config(page_title="UltraSkor Pro AI", page_icon="⚽", layout="wide")
 
-# --- GELİŞMİŞ CSS (VALUE BET TASARIMI) ---
+# --- GELİŞMİŞ CSS (DARK MODE & VALUE CARD) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #FFFFFF; }
@@ -23,7 +23,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- FONKSİYONLAR (Aynı Kalıyor) ---
+# --- FONKSİYONLAR ---
 @st.cache_data(ttl=3600)
 def veri_getir(endpoint, lig="PL"):
     url = f"{BASE_URL}competitions/{lig}/{endpoint}"
@@ -50,8 +50,9 @@ ligler = {"İngiltere (PL)": "PL", "Almanya (BL1)": "BL1", "İtalya (SA)": "SA",
 secili_lig = st.sidebar.selectbox("🎯 Lig Seç", list(ligler.keys()))
 lig_kodu = ligler[secili_lig]
 
+# VERİ ÇEKİMİ (Hatasız Satır)
 m_data = veri_getir("matches", lig_kodu).get('matches', [])
-s_data = veri_getir("standings", lig_korter).get('standings', [{}])[0].get('table', [])
+s_data = veri_getir("standings", lig_kodu).get('standings', [{}])[0].get('table', [])
 gelecek = [m for m in m_data if m['status'] in ['SCHEDULED', 'TIMED']]
 
 col1, col2 = st.columns([1, 2])
@@ -70,27 +71,19 @@ with col2:
             res = analiz_et(ev, dep, m_data)
             with st.expander(f"🔍 {ev} vs {dep}"):
                 c_data, c_calc = st.columns([1.5, 1])
-                
                 with c_data:
-                    st.write(f"🏠 **{ev} Galibiyet:** %{res['Ev']:.1f}")
+                    st.write(f"🏠 **{ev}**: %{res['Ev']:.1f} | 🤝 **Ber**: %{res['Ber']:.1f} | 🚀 **{dep}**: %{res['Dep']:.1f}")
                     st.progress(res['Ev']/100)
-                    st.write(f"🤝 **Beraberlik:** %{res['Ber']:.1f}")
-                    st.progress(res['Ber']/100)
-                    st.write(f"🚀 **{dep} Galibiyet:** %{res['Dep']:.1f}")
-                    st.progress(res['Dep']/100)
+                    st.markdown(f"**Yapay Zeka Skor Tahmini:** {res['Skor']}")
                 
                 with c_calc:
                     st.markdown("**💰 Oran Analizi**")
-                    iddaa_orani = st.number_input(f"Oran:", min_value=1.01, value=1.80, key=f"v_{ev}", step=0.1)
-                    
-                    # Avantaj Hesaplama: (Olasılık * Oran) - 1
+                    iddaa_orani = st.number_input(f"Oran ({ev})", min_value=1.01, value=1.80, key=f"v_{ev}", step=0.1)
                     avantaj = ((res['Ev'] / 100) * iddaa_orani) - 1
                     
-                    if avantaj > 0.10: # %10'dan fazla avantaj
-                        st.markdown(f"<div class='value-card high-value'>🔥 YÜKSEK DEĞER<br><b>Avantaj: %{avantaj*100:.1f}</b></div>", unsafe_allow_html=True)
-                    elif avantaj > 0: # Az da olsa avantaj
-                        st.markdown(f"<div class='value-card mid-value'>⚠️ RİSKLİ DEĞER<br><b>Avantaj: %{avantaj*100:.1f}</b></div>", unsafe_allow_html=True)
+                    if avantaj > 0.10:
+                        st.markdown(f"<div class='value-card high-value'>🔥 YÜKSEK DEĞER<br>Avantaj: %{avantaj*100:.1f}</div>", unsafe_allow_html=True)
+                    elif avantaj > 0:
+                        st.markdown(f"<div class='value-card mid-value'>⚠️ RİSKLİ DEĞER<br>Avantaj: %{avantaj*100:.1f}</div>", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"<div class='value-card no-value'>❌ DEĞER YOK<br>Düşük Oran</div>", unsafe_allow_html=True)
-
-            st.markdown(f"**Yapay Zeka Skor Tahmini:** {res['Skor']}")
+                        st.markdown(f"<div class='value-card no-value'>❌ DEĞER YOK</div>", unsafe_allow_html=True)
