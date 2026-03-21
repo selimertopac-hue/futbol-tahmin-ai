@@ -62,7 +62,6 @@ def veri_getir(url, headers={}):
 # --- ANA PANEL ---
 st.title("🛡️ UltraSkor Pro AI: Stratejik Radar")
 
-# LİG MAPPING GÜNCELLENDİ (FRANSA VE HOLLANDA EKLENDİ)
 lig_mapping = {
     "İngiltere (PL)": {"code": "PL", "odds": "soccer_epl"},
     "İspanya (PD)": {"code": "PD", "odds": "soccer_spain_la_liga"},
@@ -74,25 +73,22 @@ lig_mapping = {
 
 secim = st.sidebar.selectbox("🎯 Analiz Edilecek Lig", list(lig_mapping.keys()))
 
-# Verileri Çek
 m_data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_mapping[secim]['code']}/matches", {"X-Auth-Token": FOOTBALL_DATA_KEY}).get('matches', [])
 o_data = veri_getir(f"https://api.the-odds-api.com/v4/sports/{lig_mapping[secim]['odds']}/odds/?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h")
 gelecek = [m for m in m_data if m['status'] in ['SCHEDULED', 'TIMED']]
 
-# --- BEST PICK HESAPLAMA ---
 best_ai = {"mac": "-", "prob": 0, "skor": "-"}
 best_val = {"mac": "-", "avantaj": -100, "oran": 0}
 analiz_listesi = []
 
 if gelecek:
-    for m in gelecek[:15]: # Daha fazla maç tarayalım
+    for m in gelecek[:15]:
         res = derin_analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
         if res:
             p = max(res['Ev'], res['Dep'])
             if p > best_ai['prob']: 
                 best_ai = {"mac": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}", "prob": p, "skor": res['Skor']}
             
-            # Oran Eşleştirme ve Value Bulma
             mac_orani = next((o for o in o_data if m['homeTeam']['name'][:5].lower() in o['home_team'].lower()), None)
             av = -100
             oran_ev = 0
@@ -104,7 +100,6 @@ if gelecek:
             
             analiz_listesi.append((m, res, mac_orani, av))
 
-# --- GÖRSEL PANELLER ---
 st.markdown("### 🌟 Günün Analiz Raporu")
 c_b1, c_b2 = st.columns(2)
 with c_b1:
@@ -115,7 +110,6 @@ with c_b2:
 
 st.markdown("---")
 
-# --- LİSTE GÖRÜNÜMÜ ---
 if analiz_listesi:
     for m, res, mac_orani, av in analiz_listesi:
         with st.expander(f"🔍 {m['homeTeam']['name']} vs {m['awayTeam']['name']}"):
@@ -132,4 +126,4 @@ if analiz_listesi:
                 if av > 0.05: 
                     st.success(f"🔥 VALUE BULUNDU: %{av*100:.1f}")
                 elif av != -100:
-                    st.write(f"Oran Avant
+                    st.write(f"Oran Avantajı: %{av*100:.1f}")
