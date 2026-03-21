@@ -4,33 +4,38 @@ import numpy as np
 from scipy.stats import poisson
 import requests
 
-# --- API AYARLARI ---
-API_KEY = "b900863038174d07855ace7f33c69c9b"
-BASE_URL = "https://api.football-data.org/v4/"
-HEADERS = {"X-Auth-Token": API_KEY}
+# --- API ANAHTARLARIN ---
+FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
+ODDS_API_KEY = "b4040bb05379cd7d9b94f18f2b74b133" # Yeni aldığın anahtar
 
-st.set_page_config(page_title="UltraSkor Pro AI", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="UltraSkor AI: Radar", page_icon="📡", layout="wide")
 
-# --- GELİŞMİŞ CSS (DARK MODE & VALUE CARD) ---
+# --- DARK MODE & STİL ---
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #FFFFFF; }
-    .value-card { padding: 15px; border-radius: 10px; text-align: center; margin-top: 10px; border: 1px solid #30363D; }
-    .high-value { background-color: #064e3b; color: #34d399; border-color: #059669; }
-    .mid-value { background-color: #451a03; color: #fbbf24; border-color: #d97706; }
-    .no-value { background-color: #1c1c1c; color: #888; border-color: #333; }
+    .value-card { background-color: #064e3b; color: #34d399; padding: 10px; border-radius: 5px; border: 1px solid #059669; }
+    .no-value { color: #8B949E; font-size: 0.8rem; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FONKSİYONLAR ---
+# --- VERİ ÇEKME FONKSİYONLARI ---
 @st.cache_data(ttl=3600)
-def veri_getir(endpoint, lig="PL"):
-    url = f"{BASE_URL}competitions/{lig}/{endpoint}"
+def oranlari_cek(lig_odds):
+    url = f"https://api.the-odds-api.com/v4/sports/{lig_odds}/odds/?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h"
     try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
-        return response.json()
-    except: return {}
+        res = requests.get(url)
+        return res.json()
+    except: return []
+
+@st.cache_data(ttl=3600)
+def maclari_getir(lig_code):
+    url = f"https://api.football-data.org/v4/competitions/{lig_code}/matches"
+    try:
+        res = requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY})
+        return res.json().get('matches', [])
+    except: return []
 
 def analiz_et(ev, dep, matches):
     df = pd.DataFrame([m for m in matches if m['status'] == 'FINISHED'])
@@ -44,54 +49,37 @@ def analiz_et(ev, dep, matches):
     return {"Ev": np.sum(np.tril(m, -1))*100, "Ber": np.sum(np.diag(m))*100, "Dep": np.sum(np.triu(m, 1))*100, "Skor": f"{sk[0]} - {sk[1]}"}
 
 # --- ANA PANEL ---
-st.title("🛡️ UltraSkor Pro AI: Value Bet Manager")
+st.title("📡 UltraSkor AI: Otomatik Oran Radarı")
 
-ligler = {"İngiltere (PL)": "PL", "Almanya (BL1)": "BL1", "İtalya (SA)": "SA", "İspanya (PD)": "PD", "Hollanda (DED)": "DED"}
-secili_lig = st.sidebar.selectbox("🎯 Lig Seç", list(ligler.keys()))
-lig_kodu = ligler[secili_lig]
+lig_mapping = {
+    "İngiltere (PL)": {"code": "PL", "odds": "soccer_epl"},
+    "İspanya (PD)": {"code": "PD", "odds": "soccer_spain_la_liga"},
+    "Almanya (BL1)": {"code": "BL1", "odds": "soccer_germany_bundesliga"},
+    "İtalya (SA)": {"code": "SA", "odds": "soccer_italy_serie_a"},
+    "Fransa (FL1)": {"code": "FL1", "odds": "soccer_france_ligue_one"}
+}
 
-# VERİ ÇEKİMİ (Hatasız Satır)
-m_data = veri_getir("matches", lig_kodu).get('matches', [])
-s_data = veri_getir("standings", lig_kodu).get('standings', [{}])[0].get('table', [])
+secim = st.sidebar.selectbox("🎯 Analiz Edilecek Lig", list(lig_mapping.keys()))
+
+# Verileri çek
+m_data = maclari_getir(lig_mapping[secim]['code'])
+canli_oranlar = oranlari_cek(lig_mapping[secim]['odds'])
+
 gelecek = [m for m in m_data if m['status'] in ['SCHEDULED', 'TIMED']]
 
-col1, col2 = st.columns([1, 2])
+st.subheader(f"🚀 {secim} - AI vs Piyasa Karşılaştırması")
 
-with col1:
-    st.subheader("📈 Lig Tablosu")
-    if s_data:
-        df_p = pd.DataFrame([{"#": t['position'], "Takım": t['team']['name'], "P": t['points']} for t in s_data])
-        st.dataframe(df_p, hide_index=True, use_container_width=True)
-
-with col2:
-    st.subheader("📅 Stratejik Analiz Paneli")
-    if gelecek:
-        for m in gelecek[:8]:
-            ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
-            res = analiz_et(ev, dep, m_data)
+if gelecek:
+    for m in gelecek[:12]:
+        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
+        res = analiz_et(ev, dep, m_data)
+        
+        # Oran API'den bu maçı bul (İsim benzerliğine göre)
+        mac_orani = next((o for o in canli_oranlar if ev[:5] in o['home_team'] or o['home_team'][:5] in ev), None)
+        
+        with st.expander(f"🔍 {ev} vs {dep}"):
+            c1, c2 = st.columns(2)
             
-            with st.expander(f"🔍 {ev} - {dep} (Detaylı Analiz)"):
-                # Sol: İstatistikler, Sağ: Bahis Hesaplayıcı
-                c_stats, c_bet = st.columns([1.2, 1])
-                
-                with c_stats:
-                    st.write(f"📊 **AI Tahmini:** {res['Skor']}")
-                    st.write(f"🏠 Ev: %{res['Ev']:.1f} | 🤝 Ber: %{res['Ber']:.1f} | 🚀 Dep: %{res['Dep']:.1f}")
-                    st.progress(res['Ev']/100)
-                
-                with c_bet:
-                    st.markdown("🔍 **Değer Analizi Yap**")
-                    oran = st.number_input(f"Oran Gir:", min_value=1.01, value=1.85, key=f"inp_{ev}")
-                    
-                    # ANALİZ BUTONU
-                    if st.button(f"Hesapla: {ev}", key=f"btn_{ev}"):
-                        avantaj = ((res['Ev'] / 100) * oran) - 1
-                        
-                        if avantaj > 0.15:
-                            st.balloons() # Büyük fırsatta balonlar uçsun!
-                            st.success(f"💎 ELMAS FIRSAT! \n\n Avantaj: %{avantaj*100:.1f}")
-                            st.write("🤖 AI Notu: Bahis şirketi bu maçta ev sahibini çok küçümsemiş!")
-                        elif avantaj > 0:
-                            st.warning(f"✅ Değerli Bahis \n\n Avantaj: %{avantaj*100:.1f}")
-                        else:
-                            st.error("❌ Değer Yok \n\n Bu oran risk almaya değmez.")
+            with c1:
+                st.write("**🤖 AI Analizi**")
+                st.write
