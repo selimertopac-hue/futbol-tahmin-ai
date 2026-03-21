@@ -7,7 +7,7 @@ import requests
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
-st.set_page_config(page_title="UltraSkor Pro: Spectrum AI", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Master Engine", page_icon="🛡️", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -21,7 +21,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. ANALİZ MOTORU ---
+# --- 3. ANALİZ MOTORU (SPEKTRUM ANALİZİ) ---
 def master_analiz_et(ev_ad, dep_ad, matches):
     try:
         df_raw = [m for m in matches if m['status'] == 'FINISHED']
@@ -48,6 +48,7 @@ def master_analiz_et(ev_ad, dep_ad, matches):
             ev_sav = ev_m['AG'].mean() / (lig_dep_ort * (ev_m['AG'].mean() / (ev_std_xg if ev_std_xg > 0 else 1)))
             dep_sav = dep_m['HG'].mean() / (lig_ev_ort * (dep_m['HG'].mean() / (dep_std_xg if dep_std_xg > 0 else 1)))
 
+        # Senin istediğin tam simetrik Spektrum Analizi (3. Sütun)
         final_ev_xg = ev_std_xg * ev_bit * dep_sav
         final_dep_xg = dep_std_xg * dep_bit * ev_sav
 
@@ -90,35 +91,4 @@ secim = st.sidebar.selectbox("🎯 Lig Seçimi", list(lig_map.keys()))
 
 @st.cache_data(ttl=3600)
 def veri_getir(url):
-    return requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}).json()
-
-data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_map[secim]}/matches")
-m_data = data.get('matches', [])
-gelecek = [m for m in m_data if m['status'] in ['SCHEDULED', 'TIMED', 'POSTPONED']]
-
-if gelecek:
-    for m in gelecek[:15]:
-        ev_ad, dep_ad = m['homeTeam']['name'], m['awayTeam']['name']
-        res = master_anal_et(ev_ad, dep_ad, m_data)
-        
-        if res:
-            with st.expander(f"🏟️ {ev_ad} vs {dep_ad}"):
-                c1, c2, c3 = st.columns([1, 1, 1])
-                with c1: 
-                    st.image(m['homeTeam']['crest'], width=45)
-                    st.markdown(f"Form: {form_html(ev_ad, m_data)}", unsafe_allow_html=True)
-                    st.caption(f"xG: {res['ev_xg']:.2f}")
-                with c2:
-                    st.markdown(f"<p class='prediction-header'>{res['alg_3']}</p>", unsafe_allow_html=True)
-                    st.markdown("<p style='text-align:center;font-size:0.7rem;'>STRATEJİK SKOR</p>", unsafe_allow_html=True)
-                with c3:
-                    st.image(m['awayTeam']['crest'], width=45)
-                    st.markdown(f"Form: {form_html(dep_ad, m_data)}", unsafe_allow_html=True)
-                    st.caption(f"xG: {res['dep_xg']:.2f}")
-
-                st.divider()
-                f1, f2, f3 = st.columns(3)
-                f1.metric("📍 Standart", res['alg_1'])
-                f2.metric("🎯 Ofansif", res['alg_2'])
-                f3.metric("🛡️ Spektrum", res['alg_3'])
-                st.markdown(f"<div class='strategy-box'>💡 <b>Analiz:</b> {res['not']}</div>", unsafe_allow_html=True)
+    return requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}).
