@@ -11,7 +11,7 @@ LIGLER = {
     "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"
 }
 
-st.set_page_config(page_title="UltraSkor Pro: Global VIP", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Smart Global", page_icon="🌍", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -87,7 +87,9 @@ if filtre == "Lig Odaklı":
     
     if m_data:
         haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])), reverse=True)
-        mevcut = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
+        # Mevcut haftayı belirle (Hala oynanmamış maç olan en küçük hafta veya en son biten hafta)
+        bitenler = [m['matchday'] for m in m_data if m['status'] == 'FINISHED']
+        mevcut = max(bitenler) if bitenler else 1
         hafta_secim = st.sidebar.selectbox("📅 Hafta", haftalar, index=haftalar.index(mevcut))
         
         st.title(f"🏆 {lig_adi} - {hafta_secim}. Hafta")
@@ -109,28 +111,30 @@ if filtre == "Lig Odaklı":
                 </div>
                 """, unsafe_allow_html=True)
 else:
-    # GLOBAL TARAMA MODU
-    st.title(f"🚀 Global En İyi 20 ({filtre.replace('(Global)','')})")
-    st.info("Tüm Avrupa ligleri taranıyor, %85+ güvenli maçlar listeleniyor...")
+    # GLOBAL TARAMA MODU (AKTİF HAFTA FİLTRELİ)
+    st.title(f"🚀 Global Aktif Hafta ({filtre.replace('(Global)','')})")
+    st.info("Sadece bu haftanın oynanmamış maçları taranıyor...")
     
     global_list = []
-    with st.spinner("Veriler analiz ediliyor..."):
+    with st.spinner("Ligler taranıyor..."):
         for l_ad, l_kod in LIGLER.items():
             l_data = lig_verisi_al(l_kod).get('matches', [])
-            mevcut_h = max([x['matchday'] for x in l_data if x['status'] == 'FINISHED'] or [1])
-            # Gelecek maçları tara
-            for m in [x for x in l_data if x['matchday'] >= mevcut_h and x['status'] != 'FINISHED']:
+            if not l_data: continue
+            
+            # 1. O ligin aktif haftasını bul
+            # Bitmiş maçların en büyüğü mevcut haftadır (veya +1'idir)
+            bitenler = [x['matchday'] for x in l_data if x['status'] == 'FINISHED']
+            aktif_h = max(bitenler) if bitenler else 1
+            
+            # 2. Sadece o haftadaki oynanmamış maçları al
+            for m in [x for x in l_data if x['matchday'] == aktif_h and x['status'] != 'FINISHED']:
                 res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_data)
                 if res:
-                    # Filtreye göre puan seç
                     puan = res['s_c'] if "Standart" in filtre else (res['sp_c'] if "Spektrum" in filtre else res['n_c'])
                     if puan >= 85:
-                        m['res'] = res
-                        m['l_ad'] = l_ad
-                        m['puan'] = puan
+                        m.update({'res': res, 'l_ad': l_ad, 'puan': puan})
                         global_list.append(m)
     
-    # En yüksek 20'yi sırala
     global_list = sorted(global_list, key=lambda x: x['puan'], reverse=True)[:20]
     
     if global_list:
@@ -153,4 +157,4 @@ else:
             </div>
             """, unsafe_allow_html=True)
     else:
-        st.warning("Şu an %85 üzeri güven puanına sahip maç bulunamadı.")
+        st.warning("Bu hafta için %85+ güven puanına sahip global maç bulunamadı.")
