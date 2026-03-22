@@ -50,10 +50,4 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             d_xg = (d_d_g / l_dep_ort) * (e_h_y / l_dep_ort) * l_dep_ort
             e_bit = e_h_g / (e_xg if e_xg > 0 else 1)
             d_bit = d_d_g / (d_xg if d_xg > 0 else 1)
-            e_sav = e_h_y / (l_dep_ort * (e_h_y / (e_xg if e_xg > 0 else 1)))
-            d_sav = d_d_y / (l_ev_ort * (d_d_y / (d_xg if d_xg > 0 else 1)))
-
-        f_e_xg, f_d_xg = e_xg * e_bit * d_sav, d_xg * d_bit * e_sav
-
-        def get_skor(ex, ax):
-            ex, ax =
+            e_sav = e_h_y /
