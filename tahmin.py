@@ -40,7 +40,6 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             l_ev_ort, l_dep_ort = df['HG'].mean(), df['AG'].mean()
             ev_m, dep_m = df[df['H'] == ev_ad], df[df['A'] == dep_ad]
             
-            # Veri kontrolleri (Hata alınan kısım düzeltildi)
             e_h_g = ev_m['HG'].mean() if not ev_m.empty else l_ev_ort
             e_h_y = ev_m['AG'].mean() if not ev_m.empty else l_dep_ort
             d_d_g = dep_m['AG'].mean() if not dep_m.empty else l_dep_ort
@@ -48,7 +47,6 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
 
             e_xg = (e_h_g / l_ev_ort) * (d_d_y / l_ev_ort) * l_ev_ort
             d_xg = (d_d_g / l_dep_ort) * (e_h_y / l_dep_ort) * l_dep_ort
-            
             e_bit = e_h_g / (e_xg if e_xg > 0 else 1)
             d_bit = d_d_g / (d_xg if d_xg > 0 else 1)
             e_sav = e_h_y / (l_dep_ort * (e_h_y / (e_xg if e_xg > 0 else 1)))
@@ -69,19 +67,16 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             "ev_not": "🛡️ Katı" if e_sav < 1 else "⚠️ Kırılgan",
             "dep_not": "⚔️ Fırsatçı" if d_bit > 1.2 else "🐢 Kısır"
         }
-    except:
-        return None
+    except: return None
 
 # --- 4. VERİ ÇEKME ---
 @st.cache_data(ttl=3600)
 def veri_getir(url):
     try:
-        r = requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15)
-        return r.json()
-    except:
-        return {}
+        return requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
+    except: return {}
 
-# --- 5. SIDEBAR (KUMANDA PANELİ) ---
+# --- 5. SIDEBAR ---
 st.sidebar.title("🛡️ UltraSkor Control")
 lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
 lig_secim = st.sidebar.selectbox("🎯 Ligi Seçin", list(lig_map.keys()))
@@ -94,65 +89,29 @@ if m_data:
     mevcut_hafta = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
     hafta_secim = st.sidebar.selectbox("📅 Haftayı Seçin", haftalar, index=haftalar.index(mevcut_hafta) if mevcut_hafta in haftalar else 0)
 
-   # --- 6. ANA EKRAN DÖNGÜSÜ İÇİNDEKİ GÜNCELLEME ---
-
-for m in haftanin_maclari:
-    ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
-    res = master_analiz_et(ev, dep, m_data)
+    # --- 6. ANA EKRAN ---
+    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
+    haftanin_maclari = [m for m in m_data if m['matchday'] == hafta_secim]
     
-    if res:
-        # Sonuç Karşılaştırma Mantığı
-        def get_winner(skor):
-            s = skor.split(" - ")
-            if int(s[0]) > int(s[1]): return "H"
-            if int(s[0]) < int(s[1]): return "A"
-            return "D"
-
-        std_win = get_winner(res['ai_std'])
-        spec_win = get_winner(res['spectrum'])
+    for m in haftanin_maclari:
+        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
+        res = master_analiz_et(ev, dep, m_data)
         
-        # Uyarı Etiketi
-        uyari_html = ""
-        if std_win != spec_win:
-            uyari_html = '<div style="color:#F85149; font-size:0.7rem; font-weight:bold; margin-top:5px;">⚠️ ANALİZ ÇATIŞMASI (DİKKAT)</div>'
-        elif res['ai_std'] == res['spectrum']:
-            uyari_html = '<div style="color:#238636; font-size:0.7rem; font-weight:bold; margin-top:5px;">✅ TAM UYUM (GÜVENLİ)</div>'
-
-        st.markdown(f"""
-        <div class="match-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="text-align: center; width: 33%;">
-                    <img src="{m['homeTeam']['crest']}" width="42"><br>
-                    <b style="font-size:0.9rem;">{ev}</b><br>
-                    <span style="font-size:0.65rem; color:#8B949E;">xG: {res['ev_xg']:.2f}</span>
-                </div>
-                
-                <div style="width: 33%; text-align: center;">
-                    {f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' 
-                     else f'<div class="match-time">🕒 {m["utcDate"][11:16]}</div>'}
-                    {uyari_html}
-                </div>
-                
-                <div style="text-align: center; width: 33%;">
-                    <img src="{m['awayTeam']['crest']}" width="42"><br>
-                    <b style="font-size:0.9rem;">{dep}</b><br>
-                    <span style="font-size:0.65rem; color:#8B949E;">xG: {res['dep_xg']:.2f}</span>
-                </div>
-            </div>
+        if res:
+            m_saat = m['utcDate'][11:16]
             
-            <div style="display: flex; justify-content: space-between; margin-top: 15px;">
-                <div class="prediction-box">
-                    <div class="label-std">🤖 Standart AI</div>
-                    <div style="font-size: 1.1rem; font-weight: bold; color: #C9D1D9;">{res['ai_std']}</div>
-                </div>
-                <div class="prediction-box" style="border-color: #58A6FF;">
-                    <div class="label-spec">🛡️ Spektrum AI</div>
-                    <div style="font-size: 1.1rem; font-weight: bold; color: #58A6FF;">{res['spectrum']}</div>
-                </div>
-            </div>
+            # Sonuç karşılaştırma mantığı
+            def winner(s_str):
+                s = s_str.split(" - ")
+                if int(s[0]) > int(s[1]): return "H"
+                if int(s[1]) > int(s[0]): return "A"
+                return "D"
 
-            <div class="strategy-box">
-                💡 <b>Karakter:</b> {res['ev_not']} Savunma vs {res['dep_not']} Hücum
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            std_w = winner(res['ai_std'])
+            spec_w = winner(res['spectrum'])
+            
+            uyari_html = ""
+            if std_w != spec_w:
+                uyari_html = '<div style="color:#F85149; font-size:0.7rem; font-weight:bold; margin-top:5px;">⚠️ ANALİZ ÇATIŞMASI</div>'
+            elif res['ai_std'] == res['spectrum']:
+                uyari_html = '<div style="color:#238636; font-size:0.7rem; font-weight:bold; margin-top:5px;">✅ TAM UYUM</div>'
