@@ -41,4 +41,52 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             ev_std_xg, dep_std_xg = 1.3, 1.1
             ev_bit, dep_bit, ev_sav, dep_sav = 1.0, 1.0, 1.0, 1.0
         else:
-            ev_std
+            ev_std_xg = (ev_m['HG'].mean() / lig_ev_ort) * (dep_m['HG'].mean() / lig_ev_ort) * lig_ev_ort
+            dep_std_xg = (dep_m['AG'].mean() / lig_dep_ort) * (ev_m['AG'].mean() / lig_dep_ort) * lig_dep_ort
+            ev_bit = ev_m['HG'].mean() / (ev_std_xg if ev_std_xg > 0 else 1)
+            dep_bit = dep_m['AG'].mean() / (dep_std_xg if dep_std_xg > 0 else 1)
+            ev_sav = ev_m['AG'].mean() / (lig_dep_ort * (ev_m['AG'].mean() / (ev_std_xg if ev_std_xg > 0 else 1)))
+            dep_sav = dep_m['HG'].mean() / (lig_ev_ort * (dep_m['HG'].mean() / (dep_std_xg if dep_std_xg > 0 else 1)))
+
+        # 3. Sütun: Spektrum Analizi (Simetrik Gerçeklik)
+        f_ev_xg = ev_std_xg * ev_bit * dep_sav
+        f_dep_xg = dep_std_xg * dep_bit * ev_sav
+
+        def get_skor(ex, ax):
+            ex, ax = max(0.1, ex), max(0.1, ax)
+            m = np.outer([poisson.pmf(i, ex) for i in range(6)], [poisson.pmf(i, ax) for i in range(6)])
+            sk = np.unravel_index(np.argmax(m), m.shape)
+            return f"{sk[0]} - {sk[1]}"
+
+        return {
+            "alg_1": get_skor(ev_std_xg, dep_std_xg),
+            "alg_3": get_skor(f_ev_xg, f_dep_xg),
+            "ev_xg": ev_std_xg,
+            "dep_xg": dep_std_xg,
+            "ev_not": "🛡️ Katı" if ev_sav < 1 else "⚠️ Kırılgan",
+            "dep_not": "⚔️ Fırsatçı" if dep_bit > 1.2 else "🐢 Kısır"
+        }
+    except Exception as e:
+        return None
+
+# --- 4. VERİ ÇEKME ---
+@st.cache_data(ttl=3600)
+def veri_getir(url):
+    try:
+        r = requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=10)
+        return r.json()
+    except:
+        return {}
+
+# --- 5. ANA PANEL ---
+st.title("🛡️ UltraSkor Pro: Spektrum Arşivi")
+
+lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
+secim = st.sidebar.selectbox("🎯 Lig Seçimi", list(lig_map.keys()))
+
+data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_map[secim]}/matches")
+m_data = data.get('matches', [])
+
+if m_data:
+    # Haftaları grupla ve ters sırala
+    haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])), reverse=True)
