@@ -47,4 +47,60 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             e_bit = e_h_g / (e_xg if e_xg > 0 else 1)
             d_bit = d_d_g / (d_xg if d_xg > 0 else 1)
             e_sav = e_h_y / (l_dep_ort * (e_h_y / (e_xg if e_xg > 0 else 1))) if e_xg > 0 else 1.0
-            d_
+            d_sav = d_d_y / (l_ev_ort * (d_d_y / (d_xg if d_xg > 0 else 1))) if d_xg > 0 else 1.0
+
+        f_e_xg, f_d_xg = e_xg * e_bit * d_sav, d_xg * d_bit * e_sav
+        def get_skor(ex, ax):
+            ex, ax = max(0.1, ex), max(0.1, ax)
+            matrix = np.outer([poisson.pmf(i, ex) for i in range(6)], [poisson.pmf(i, ax) for i in range(6)])
+            sk = np.unravel_index(np.argmax(matrix), matrix.shape)
+            return f"{sk[0]} - {sk[1]}"
+        return {
+            "ai_std": get_skor(e_xg, d_xg),
+            "spectrum": get_skor(f_e_xg, f_d_xg),
+            "ev_xg": e_xg, "dep_xg": d_xg,
+            "ev_not": "🛡️ Katı" if e_sav < 1 else "⚠️ Kırılgan",
+            "dep_not": "⚔️ Fırsatçı" if d_bit > 1.2 else "🐢 Kısır"
+        }
+    except: return None
+
+# --- 4. VERİ ÇEKME ---
+@st.cache_data(ttl=3600)
+def veri_getir(url):
+    try:
+        r = requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15)
+        return r.json()
+    except: return {}
+
+# --- 5. SIDEBAR (KUMANDA) ---
+st.sidebar.title("🛡️ UltraSkor Control")
+lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
+lig_secim = st.sidebar.selectbox("🎯 Ligi Seçin", list(lig_map.keys()))
+
+data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_map[lig_secim]}/matches")
+m_data = data.get('matches', [])
+
+if m_data:
+    haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])), reverse=True)
+    mevcut_hafta = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
+    hafta_secim = st.sidebar.selectbox("📅 Haftayı Seçin (Arşiv)", haftalar, index=haftalar.index(mevcut_hafta) if mevcut_hafta in haftalar else 0)
+
+    # --- 6. ANA EKRAN ---
+    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
+    haftanin_maclari = [m for m in m_data if m['matchday'] == hafta_secim]
+    for m in haftanin_maclari:
+        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
+        res = master_analiz_et(ev, dep, m_data)
+        if res:
+            m_saat = m['utcDate'][11:16]
+            def w_check(s):
+                p = s.split(" - ")
+                return "H" if int(p[0]) > int(p[1]) else ("A" if int(p[1]) > int(p[0]) else "D")
+            
+            uyari_html = ""
+            if w_check(res['ai_std']) != w_check(res['spectrum']):
+                uyari_html = '<div style="color:#F85149; font-size:0.75rem; font-weight:bold; margin-top:5px;">⚠️ ANALİZ ÇATIŞMASI</div>'
+            elif res['ai_std'] == res['spectrum']:
+                uyari_html = '<div style="color:#238636; font-size:0.75rem; font-weight:bold; margin-top:5px;">✅ TAM UYUM</div>'
+
+            orta_bilgi = f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' else f'
