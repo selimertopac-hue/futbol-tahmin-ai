@@ -9,21 +9,11 @@ FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
 st.set_page_config(page_title="UltraSkor Pro", page_icon="🏆", layout="wide")
 
-# --- CSS ---
-st.markdown("""
-<style>
-.stApp { background-color: #0D1117; color: #C9D1D9; }
-.match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; }
-.prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px; text-align: center; width: 32%; }
-h1, h2, h3 { color: #58A6FF !important; }
-.metric-card { background: #21262d; padding: 15px; border-radius: 10px; border: 1px solid #30363d; text-align: center; }
-</style>
-""", unsafe_allow_html=True)
-
 # --- ANALİZ ---
 def master_analiz_et(ev_ad, dep_ad, all_matches):
     try:
         df_raw = [m for m in all_matches if m['status'] == 'FINISHED']
+
         df = pd.DataFrame({
             "H": [m['homeTeam']['name'] for m in df_raw],
             "A": [m['awayTeam']['name'] for m in df_raw],
@@ -47,9 +37,7 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
 
         return {
             "ai_std": skor(e_xg, d_xg),
-            "spectrum": skor(e_xg*1.1, d_xg*1.1),
-            "ev_xg": e_xg,
-            "dep_xg": d_xg
+            "spectrum": skor(e_xg * 1.1, d_xg * 1.1),
         }
 
     except:
@@ -106,18 +94,27 @@ def haftalik_basari(m_data):
 
     for h in haftalar:
         maclar = [m for m in m_data if m['matchday']==h and m['status']=="FINISHED"]
-        if not maclar: continue
+        if not maclar:
+            continue
 
         s1=s2=top=0
         for m in maclar:
             top+=1
             res = master_analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
-            if not res: continue
-            real = w(f"{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}")
-            if w(res['ai_std'])==real: s1+=1
-            if w(res['spectrum'])==real: s2+=1
+            if not res:
+                continue
 
-        out.append({"Hafta":h,"Standart AI %":round(s1/top*100,1),"Spektrum AI %":round(s2/top*100,1)})
+            real = w(f"{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}")
+            if w(res['ai_std'])==real:
+                s1+=1
+            if w(res['spectrum'])==real:
+                s2+=1
+
+        out.append({
+            "Hafta":h,
+            "Standart AI %":round(s1/top*100,1),
+            "Spektrum AI %":round(s2/top*100,1)
+        })
 
     return pd.DataFrame(out)
 
@@ -138,11 +135,12 @@ if sayfa=="Performans":
     df = haftalik_basari(m_data)
 
     if not df.empty:
-        st.line_chart(df.set_index("Hafta"))
-        st.dataframe(df)
+        st.line_chart(df.set_index("Hafta"), use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 
-        st.metric("Ortalama Standart", f"%{df['Standart AI %'].mean():.1f}")
-        st.metric("Ortalama Spektrum", f"%{df['Spektrum AI %'].mean():.1f}")
+        c1, c2 = st.columns(2)
+        c1.metric("Ortalama Standart", f"%{df['Standart AI %'].mean():.1f}")
+        c2.metric("Ortalama Spektrum", f"%{df['Spektrum AI %'].mean():.1f}")
     else:
         st.warning("Veri yok")
 
@@ -154,28 +152,31 @@ else:
     st.title(f"{lig} - {hafta}. Hafta")
 
     for m in [m for m in m_data if m['matchday']==hafta]:
-        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
+        ev = m['homeTeam']['name']
+        dep = m['awayTeam']['name']
+
         res = master_analiz_et(ev, dep, m_data)
         form_pred = form_analiz(ev, dep, m_data)
 
         if res:
-            guven = "🔥 ULTRA GÜVEN" if res['ai_std']==res['spectrum']==form_pred else ""
-
             skor = f"{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}" if m['status']=="FINISHED" else "⏳"
 
-            st.markdown(f"""
-            <div class="match-card">
-                <div style="text-align:center; font-weight:bold;">{ev} vs {dep}</div>
-                <div style="text-align:center; margin:10px 0;">{skor}</div>
+            guven = "🔥 ULTRA GÜVEN" if res['ai_std']==res['spectrum']==form_pred else ""
 
-                <div style="display:flex; gap:10px;">
-                    <div class="prediction-box">🤖 {res['ai_std']}</div>
-                    <div class="prediction-box">🛡️ {res['spectrum']}</div>
-                    <div class="prediction-box">🔥 {form_pred}</div>
-                </div>
+            with st.container():
+                c1, c2, c3 = st.columns([3,1,3])
 
-                <div style="text-align:center; color:#3fb950; margin-top:8px;">
-                    {guven}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                c1.subheader(ev)
+                c2.markdown(f"### {skor}")
+                c3.subheader(dep)
+
+                p1, p2, p3 = st.columns(3)
+
+                p1.metric("🤖 Standart", res['ai_std'])
+                p2.metric("🛡️ Spektrum", res['spectrum'])
+                p3.metric("🔥 Form AI", form_pred)
+
+                if guven:
+                    st.success(guven)
+
+                st.divider()
