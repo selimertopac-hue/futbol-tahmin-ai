@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd  # <--- Hata buradaydı, düzeltildi!
+import pandas as pd
 import numpy as np
 from scipy.stats import poisson
 import requests
@@ -7,7 +7,7 @@ import requests
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
-st.set_page_config(page_title="UltraSkor Pro: Archive", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Archive Edition", page_icon="🛡️", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -34,7 +34,8 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
         df['AG'] = [int(m['score']['fullTime']['away']) for m in df_raw]
         
         lig_ev_ort, lig_dep_ort = df['HG'].mean(), df['AG'].mean()
-        ev_m, dep_m = df[df['H'] == ev_ad], df[df['A'] == dep_ad]
+        ev_m = df[df['H'] == ev_ad]
+        dep_m = df[df['A'] == dep_ad]
         
         if ev_m.empty or dep_m.empty:
             ev_std_xg, dep_std_xg = 1.2, 1.0
@@ -67,6 +68,4 @@ def veri_yukle(lig_kodu):
     except: return []
 
 # --- 5. ANA EKRAN ---
-st.title("🛡️ UltraSkor Pro: Analiz Arşivi")
-
-ligler = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "
+st.title("🛡️ UltraSk
