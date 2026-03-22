@@ -7,7 +7,7 @@ import requests
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
-st.set_page_config(page_title="UltraSkor Pro: Dual Engine", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Success Tracker", page_icon="🏆", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -15,12 +15,11 @@ st.markdown("""
     .stApp { background-color: #0D1117; color: #C9D1D9; }
     .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; }
     .match-result { font-size: 1.5rem; font-weight: bold; color: #58A6FF; text-align: center; background: #21262d; border-radius: 6px; padding: 6px; border: 1px solid #30363d; min-width: 80px; }
-    .match-time { font-size: 1.1rem; color: #8B949E; text-align: center; font-weight: bold; border: 1px dashed #30363d; padding: 5px; border-radius: 6px; }
+    .success-badge { background-color: #238636; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; margin-top: 5px; }
     .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px; text-align: center; width: 48%; }
-    .label-std { font-size: 0.65rem; color: #8B949E; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-    .label-spec { font-size: 0.65rem; color: #58A6FF; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
     .strategy-box { background-color: #1c2128; border-left: 4px solid #F85149; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.85rem; }
     h1, h2, h3 { color: #58A6FF !important; }
+    .metric-card { background: #21262d; padding: 15px; border-radius: 10px; border: 1px solid #30363d; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -72,7 +71,7 @@ def veri_getir(url):
         return r.json()
     except: return {}
 
-# --- 5. SIDEBAR (KUMANDA PANELİ) ---
+# --- 5. SIDEBAR ---
 st.sidebar.title("🛡️ UltraSkor Control")
 lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
 lig_secim = st.sidebar.selectbox("🎯 Ligi Seçin", list(lig_map.keys()))
@@ -85,30 +84,48 @@ if m_data:
     mevcut_hafta = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
     hafta_secim = st.sidebar.selectbox("📅 Haftayı Seçin (Arşiv)", haftalar, index=haftalar.index(mevcut_hafta) if mevcut_hafta in haftalar else 0)
 
-    # --- 6. ANA EKRAN ---
-    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
+    # --- 6. BAŞARI HESAPLAMA (W/D/L Tahmini Üzerinden) ---
+    def w_check(s):
+        p = s.split(" - ")
+        return "H" if int(p[0]) > int(p[1]) else ("A" if int(p[1]) > int(p[0]) else "D")
+
     haftanin_maclari = [m for m in m_data if m['matchday'] == hafta_secim]
+    std_dogru, spec_dogru, toplam_biten = 0, 0, 0
+
+    # Önce başarıyı hesapla
+    for m in haftanin_maclari:
+        if m['status'] == 'FINISHED':
+            toplam_biten += 1
+            res = master_analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
+            if res:
+                gercek_w = "H" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("A" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "D")
+                if w_check(res['ai_std']) == gercek_w: std_dogru += 1
+                if w_check(res['spectrum']) == gercek_w: spec_dogru += 1
+
+    # --- 7. ANA EKRAN ÜST PANEL ---
+    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
+    
+    if toplam_biten > 0:
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(f"<div class='metric-card'>🏟️ Biten Maç<br><h2>{toplam_biten}</h2></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='metric-card'>🤖 Standart AI<br><h2>{std_dogru}</h2>İsabet</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='metric-card' style='border-color:#58A6FF;'>🛡️ Spektrum AI<br><h2 style='color:#58A6FF;'>{spec_dogru}</h2>İsabet</div>", unsafe_allow_html=True)
+        st.divider()
+
+    # --- 8. MAÇ KARTLARI ---
     for m in haftanin_maclari:
         ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
         res = master_analiz_et(ev, dep, m_data)
         if res:
             m_saat = m['utcDate'][11:16]
+            # Maç Sonucu Kontrolü (Görsel İşaret için)
+            std_icon, spec_icon = "", ""
             if m['status'] == 'FINISHED':
-                h_skor = m['score']['fullTime']['home']
-                a_skor = m['score']['fullTime']['away']
-                orta_html = f'<div class="match-result">{h_skor} - {a_skor}</div>'
-            else:
-                orta_html = f'<div class="match-time">🕒 {m_saat}</div>'
+                gercek_w = "H" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("A" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "D")
+                if w_check(res['ai_std']) == gercek_w: std_icon = " ✅"
+                if w_check(res['spectrum']) == gercek_w: spec_icon = " ✅"
 
-            def w_check(s):
-                p = s.split(" - ")
-                return "H" if int(p[0]) > int(p[1]) else ("A" if int(p[1]) > int(p[0]) else "D")
-            
-            uyari_html = ""
-            if w_check(res['ai_std']) != w_check(res['spectrum']):
-                uyari_html = '<div style="color:#F85149; font-size:0.75rem; font-weight:bold; margin-top:5px;">⚠️ ANALİZ ÇATIŞMASI</div>'
-            elif res['ai_std'] == res['spectrum']:
-                uyari_html = '<div style="color:#238636; font-size:0.75rem; font-weight:bold; margin-top:5px;">✅ TAM UYUM</div>'
+            orta_html = f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' else f'<div class="match-time">🕒 {m_saat}</div>'
 
             st.markdown(f"""
             <div class="match-card">
@@ -119,7 +136,6 @@ if m_data:
                     </div>
                     <div style="width: 33%; text-align: center; display: flex; flex-direction: column; align-items: center;">
                         {orta_html}
-                        {uyari_html}
                     </div>
                     <div style="text-align: center; width: 33%;">
                         <img src="{m['awayTeam']['crest']}" width="42"><br>
@@ -127,10 +143,9 @@ if m_data:
                     </div>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 15px;">
-                    <div class="prediction-box"><div class="label-std">🤖 Standart AI</div><div style="font-size: 1.1rem; font-weight: bold;">{res['ai_std']}</div></div>
-                    <div class="prediction-box" style="border-color: #58A6FF;"><div class="label-spec">🛡️ Spektrum AI</div><div style="font-size: 1.1rem; font-weight: bold; color: #58A6FF;">{res['spectrum']}</div></div>
+                    <div class="prediction-box"><div style="font-size:0.6rem; color:#8B949E;">🤖 STANDART AI</div><div style="font-weight:bold;">{res['ai_std']}{std_icon}</div></div>
+                    <div class="prediction-box" style="border-color:#58A6FF;"><div style="font-size:0.6rem; color:#58A6FF;">🛡️ SPEKTRUM AI</div><div style="font-weight:bold; color:#58A6FF;">{res['spectrum']}{spec_icon}</div></div>
                 </div>
-                <div class="strategy-box">💡 <b>Analiz:</b> {res['ev_not']} Savunma vs {res['dep_not']} Hücum</div>
             </div>
             """, unsafe_allow_html=True)
 else:
