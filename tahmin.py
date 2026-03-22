@@ -11,7 +11,7 @@ LIGLER = {
     "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"
 }
 
-st.set_page_config(page_title="UltraSkor Pro: Smart Global", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Global Panorama", page_icon="🌍", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -23,6 +23,7 @@ st.markdown("""
     .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; flex: 1; margin: 0 4px; }
     .active-algo { border: 1.5px solid #58A6FF !important; background: rgba(88, 166, 255, 0.1); }
     .conf-txt { font-size: 0.7rem; color: #58A6FF; font-weight: bold; }
+    .success-icon { color: #238636; font-weight: bold; margin-left: 5px; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -35,7 +36,6 @@ def analiz_et(ev_ad, dep_ad, all_matches):
         df = pd.DataFrame([{'H': m['homeTeam']['name'], 'A': m['awayTeam']['name'], 
                             'HG': m['score']['fullTime']['home'], 'AG': m['score']['fullTime']['away'], 
                             'MD': m['matchday']} for m in df_raw])
-        
         l_ev_ort, l_dep_ort = df['HG'].mean(), df['AG'].mean()
         max_md = df['MD'].max()
 
@@ -49,10 +49,8 @@ def analiz_et(ev_ad, dep_ad, all_matches):
 
         e_g, e_y, e_w = get_stats(ev_ad, True)
         d_g, d_y, d_w = get_stats(dep_ad, False)
-
         std_e_xg = (e_g / l_ev_ort) * (d_y / l_ev_ort) * l_ev_ort
         std_d_xg = (d_g / l_dep_ort) * (e_y / l_dep_ort) * l_dep_ort
-
         bit = np.clip(((e_g / (std_e_xg if std_e_xg > 0 else 1)) * 0.7) + 0.3, 0.8, 1.3)
         spec_e_xg, spec_d_xg = std_e_xg * bit, std_d_xg * (1.1 if d_w > 1.5 else 0.9)
 
@@ -65,7 +63,7 @@ def analiz_et(ev_ad, dep_ad, all_matches):
         sp_sk, sp_cf = get_skor(spec_e_xg, spec_d_xg)
         nx_sk, nx_cf = get_skor(spec_e_xg * 1.1, spec_d_xg * 0.9)
 
-        return {"std": s_sk, "s_c": s_cf, "spec": sp_sk, "sp_c": sp_cf, "nexus": nx_sk, "n_c": nx_cf, "e_xg": std_e_xg, "d_xg": std_d_xg}
+        return {"std": s_sk, "s_c": s_cf, "spec": sp_sk, "sp_c": sp_cf, "nexus": nx_sk, "n_c": nx_cf}
     except: return None
 
 # --- 4. VERİ ÇEKME ---
@@ -80,14 +78,16 @@ def lig_verisi_al(lig_kodu):
 st.sidebar.title("🌍 Global UltraSkor")
 filtre = st.sidebar.radio("🚀 Mod Seçimi:", ["Lig Odaklı", "Standart AI (Global)", "Spektrum AI (Global)", "Nexus AI (Global)"])
 
+def winner(skor_str):
+    p = skor_str.split(" - ")
+    return "1" if int(p[0]) > int(p[1]) else ("2" if int(p[1]) > int(p[0]) else "X")
+
 if filtre == "Lig Odaklı":
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
     data = lig_verisi_al(LIGLER[lig_adi])
     m_data = data.get('matches', [])
-    
     if m_data:
         haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])), reverse=True)
-        # Mevcut haftayı belirle (Hala oynanmamış maç olan en küçük hafta veya en son biten hafta)
         bitenler = [m['matchday'] for m in m_data if m['status'] == 'FINISHED']
         mevcut = max(bitenler) if bitenler else 1
         hafta_secim = st.sidebar.selectbox("📅 Hafta", haftalar, index=haftalar.index(mevcut))
@@ -111,50 +111,53 @@ if filtre == "Lig Odaklı":
                 </div>
                 """, unsafe_allow_html=True)
 else:
-    # GLOBAL TARAMA MODU (AKTİF HAFTA FİLTRELİ)
-    st.title(f"🚀 Global Aktif Hafta ({filtre.replace('(Global)','')})")
-    st.info("Sadece bu haftanın oynanmamış maçları taranıyor...")
+    # GLOBAL PANORAMA MODU (HAFTA İÇİNDEKİ TÜM MAÇLAR)
+    st.title(f"🚀 Global Haftalık Panorama ({filtre.replace('(Global)','')})")
+    st.info("Bu haftanın oynanmış ve oynanacak tüm maçları analiz ediliyor...")
     
     global_list = []
-    with st.spinner("Ligler taranıyor..."):
+    with st.spinner("Avrupa ligleri analiz ediliyor..."):
         for l_ad, l_kod in LIGLER.items():
             l_data = lig_verisi_al(l_kod).get('matches', [])
             if not l_data: continue
             
-            # 1. O ligin aktif haftasını bul
-            # Bitmiş maçların en büyüğü mevcut haftadır (veya +1'idir)
             bitenler = [x['matchday'] for x in l_data if x['status'] == 'FINISHED']
             aktif_h = max(bitenler) if bitenler else 1
             
-            # 2. Sadece o haftadaki oynanmamış maçları al
-            for m in [x for x in l_data if x['matchday'] == aktif_h and x['status'] != 'FINISHED']:
+            # SADECE O AKTİF HAFTADAKİ TÜM MAÇLARI AL (BİTENLER DAHİL)
+            for m in [x for x in l_data if x['matchday'] == aktif_h]:
                 res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_data)
                 if res:
                     puan = res['s_c'] if "Standart" in filtre else (res['sp_c'] if "Spektrum" in filtre else res['n_c'])
-                    if puan >= 85:
-                        m.update({'res': res, 'l_ad': l_ad, 'puan': puan})
-                        global_list.append(m)
+                    m.update({'res': res, 'l_ad': l_ad, 'puan': puan})
+                    global_list.append(m)
     
     global_list = sorted(global_list, key=lambda x: x['puan'], reverse=True)[:20]
     
     if global_list:
         for m in global_list:
             res = m['res']
+            # Başarı kontrolü (Eğer maç bittiyse)
+            check_std, check_spec, check_nx = "", "", ""
+            if m['status'] == 'FINISHED':
+                gw = "1" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("2" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "X")
+                if winner(res['std']) == gw: check_std = '<span class="success-icon">✅</span>'
+                if winner(res['spec']) == gw: check_spec = '<span class="success-icon">✅</span>'
+                if winner(res['nexus']) == gw: check_nx = '<span class="success-icon">✅</span>'
+
             st.markdown(f"""
             <div class="match-card">
                 <div class="rank-badge">🔥 Güven: %{m['puan']}</div>
                 <div class="league-label">{m['l_ad']} - {m['matchday']}. Hafta</div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;">
                     <div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div>
-                    <div style="width: 30%; text-align: center; color:#8B949E; font-weight:bold;">🕒 {m['utcDate'][11:16]}</div>
+                    <div style="width: 30%; text-align: center;">{f'<h3>{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</h3>' if m['status']=='FINISHED' else f'<div style="color:#8B949E; font-weight:bold;">🕒 {m["utcDate"][11:16]}</div>'}</div>
                     <div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div>
                 </div>
                 <div style="display: flex; justify-content: space-around; margin-top: 15px;">
-                    <div class="prediction-box {'active-algo' if 'Standart' in filtre else ''}">🤖 STD<br><b>{res['std']}</b></div>
-                    <div class="prediction-box {'active-algo' if 'Spektrum' in filtre else ''}">🛡️ SPEC<br><b>{res['spec']}</b></div>
-                    <div class="prediction-box {'active-algo' if 'Nexus' in filtre else ''}">🔥 NEXUS<br><b>{res['nexus']}</b></div>
+                    <div class="prediction-box {'active-algo' if 'Standart' in filtre else ''}">🤖 STD<br><b>{res['std']}{check_std}</b></div>
+                    <div class="prediction-box {'active-algo' if 'Spektrum' in filtre else ''}">🛡️ SPEC<br><b>{res['spec']}{check_spec}</b></div>
+                    <div class="prediction-box {'active-algo' if 'Nexus' in filtre else ''}">🔥 NEXUS<br><b>{res['nexus']}{check_nx}</b></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-    else:
-        st.warning("Bu hafta için %85+ güven puanına sahip global maç bulunamadı.")
