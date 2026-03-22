@@ -94,52 +94,65 @@ if m_data:
     mevcut_hafta = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
     hafta_secim = st.sidebar.selectbox("📅 Haftayı Seçin", haftalar, index=haftalar.index(mevcut_hafta) if mevcut_hafta in haftalar else 0)
 
-    # --- 6. ANA EKRAN ---
-    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
-    haftanin_maclari = [m for m in m_data if m['matchday'] == hafta_secim]
+   # --- 6. ANA EKRAN DÖNGÜSÜ İÇİNDEKİ GÜNCELLEME ---
+
+for m in haftanin_maclari:
+    ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
+    res = master_analiz_et(ev, dep, m_data)
     
-    for m in haftanin_maclari:
-        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
-        res = master_analiz_et(ev, dep, m_data)
+    if res:
+        # Sonuç Karşılaştırma Mantığı
+        def get_winner(skor):
+            s = skor.split(" - ")
+            if int(s[0]) > int(s[1]): return "H"
+            if int(s[0]) < int(s[1]): return "A"
+            return "D"
+
+        std_win = get_winner(res['ai_std'])
+        spec_win = get_winner(res['spectrum'])
         
-        if res:
-            m_saat = m['utcDate'][11:16]
-            st.markdown(f"""
-            <div class="match-card">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="text-align: center; width: 33%;">
-                        <img src="{m['homeTeam']['crest']}" width="42"><br>
-                        <b style="font-size:0.9rem;">{ev}</b><br>
-                        <span style="font-size:0.65rem; color:#8B949E;">xG: {res['ev_xg']:.2f}</span>
-                    </div>
-                    
-                    <div style="width: 33%; display: flex; justify-content: center;">
-                        {f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' 
-                         else f'<div class="match-time">🕒 {m_saat}</div>'}
-                    </div>
-                    
-                    <div style="text-align: center; width: 33%;">
-                        <img src="{m['awayTeam']['crest']}" width="42"><br>
-                        <b style="font-size:0.9rem;">{dep}</b><br>
-                        <span style="font-size:0.65rem; color:#8B949E;">xG: {res['dep_xg']:.2f}</span>
-                    </div>
+        # Uyarı Etiketi
+        uyari_html = ""
+        if std_win != spec_win:
+            uyari_html = '<div style="color:#F85149; font-size:0.7rem; font-weight:bold; margin-top:5px;">⚠️ ANALİZ ÇATIŞMASI (DİKKAT)</div>'
+        elif res['ai_std'] == res['spectrum']:
+            uyari_html = '<div style="color:#238636; font-size:0.7rem; font-weight:bold; margin-top:5px;">✅ TAM UYUM (GÜVENLİ)</div>'
+
+        st.markdown(f"""
+        <div class="match-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="text-align: center; width: 33%;">
+                    <img src="{m['homeTeam']['crest']}" width="42"><br>
+                    <b style="font-size:0.9rem;">{ev}</b><br>
+                    <span style="font-size:0.65rem; color:#8B949E;">xG: {res['ev_xg']:.2f}</span>
                 </div>
                 
-                <div style="display: flex; justify-content: space-between; margin-top: 15px;">
-                    <div class="prediction-box">
-                        <div class="label-std">🤖 Standart AI</div>
-                        <div style="font-size: 1.1rem; font-weight: bold; color: #C9D1D9;">{res['ai_std']}</div>
-                    </div>
-                    <div class="prediction-box" style="border-color: #58A6FF;">
-                        <div class="label-spec">🛡️ Spektrum AI</div>
-                        <div style="font-size: 1.1rem; font-weight: bold; color: #58A6FF;">{res['spectrum']}</div>
-                    </div>
+                <div style="width: 33%; text-align: center;">
+                    {f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' 
+                     else f'<div class="match-time">🕒 {m["utcDate"][11:16]}</div>'}
+                    {uyari_html}
                 </div>
-
-                <div class="strategy-box">
-                    💡 <b>Analiz:</b> {res['ev_not']} Savunma vs {res['dep_not']} Hücum
+                
+                <div style="text-align: center; width: 33%;">
+                    <img src="{m['awayTeam']['crest']}" width="42"><br>
+                    <b style="font-size:0.9rem;">{dep}</b><br>
+                    <span style="font-size:0.65rem; color:#8B949E;">xG: {res['dep_xg']:.2f}</span>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
-else:
-    st.error("Veri yüklenemedi. Lütfen interneti veya API anahtarını kontrol et.")
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+                <div class="prediction-box">
+                    <div class="label-std">🤖 Standart AI</div>
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #C9D1D9;">{res['ai_std']}</div>
+                </div>
+                <div class="prediction-box" style="border-color: #58A6FF;">
+                    <div class="label-spec">🛡️ Spektrum AI</div>
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #58A6FF;">{res['spectrum']}</div>
+                </div>
+            </div>
+
+            <div class="strategy-box">
+                💡 <b>Karakter:</b> {res['ev_not']} Savunma vs {res['dep_not']} Hücum
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
