@@ -7,25 +7,24 @@ import requests
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
-st.set_page_config(page_title="UltraSkor Pro: Time-Weighted", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Ranking", page_icon="🎯", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
     <style>
     .stApp { background-color: #0D1117; color: #C9D1D9; }
-    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; border-left: 5px solid #58A6FF; }
-    .match-result { font-size: 1.5rem; font-weight: bold; color: #FFFFFF; text-align: center; background: #21262d; border-radius: 6px; padding: 6px; border: 1px solid #30363d; }
+    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; }
+    .rank-badge { background: #238636; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; float: right; }
     .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px; text-align: center; flex: 1; margin: 0 5px; }
-    .nexus-box { border: 1px solid #f85149 !important; background: rgba(248, 81, 73, 0.05); }
-    .spec-box { border: 1px solid #58A6FF !important; background: rgba(88, 166, 255, 0.05); }
-    .strategy-box { background-color: #1c2128; border-radius: 8px; padding: 12px; margin-top: 15px; font-size: 0.85rem; border-top: 1px solid #30363d; }
-    .metric-card { background: #21262d; padding: 15px; border-radius: 10px; border: 1px solid #30363d; text-align: center; }
+    .active-box { border: 1.5px solid #58A6FF !important; background: rgba(88, 166, 255, 0.1); }
     h1, h2, h3 { color: #58A6FF !important; }
+    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; height: 3em; transition: 0.3s; }
+    .stButton>button:hover { border-color: #58A6FF; color: #58A6FF; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. GELİŞMİŞ ANALİZ MOTORU (TIME-WEIGHTED SPEC) ---
-def master_analiz_v2(ev_ad, dep_ad, all_matches):
+# --- 3. ANALİZ MOTORU ---
+def master_analiz_v3(ev_ad, dep_ad, all_matches):
     try:
         df_raw = [m for m in all_matches if m['status'] == 'FINISHED' and m['score']['fullTime']['home'] is not None]
         if len(df_raw) < 10: return None
@@ -40,46 +39,28 @@ def master_analiz_v2(ev_ad, dep_ad, all_matches):
         l_ev_ort, l_dep_ort = df['HG'].mean(), df['AG'].mean()
         max_md = df['MD'].max()
 
-        # Zaman Ağırlıklı Hesaplama Fonksiyonu
         def get_weighted_stats(team_name, is_home):
             col = 'H' if is_home else 'A'
             t_df = df[df[col] == team_name].copy()
-            if t_df.empty: return l_ev_ort if is_home else l_dep_ort, 1.0
-            
-            # Zaman Çarpanı: Son maçlar daha değerli (Lineer Decay)
-            t_df['weight'] = t_df['MD'].apply(lambda x: 1.0 + (x / max_md))
-            
+            if t_df.empty: return l_ev_ort, 1.0, 1.0
+            t_df['weight'] = 1.0 + (t_df['MD'] / max_md)
             if is_home:
-                avg_g = (t_df['HG'] * t_df['weight']).sum() / t_df['weight'].sum()
-                avg_y = (t_df['AG'] * t_df['weight']).sum() / t_df['weight'].sum()
+                g, y = (t_df['HG']*t_df['weight']).sum()/t_df['weight'].sum(), (t_df['AG']*t_df['weight']).sum()/t_df['weight'].sum()
             else:
-                avg_g = (t_df['AG'] * t_df['weight']).sum() / t_df['weight'].sum()
-                avg_y = (t_df['HG'] * t_df['weight']).sum() / t_df['weight'].sum()
-            
-            return avg_g, avg_y, t_df['weight'].mean()
+                g, y = (t_df['AG']*t_df['weight']).sum()/t_df['weight'].sum(), (t_df['HG']*t_df['weight']).sum()/t_df['weight'].sum()
+            return g, y, t_df['weight'].mean()
 
-        # Parametreleri Çek
         e_h_g, e_h_y, e_w = get_weighted_stats(ev_ad, True)
         d_d_g, d_d_y, d_w = get_weighted_stats(dep_ad, False)
 
-        # 1. STANDART xG
         e_xg = (e_h_g / l_ev_ort) * (d_d_y / l_ev_ort) * l_ev_ort
         d_xg = (d_d_g / l_dep_ort) * (e_h_y / l_dep_ort) * l_dep_ort
 
-        # 2. SPEKTRUM (RAFINE EDİLMİŞ)
-        # Bitiricilik ve Savunma çarpanlarını %30 oranında ortalamaya (1.0) yaklaştırıyoruz (Damping)
-        e_bit = ((e_h_g / (e_xg if e_xg > 0 else 1)) * 0.7) + 0.3
-        d_bit = ((d_d_g / (d_xg if d_xg > 0 else 1)) * 0.7) + 0.3
+        e_bit = np.clip(((e_h_g / (e_xg if e_xg > 0 else 1)) * 0.7) + 0.3, 0.7, 1.4)
+        d_bit = np.clip(((d_d_g / (d_xg if d_xg > 0 else 1)) * 0.7) + 0.3, 0.7, 1.4)
         
-        # Sınırlama (0.7 - 1.4 arası)
-        e_bit, d_bit = np.clip(e_bit, 0.7, 1.4), np.clip(d_bit, 0.7, 1.4)
-        
-        f_e_xg = e_xg * e_bit
-        f_d_xg = d_xg * d_bit
-
-        # 3. NEXUS (TREND + MOMENTUM)
-        n_e_xg = f_e_xg * (1.1 if e_w > 1.5 else 0.95)
-        n_d_xg = f_d_xg * (1.1 if d_w > 1.5 else 0.95)
+        f_e_xg, f_d_xg = e_xg * e_bit, d_xg * d_bit
+        n_e_xg, n_d_xg = f_e_xg * (1.1 if e_w > 1.5 else 0.95), f_d_xg * (1.1 if d_w > 1.5 else 0.95)
 
         def get_skor(ex, ax):
             ex, ax = max(0.1, ex), max(0.1, ax)
@@ -87,25 +68,27 @@ def master_analiz_v2(ev_ad, dep_ad, all_matches):
             sk = np.unravel_index(np.argmax(m), m.shape)
             return f"{sk[0]} - {sk[1]}"
 
+        # GÜVEN PUANI HESAPLAMA (0-100 ARASI)
+        def calc_confidence(ex, ax):
+            diff = abs(ex - ax)
+            return min(100, int(diff * 40 + 20))
+
         return {
-            "std": get_skor(e_xg, d_xg),
-            "spec": get_skor(f_e_xg, f_d_xg),
-            "nexus": get_skor(n_e_xg, n_d_xg),
-            "e_xg": e_xg, "d_xg": d_xg,
-            "ev_form": "🔥 Yüksek" if e_w > 1.7 else "⌛ Normal",
-            "dep_form": "🔥 Yüksek" if d_w > 1.7 else "⌛ Normal"
+            "std": get_skor(e_xg, d_xg), "std_conf": calc_confidence(e_xg, d_xg),
+            "spec": get_skor(f_e_xg, f_d_xg), "spec_conf": calc_confidence(f_e_xg, f_d_xg),
+            "nexus": get_skor(n_e_xg, n_d_xg), "nexus_conf": calc_confidence(n_e_xg, n_d_xg),
+            "e_xg": e_xg, "d_xg": d_xg
         }
     except: return None
 
 # --- 4. VERİ ÇEKME ---
 @st.cache_data(ttl=3600)
 def veri_getir(url):
-    try:
-        return requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
+    try: return requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
     except: return {}
 
-# --- 5. SIDEBAR & LOGIC ---
-st.sidebar.title("🛡️ UltraSkor Pro v20")
+# --- 5. SIDEBAR & RANKING BUTTONS ---
+st.sidebar.title("🛡️ UltraSkor Pro v21")
 lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
 lig_secim = st.sidebar.selectbox("🎯 Ligi Seçin", list(lig_map.keys()))
 data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_map[lig_secim]}/matches")
@@ -116,62 +99,59 @@ if m_data:
     mevcut_hafta = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
     hafta_secim = st.sidebar.selectbox("📅 Hafta Seçin", haftalar, index=haftalar.index(mevcut_hafta))
 
-    # Başarı Takibi
-    haftanin_maclari = [m for m in m_data if m['matchday'] == hafta_secim]
-    biten = [m for m in haftanin_maclari if m['status'] == 'FINISHED']
-    
-    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
-    
-    if biten:
-        st.subheader("🏆 Haftalık Performans")
-        # Basit başarı hesaplama (MS 1-0-2 bazında)
-        s_d, sp_d, n_d = 0, 0, 0
-        for m in biten:
-            r = master_analiz_v2(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
-            if r:
-                gw = "1" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("2" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "X")
-                def check(sk): 
-                    p = sk.split(" - ")
-                    return "1" if int(p[0]) > int(p[1]) else ("2" if int(p[1]) > int(p[0]) else "X")
-                if check(r['std']) == gw: s_d += 1
-                if check(r['spec']) == gw: sp_d += 1
-                if check(r['nexus']) == gw: n_d += 1
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("🤖 Standart AI", f"{s_d}/{len(biten)}")
-        c2.metric("🛡️ Spektrum AI", f"{sp_d}/{len(biten)}")
-        c3.metric("🔥 Nexus AI", f"{n_d}/{len(biten)}")
-        st.divider()
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🚀 Tahmin Sıralama")
+    filtre = st.sidebar.radio("Sıralama Algoritması:", ["Normal (Varsayılan)", "Standart AI", "Spektrum AI", "Nexus AI"])
 
-    # Maç Listesi
+    # --- 6. MAÇLARI ANALİZ ET VE SIRALA ---
+    haftanin_maclari = [m for m in m_data if m['matchday'] == hafta_secim]
+    analizli_maclar = []
+    
     for m in haftanin_maclari:
-        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
-        res = master_analiz_v2(ev, dep, m_data)
+        res = master_analiz_v3(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
         if res:
-            with st.container():
-                st.markdown(f"""
-                <div class="match-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="text-align: center; width: 30%;">
-                            <img src="{m['homeTeam']['crest']}" width="45"><br><b>{ev}</b><br><small>xG: {res['e_xg']:.2f}</small>
-                        </div>
-                        <div style="width: 30%;">
-                            {f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' else f'<div style="text-align:center; font-weight:bold; color:#8B949E;">🕒 {m["utcDate"][11:16]}</div>'}
-                        </div>
-                        <div style="text-align: center; width: 30%;">
-                            <img src="{m['awayTeam']['crest']}" width="45"><br><b>{dep}</b><br><small>xG: {res['d_xg']:.2f}</small>
-                        </div>
+            m['analiz'] = res
+            # Filtreye göre güven puanını ata
+            if filtre == "Standart AI": m['sort_val'] = res['std_conf']
+            elif filtre == "Spektrum AI": m['sort_val'] = res['spec_conf']
+            elif filtre == "Nexus AI": m['sort_val'] = res['nexus_conf']
+            else: m['sort_val'] = 0
+            analizli_maclar.append(m)
+
+    # Sıralama: Güven puanına göre büyükten küçüğe
+    if filtre != "Normal (Varsayılan)":
+        analizli_maclar = sorted(analizli_maclar, key=lambda x: x['sort_val'], reverse=True)
+
+    # --- 7. ANA EKRAN ---
+    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
+    st.caption(f"Şu an şuna göre sıralanıyor: **{filtre}**")
+
+    for m in analizli_maclar:
+        res = m['analiz']
+        with st.container():
+            # Güven Rozeti
+            badge = f'<div class="rank-badge">🔥 Güven: %{m["sort_val"]}</div>' if filtre != "Normal (Varsayılan)" else ""
+            
+            st.markdown(f"""
+            <div class="match-card">
+                {badge}
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;">
+                    <div style="text-align: center; width: 30%;">
+                        <img src="{m['homeTeam']['crest']}" width="40"><br><b>{m['homeTeam']['name']}</b>
                     </div>
-                    <div style="display: flex; justify-content: space-around; margin-top: 15px;">
-                        <div class="prediction-box">🤖 <small>STD</small><br><b>{res['std']}</b></div>
-                        <div class="prediction-box spec-box">🛡️ <small>SPEC</small><br><b>{res['spec']}</b></div>
-                        <div class="prediction-box nexus-box">🔥 <small>NEXUS</small><br><b>{res['nexus']}</b></div>
+                    <div style="width: 30%; text-align: center;">
+                        {f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' else f'<div style="color:#8B949E; font-weight:bold;">🕒 {m["utcDate"][11:16]}</div>'}
                     </div>
-                    <div class="strategy-box">
-                        💡 <b>Gözlem:</b> Ev Sahibi Formu {res['ev_form']} | Deplasman Formu {res['dep_form']}
+                    <div style="text-align: center; width: 30%;">
+                        <img src="{m['awayTeam']['crest']}" width="40"><br><b>{m['awayTeam']['name']}</b>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
-
+                <div style="display: flex; justify-content: space-around; margin-top: 20px;">
+                    <div class="prediction-box {'active-box' if filtre=='Standart AI' else ''}">🤖 <small>STD</small><br><b>{res['std']}</b></div>
+                    <div class="prediction-box {'active-box' if filtre=='Spektrum AI' else ''} " style="border-color:#58A6FF;">🛡️ <small>SPEC</small><br><b>{res['spec']}</b></div>
+                    <div class="prediction-box nexus-box {'active-box' if filtre=='Nexus AI' else ''}">🔥 <small>NEXUS</small><br><b>{res['nexus']}</b></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 else:
     st.error("Veri çekilemedi.")
