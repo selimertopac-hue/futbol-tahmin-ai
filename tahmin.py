@@ -41,4 +41,4 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             ev_m, dep_m = df[df['H'] == ev_ad], df[df['A'] == dep_ad]
             
             e_h_g = ev_m['HG'].mean() if not ev_m.empty else l_ev_ort
-            e
+            e_h_y = ev_m['AG'].mean() if not ev
