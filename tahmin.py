@@ -28,8 +28,10 @@ st.markdown("""
 def master_analiz_et(ev_ad, dep_ad, all_matches):
     try:
         df_raw = [m for m in all_matches if m['status'] == 'FINISHED' and m['score']['fullTime']['home'] is not None]
-        if not df_raw:
-            e_xg, d_xg, e_bit, d_bit, e_sav, d_sav = 1.3, 1.1, 1.0, 1.0, 1.0, 1.0
+        
+        # Eğer yeterli veri yoksa lig ortalaması üzerinden tahmini yürüt
+        if len(df_raw) < 10:
+            e_xg, d_xg, e_bit, d_bit, e_sav, d_sav = 1.4, 1.2, 1.0, 1.0, 1.0, 1.0
         else:
             df = pd.DataFrame()
             df['H'] = [m['homeTeam']['name'] for m in df_raw]
@@ -52,66 +54,4 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             e_sav = e_h_y / (l_dep_ort * (e_h_y / (e_xg if e_xg > 0 else 1)))
             d_sav = d_d_y / (l_ev_ort * (d_d_y / (d_xg if d_xg > 0 else 1)))
 
-        f_e_xg, f_d_xg = e_xg * e_bit * d_sav, d_xg * d_bit * e_sav
-
-        def get_skor(ex, ax):
-            ex, ax = max(0.1, ex), max(0.1, ax)
-            m = np.outer([poisson.pmf(i, ex) for i in range(6)], [poisson.pmf(i, ax) for i in range(6)])
-            sk = np.unravel_index(np.argmax(m), m.shape)
-            return f"{sk[0]} - {sk[1]}"
-
-        return {
-            "ai_std": get_skor(e_xg, d_xg),
-            "spectrum": get_skor(f_e_xg, f_d_xg),
-            "ev_xg": e_xg, "dep_xg": d_xg,
-            "ev_not": "🛡️ Katı" if e_sav < 1 else "⚠️ Kırılgan",
-            "dep_not": "⚔️ Fırsatçı" if d_bit > 1.2 else "🐢 Kısır"
-        }
-    except: return None
-
-# --- 4. VERİ ÇEKME ---
-@st.cache_data(ttl=3600)
-def veri_getir(url):
-    try:
-        return requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
-    except: return {}
-
-# --- 5. SIDEBAR ---
-st.sidebar.title("🛡️ UltraSkor Control")
-lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
-lig_secim = st.sidebar.selectbox("🎯 Ligi Seçin", list(lig_map.keys()))
-
-data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_map[lig_secim]}/matches")
-m_data = data.get('matches', [])
-
-if m_data:
-    haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])), reverse=True)
-    mevcut_hafta = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
-    hafta_secim = st.sidebar.selectbox("📅 Haftayı Seçin", haftalar, index=haftalar.index(mevcut_hafta) if mevcut_hafta in haftalar else 0)
-
-    # --- 6. ANA EKRAN ---
-    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
-    haftanin_maclari = [m for m in m_data if m['matchday'] == hafta_secim]
-    
-    for m in haftanin_maclari:
-        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
-        res = master_analiz_et(ev, dep, m_data)
-        
-        if res:
-            m_saat = m['utcDate'][11:16]
-            
-            # Sonuç karşılaştırma mantığı
-            def winner(s_str):
-                s = s_str.split(" - ")
-                if int(s[0]) > int(s[1]): return "H"
-                if int(s[1]) > int(s[0]): return "A"
-                return "D"
-
-            std_w = winner(res['ai_std'])
-            spec_w = winner(res['spectrum'])
-            
-            uyari_html = ""
-            if std_w != spec_w:
-                uyari_html = '<div style="color:#F85149; font-size:0.7rem; font-weight:bold; margin-top:5px;">⚠️ ANALİZ ÇATIŞMASI</div>'
-            elif res['ai_std'] == res['spectrum']:
-                uyari_html = '<div style="color:#238636; font-size:0.7rem; font-weight:bold; margin-top:5px;">✅ TAM UYUM</div>'
+        f_e_xg, f_d_xg = e_xg * e_bit * d_sav, d
