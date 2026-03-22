@@ -7,7 +7,7 @@ import requests
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
-st.set_page_config(page_title="UltraSkor Pro: Spectrum Archive", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Archive", page_icon="🛡️", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -27,7 +27,6 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
     try:
         df_raw = [m for m in all_matches if m['status'] == 'FINISHED' and m['score']['fullTime']['home'] is not None]
         if not df_raw:
-            # Veri yoksa güvenli baz değerler
             e_xg, d_xg, e_bit, d_bit, e_sav, d_sav = 1.3, 1.1, 1.0, 1.0, 1.0, 1.0
         else:
             df = pd.DataFrame()
@@ -68,12 +67,7 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
     except:
         return None
 
-# --- 4. ANA PANEL ---
-st.title("🛡️ UltraSkor Pro: Spectrum Arşivi")
-
-lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
-secim = st.sidebar.selectbox("🎯 Lig Seçimi", list(lig_map.keys()))
-
+# --- 4. VERİ ÇEKME ---
 @st.cache_data(ttl=3600)
 def veri_getir(url):
     try:
@@ -81,4 +75,38 @@ def veri_getir(url):
     except:
         return {}
 
-data = veri_getir(f"
+# --- 5. ANA PANEL ---
+st.title("🛡️ UltraSkor Pro: Spectrum Arşivi")
+
+lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
+secim = st.sidebar.selectbox("🎯 Lig Seçimi", list(lig_map.keys()))
+
+api_url = f"https://api.football-data.org/v4/competitions/{lig_map[secim]}/matches"
+data = veri_getir(api_url)
+m_data = data.get('matches', [])
+
+if m_data:
+    haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])), reverse=True)
+    
+    for h_no in haftalar:
+        is_expanded = (h_no == max(haftalar))
+        with st.expander(f"📅 {h_no}. Hafta Maçları", expanded=is_expanded):
+            haftanin_maclari = [m for m in m_data if m['matchday'] == h_no]
+            for m in haftanin_maclari:
+                ev_ad, dep_ad = m['homeTeam']['name'], m['awayTeam']['name']
+                res = master_anal_et = master_analiz_et(ev_ad, dep_ad, m_data)
+                if res:
+                    col1, col2, col3 = st.columns([1, 1, 1])
+                    with col1:
+                        st.image(m['homeTeam']['crest'], width=35)
+                        st.caption(f"{ev_ad}")
+                    with col2:
+                        if m['status'] == 'FINISHED':
+                            st.markdown(f"<div class='match-result'>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<p style='text-align:center; font-weight:bold; color:#58A6FF; margin-bottom:0;'>AI Tahmin: {res['alg_3']}</p>", unsafe_allow_html=True)
+                    with col3:
+                        st.image(m['awayTeam']['crest'], width=35)
+                        st.caption(f"{dep_ad}")
+                    st.markdown(f"<div class='strategy-box'>💡 <b>Analiz:</b> {res['ev_not']} Savunma vs {res['dep_not']} Hücum | <b>Spektrum Skoru: {res['alg_3']}</b></div>", unsafe_allow_html=True)
+                    st.divider()
