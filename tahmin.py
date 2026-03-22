@@ -7,18 +7,17 @@ import requests
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
-st.set_page_config(page_title="UltraSkor Pro: Archive", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Smart Selector", page_icon="🛡️", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
     <style>
     .stApp { background-color: #0D1117; color: #C9D1D9; }
-    .form-circle { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px; }
-    .win { background-color: #238636; } .draw { background-color: #D29922; } .loss { background-color: #DA3633; }
-    .match-result { font-size: 1.1rem; font-weight: bold; color: #FFFFFF; text-align: center; background: #21262d; border-radius: 5px; padding: 5px; border: 1px solid #30363d; }
-    .strategy-box { background-color: #1c2128; border-left: 4px solid #F85149; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; }
+    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+    .match-result { font-size: 1.3rem; font-weight: bold; color: #FFFFFF; text-align: center; background: #21262d; border-radius: 5px; padding: 8px; border: 1px solid #30363d; }
+    .strategy-box { background-color: #0d1117; border-left: 4px solid #58A6FF; padding: 10px; border-radius: 5px; font-size: 0.85rem; margin-top: 10px; }
     h1, h2, h3 { color: #58A6FF !important; }
-    .stExpander { border: 1px solid #30363d !important; background-color: #161b22 !important; margin-bottom: 10px !important; }
+    .sidebar .sidebar-content { background-image: linear-gradient(#161b22,#161b22); color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -64,49 +63,61 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             "ev_not": "🛡️ Katı" if e_sav < 1 else "⚠️ Kırılgan",
             "dep_not": "⚔️ Fırsatçı" if d_bit > 1.2 else "🐢 Kısır"
         }
-    except:
-        return None
+    except: return None
 
 # --- 4. VERİ ÇEKME ---
 @st.cache_data(ttl=3600)
 def veri_getir(url):
     try:
         return requests.get(url, headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
-    except:
-        return {}
+    except: return {}
 
-# --- 5. ANA PANEL ---
-st.title("🛡️ UltraSkor Pro: Spectrum Arşivi")
-
+# --- 5. SIDEBAR (SMART SELECTOR) ---
+st.sidebar.title("🛡️ UltraSkor Control")
 lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
-secim = st.sidebar.selectbox("🎯 Lig Seçimi", list(lig_map.keys()))
+lig_secim = st.sidebar.selectbox("🎯 Ligi Seçin", list(lig_map.keys()))
 
-api_url = f"https://api.football-data.org/v4/competitions/{lig_map[secim]}/matches"
-data = veri_getir(api_url)
+data = veri_getir(f"https://api.football-data.org/v4/competitions/{lig_map[lig_secim]}/matches")
 m_data = data.get('matches', [])
 
 if m_data:
+    # Aktif hafta tespiti ve haftaları listeleme
     haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])), reverse=True)
+    mevcut_hafta = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
     
-    for h_no in haftalar:
-        is_expanded = (h_no == max(haftalar))
-        with st.expander(f"📅 {h_no}. Hafta Maçları", expanded=is_expanded):
-            haftanin_maclari = [m for m in m_data if m['matchday'] == h_no]
-            for m in haftanin_maclari:
-                ev_ad, dep_ad = m['homeTeam']['name'], m['awayTeam']['name']
-                res = master_anal_et = master_analiz_et(ev_ad, dep_ad, m_data)
-                if res:
-                    col1, col2, col3 = st.columns([1, 1, 1])
-                    with col1:
-                        st.image(m['homeTeam']['crest'], width=35)
-                        st.caption(f"{ev_ad}")
-                    with col2:
-                        if m['status'] == 'FINISHED':
-                            st.markdown(f"<div class='match-result'>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</div>", unsafe_allow_html=True)
-                        else:
-                            st.markdown(f"<p style='text-align:center; font-weight:bold; color:#58A6FF; margin-bottom:0;'>AI Tahmin: {res['alg_3']}</p>", unsafe_allow_html=True)
-                    with col3:
-                        st.image(m['awayTeam']['crest'], width=35)
-                        st.caption(f"{dep_ad}")
-                    st.markdown(f"<div class='strategy-box'>💡 <b>Analiz:</b> {res['ev_not']} Savunma vs {res['dep_not']} Hücum | <b>Spektrum Skoru: {res['alg_3']}</b></div>", unsafe_allow_html=True)
-                    st.divider()
+    st.sidebar.markdown("---")
+    hafta_secim = st.sidebar.selectbox("📅 Haftayı Seçin", haftalar, index=haftalar.index(mevcut_hafta) if mevcut_hafta in haftalar else 0)
+
+    # --- 6. ANA EKRAN ---
+    st.title(f"{lig_secim} - {hafta_secim}. Hafta")
+    
+    haftanin_maclari = [m for m in m_data if m['matchday'] == hafta_secim]
+    
+    for m in haftanin_maclari:
+        ev_ad, dep_ad = m['homeTeam']['name'], m['awayTeam']['name']
+        res = master_analiz_et(ev_ad, dep_ad, m_data)
+        
+        if res:
+            st.markdown(f"""
+            <div class="match-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="text-align: center; width: 35%;">
+                        <img src="{m['homeTeam']['crest']}" width="40"><br>
+                        <b>{ev_ad}</b><br><span style="font-size:0.7rem;">xG: {res['ev_xg']:.2f}</span>
+                    </div>
+                    <div style="width: 25%;">
+                        {f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' 
+                         else f'<div style="text-align:center; color:#58A6FF; font-weight:bold;">AI: {res["alg_3"]}</div>'}
+                    </div>
+                    <div style="text-align: center; width: 35%;">
+                        <img src="{m['awayTeam']['crest']}" width="40"><br>
+                        <b>{dep_ad}</b><br><span style="font-size:0.7rem;">xG: {res['dep_xg']:.2f}</span>
+                    </div>
+                </div>
+                <div class="strategy-box">
+                    💡 <b>Spektrum:</b> {res['ev_not']} Savunma vs {res['dep_not']} Hücum | <b>Tahmin Skoru: {res['alg_3']}</b>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+else:
+    st.error("Veri yüklenemedi. Lütfen internet bağlantısını veya API anahtarını kontrol edin.")
