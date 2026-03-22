@@ -1,5 +1,5 @@
 import streamlit as st
-import pd
+import pandas as pd  # <--- Hata buradaydı, düzeltildi!
 import numpy as np
 from scipy.stats import poisson
 import requests
@@ -69,53 +69,4 @@ def veri_yukle(lig_kodu):
 # --- 5. ANA EKRAN ---
 st.title("🛡️ UltraSkor Pro: Analiz Arşivi")
 
-ligler = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
-secilen_lig = st.sidebar.selectbox("🎯 Lig Seç", list(ligler.keys()))
-
-m_data = veri_yukle(ligler[secilen_lig])
-
-if m_data:
-    haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])))
-    mevcut_hafta = max([m['matchday'] for m in m_data if m['status'] == 'FINISHED'] or [1])
-    
-    secilen_hafta = st.sidebar.select_slider("📅 Hafta", options=haftalar, value=mevcut_hafta)
-    
-    haftanin_maclari = [m for m in m_data if m['matchday'] == secilen_hafta]
-    
-    st.markdown(f"### 📊 {secilen_lig} - {secilen_hafta}. Hafta")
-
-    # Çakışmaları engellemek için maçları bir kerede listele
-    for idx, m in enumerate(haftanin_maclari):
-        ev, dep = m['homeTeam']['name'], m['awayTeam']['name']
-        res = master_analiz_et(ev, dep, m_data)
-        
-        if res:
-            # Benzersiz bir ID oluşturarak removeChild hatasını engelle
-            with st.expander(f"{'✅' if m['status']=='FINISHED' else '⏳'} {ev} - {dep}", expanded=False):
-                col1, col2, col3 = st.columns([1, 1, 1])
-                
-                with col1:
-                    st.image(m['homeTeam']['crest'], width=45)
-                    st.caption(f"xG: {res['ev_xg']:.2f}")
-                
-                with col2:
-                    if m['status'] == 'FINISHED':
-                        st.markdown(f"<div class='match-result'>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</div>", unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"<p style='text-align:center; font-weight:bold; color:#58A6FF; font-size:1.2rem;'>{res['alg_3']}</p>", unsafe_allow_html=True)
-                        st.markdown("<p style='text-align:center; font-size:0.7rem;'>AI TAHMİNİ</p>", unsafe_allow_html=True)
-                
-                with col3:
-                    st.image(m['awayTeam']['crest'], width=45)
-                    st.caption(f"xG: {res['dep_xg']:.2f}")
-                
-                st.divider()
-                f1, f2, f3 = st.columns(3)
-                f1.metric("📍 Standart", res['alg_1'])
-                f2.metric("🛡️ Spektrum", res['alg_3'])
-                
-                if m['status'] == 'FINISHED':
-                    skor = f"{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}"
-                    st.success(f"Analiz Tamamlandı | Sonuç: {skor}")
-                else:
-                    st.info(f"Maç Başlama Saati: {m['utcDate'][11:16]}")
+ligler = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "
