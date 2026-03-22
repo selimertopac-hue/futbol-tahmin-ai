@@ -29,9 +29,8 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
     try:
         df_raw = [m for m in all_matches if m['status'] == 'FINISHED' and m['score']['fullTime']['home'] is not None]
         
-        # Eğer yeterli veri yoksa lig ortalaması üzerinden tahmini yürüt
-        if len(df_raw) < 10:
-            e_xg, d_xg, e_bit, d_bit, e_sav, d_sav = 1.4, 1.2, 1.0, 1.0, 1.0, 1.0
+        if len(df_raw) < 5:
+            e_xg, d_xg, e_bit, d_bit, e_sav, d_sav = 1.3, 1.1, 1.0, 1.0, 1.0, 1.0
         else:
             df = pd.DataFrame()
             df['H'] = [m['homeTeam']['name'] for m in df_raw]
@@ -54,4 +53,7 @@ def master_analiz_et(ev_ad, dep_ad, all_matches):
             e_sav = e_h_y / (l_dep_ort * (e_h_y / (e_xg if e_xg > 0 else 1)))
             d_sav = d_d_y / (l_ev_ort * (d_d_y / (d_xg if d_xg > 0 else 1)))
 
-        f_e_xg, f_d_xg = e_xg * e_bit * d_sav, d
+        f_e_xg, f_d_xg = e_xg * e_bit * d_sav, d_xg * d_bit * e_sav
+
+        def get_skor(ex, ax):
+            ex, ax =
