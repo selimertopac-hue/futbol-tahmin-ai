@@ -7,17 +7,19 @@ import requests
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 
-st.set_page_config(page_title="UltraSkor Pro: AI vs Spectrum", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Dual Engine", page_icon="🛡️", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
     <style>
     .stApp { background-color: #0D1117; color: #C9D1D9; }
-    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 12px; }
-    .match-result { font-size: 1.4rem; font-weight: bold; color: #58A6FF; text-align: center; background: #21262d; border-radius: 5px; padding: 5px; border: 1px solid #30363d; }
-    .match-time { font-size: 1rem; color: #8B949E; text-align: center; font-weight: bold; }
-    .strategy-box { background-color: #0d1117; border-left: 4px solid #F85149; padding: 10px; border-radius: 5px; font-size: 0.85rem; margin-top: 10px; }
-    .prediction-label { font-size: 0.7rem; color: #8B949E; text-transform: uppercase; margin-bottom: 2px; }
+    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; }
+    .match-result { font-size: 1.5rem; font-weight: bold; color: #58A6FF; text-align: center; background: #21262d; border-radius: 6px; padding: 6px; border: 1px solid #30363d; min-width: 80px; }
+    .match-time { font-size: 1.1rem; color: #8B949E; text-align: center; font-weight: bold; border: 1px dashed #30363d; padding: 5px; border-radius: 6px; }
+    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px; text-align: center; width: 48%; }
+    .label-std { font-size: 0.65rem; color: #8B949E; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .label-spec { font-size: 0.65rem; color: #58A6FF; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .strategy-box { background-color: #1c2128; border-left: 4px solid #F85149; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.85rem; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -75,7 +77,7 @@ def veri_getir(url):
     except: return {}
 
 # --- 5. SIDEBAR ---
-st.sidebar.title("🛡️ UltraSkor Kontrol")
+st.sidebar.title("🛡️ UltraSkor Control")
 lig_map = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
 lig_secim = st.sidebar.selectbox("🎯 Ligi Seçin", list(lig_map.keys()))
 
@@ -96,43 +98,29 @@ if m_data:
         res = master_analiz_et(ev, dep, m_data)
         
         if res:
-            # Maç saati formatı (UTC'den 3 saat ekleyerek TR saati gibi düşünebiliriz ama API ham verisini basalım)
             m_saat = m['utcDate'][11:16]
-            
             st.markdown(f"""
             <div class="match-card">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="text-align: center; width: 30%;">
-                        <img src="{m['homeTeam']['crest']}" width="40"><br>
-                        <b>{ev}</b><br><span style="font-size:0.7rem; color:#8B949E;">xG: {res['ev_xg']:.2f}</span>
+                    <div style="text-align: center; width: 33%;">
+                        <img src="{m['homeTeam']['crest']}" width="42"><br>
+                        <b style="font-size:0.9rem;">{ev}</b><br>
+                        <span style="font-size:0.65rem; color:#8B949E;">xG: {res['ev_xg']:.2f}</span>
                     </div>
                     
-                    <div style="width: 30%; text-align: center;">
+                    <div style="width: 33%; display: flex; justify-content: center;">
                         {f'<div class="match-result">{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</div>' if m['status']=='FINISHED' 
                          else f'<div class="match-time">🕒 {m_saat}</div>'}
                     </div>
                     
-                    <div style="text-align: center; width: 30%;">
-                        <img src="{m['awayTeam']['crest']}" width="40"><br>
-                        <b>{dep}</b><br><span style="font-size:0.7rem; color:#8B949E;">xG: {res['dep_xg']:.2f}</span>
+                    <div style="text-align: center; width: 33%;">
+                        <img src="{m['awayTeam']['crest']}" width="42"><br>
+                        <b style="font-size:0.9rem;">{dep}</b><br>
+                        <span style="font-size:0.65rem; color:#8B949E;">xG: {res['dep_xg']:.2f}</span>
                     </div>
                 </div>
                 
-                <div style="display: flex; justify-content: space-around; margin-top: 15px; border-top: 1px solid #30363d; padding-top: 10px;">
-                    <div style="text-align: center;">
-                        <div class="prediction-label">🤖 Standart AI</div>
-                        <div style="font-weight: bold; color: #C9D1D9;">{res['ai_std']}</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div class="prediction-label">🛡️ Spektrum AI</div>
-                        <div style="font-weight: bold; color: #58A6FF;">{res['spectrum']}</div>
-                    </div>
-                </div>
-
-                <div class="strategy-box">
-                    💡 <b>Spektrum Karakteri:</b> {res['ev_not']} Savunma vs {res['dep_not']} Hücum
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-else:
-    st.error("Veri alınamadı, lütfen API anahtarınızı veya internetinizi kontrol edin.")
+                <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+                    <div class="prediction-box">
+                        <div class="label-std">🤖 Standart AI</div>
+                        <div style="font-size: 1.1rem; font-weight: bold; color: #C9D1D9;">{
