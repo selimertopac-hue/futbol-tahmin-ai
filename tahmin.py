@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import poisson
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
@@ -12,9 +12,8 @@ LIGLER = {
     "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"
 }
 
-# --- SİTE MİLAT AYARI ---
-# Sitemizin 1. haftası = Liglerin 25. haftası
-SİTE_BASLANGIC_LIG_HAFTASI = 25 
+# --- SİTE MİLAT AYARI (20 MART 2026) ---
+SİTE_DOGUM_TARİHİ = datetime(2026, 3, 20) 
 
 st.set_page_config(page_title="UltraSkor Pro: Global VIP", page_icon="🌍", layout="wide")
 
@@ -27,7 +26,7 @@ st.markdown("""
     .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; flex: 1; margin: 0 4px; }
     .active-algo { border: 1.5px solid #58A6FF !important; background: rgba(88, 166, 255, 0.1); }
     .score-banner { background: #21262d; padding: 20px; border-radius: 12px; border: 1px solid #58A6FF; text-align: center; margin-bottom: 25px; }
-    .lock-box { background: #21262d; border: 1px dashed #f85149; padding: 20px; border-radius: 12px; text-align: center; color: #f85149; margin-bottom: 20px; }
+    .lock-box { background: #21262d; border: 1px dashed #f85149; padding: 20px; border-radius: 12px; text-align: center; color: #f85149; margin-bottom: 20px; font-weight: bold; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -54,9 +53,7 @@ def analiz_et(ev_ad, dep_ad, all_matches):
         e_g, e_y, e_w = get_stats(ev_ad, True)
         d_g, d_y, d_w = get_stats(dep_ad, False)
         std_e_xg = (e_g / l_ev_ort) * (d_y / l_ev_ort) * l_ev_ort
-        std_d_xg = (d_g / l_dep_ort) * (e_y / l_dep_ort) * l_dep_ort
-        bit = np.clip(((e_g / (std_e_xg if std_e_xg > 0 else 1)) * 0.7) + 0.3, 0.8, 1.3)
-        spec_e_xg, spec_d_xg = std_e_xg * bit, std_d_xg * (1.1 if d_w > 1.5 else 0.9)
+        std_d_xg = (d_g / l_dep_ort) * (e_y / l_dep_ort) * l_ev_ort
 
         def get_skor(ex, ax):
             m = np.outer([poisson.pmf(i, max(0.1, ex)) for i in range(6)], [poisson.pmf(i, max(0.1, ax)) for i in range(6)])
@@ -64,8 +61,8 @@ def analiz_et(ev_ad, dep_ad, all_matches):
             return f"{sk[0]} - {sk[1]}", min(99, int(abs(ex-ax)*45 + 25))
 
         r_s = get_skor(std_e_xg, std_d_xg)
-        r_sp = get_skor(spec_e_xg, spec_d_xg)
-        r_nx = get_skor(spec_e_xg * 1.1, spec_d_xg * 0.9)
+        r_sp = get_skor(std_e_xg * 1.1, std_d_xg * 0.9) # Spektrum basitleştirildi
+        r_nx = get_skor(std_e_xg * 1.2, std_d_xg * 0.8) # Nexus basitleştirildi
         return {"std": r_s[0], "s_c": r_s[1], "spec": r_sp[0], "sp_c": r_sp[1], "nexus": r_nx[0], "n_c": r_nx[1]}
     except: return None
 
@@ -82,24 +79,21 @@ def winner(skor_str):
     p = skor_str.split(" - ")
     return "1" if int(p[0]) > int(p[1]) else ("2" if int(p[1]) > int(p[0]) else "X")
 
+# --- 5. ZAMAN VE HAFTA HESAPLAMA ---
+simdi = datetime.now()
+gun_farki = (simdi - SİTE_DOGUM_TARİHİ).days
+site_aktif_haftasi = (gun_farki // 7) + 1 # 20 Mart -> 1. Hafta, 27 Mart -> 2. Hafta
+
 def tahminler_acik_mi():
-    simdi = datetime.now()
-    if simdi.weekday() < 4: return False
-    if simdi.weekday() == 4 and simdi.hour < 12: return False
+    if simdi.weekday() < 4: return False # Paz-Per kapalı
+    if simdi.weekday() == 4 and simdi.hour < 12: return False # Cuma 12:00 öncesi kapalı
     return True
 
-# --- 5. SIDEBAR & MANTIK ---
+# --- 6. SIDEBAR ---
 st.sidebar.title("🌍 Global UltraSkor")
 filtre = st.sidebar.radio("🚀 Mod Seçimi:", ["Lig Odaklı", "Standart AI (Global)", "Spektrum AI (Global)", "Nexus AI (Global)"])
 
 all_data = {lig: lig_verisi_al(kod) for lig, kod in LIGLER.items()}
-
-# AKTİF LİG HAFTASINI BUL (FONKSİYON OLARAK DEĞİL, DEĞİŞKEN OLARAK)
-mds_list = []
-for d in all_data.values():
-    f_mds = [m['matchday'] for m in d.get('matches', []) if m['status'] == 'FINISHED']
-    if f_mds: mds_list.append(max(f_mds))
-gercek_lig_aktif_h = max(mds_list) if mds_list else SİTE_BASLANGIC_LIG_HAFTASI
 
 if filtre == "Lig Odaklı":
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
@@ -111,9 +105,8 @@ if filtre == "Lig Odaklı":
         h_secim = st.sidebar.selectbox("📅 Lig Haftası", h_liste, index=h_liste.index(guncel_h) if guncel_h in h_liste else 0)
         
         st.title(f"🏆 {lig_adi} - {h_secim}. Hafta")
-        
         if h_secim > guncel_h and not tahminler_acik_mi():
-            st.markdown('<div class="lock-box">🔒 Gelecek haftanın tahminleri Cuma 12:00\'de yayınlanacaktır.</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="lock-box">🔒 Gelecek haftanın tahminleri Cuma 12:00\'de yayınlanacaktır.</div>', unsafe_allow_html=True)
         else:
             for m in [x for x in l_m if x['matchday'] == h_secim]:
                 res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_m)
@@ -126,25 +119,33 @@ else:
     algo_label = filtre.replace(' (Global)', '')
     st.sidebar.markdown("---")
     
-    # Sitemizin aktif haftası: (Şu anki lig haftası - miladımız) + 1
-    site_aktif_h = (gercek_lig_aktif_h - SİTE_BASLANGIC_LIG_HAFTASI) + 1
-    site_maks_h = site_aktif_h + 1 
+    # SADECE SİTEMİZİN YAŞI KADAR HAFTA GÖSTER (Şu an 1 ve 2)
+    # Gelecek haftayı (Cuma'yı bekleyen hafta) her zaman +1 olarak ekler.
+    site_maks_h = site_aktif_haftasi + 1 
+    site_h_secim = st.sidebar.selectbox("📅 Sitemiz: Hafta No", range(1, site_maks_h + 1), index=site_aktif_haftasi-1)
     
-    site_h_secim = st.sidebar.selectbox("📅 Sitemiz: Hafta No", range(1, site_maks_h + 1), index=site_maks_h-1)
-    st.title(f"🚀 {algo_label} - {site_h_secim}. Hafta Global Analizi")
+    st.title(f"🚀 {algo_label} - {site_h_secim}. Hafta Analizi")
     
-    # Lig karşılığı: (Seçilen site haftası + milat) - 1
-    karsilik_lig_h = (site_h_secim + SİTE_BASLANGIC_LIG_HAFTASI) - 1
-    
-    if site_h_secim == site_maks_h and not tahminler_acik_mi():
+    if site_h_secim > site_aktif_haftasi and not tahminler_acik_mi():
         st.markdown(f'<div class="lock-box">🔒 Sitemizin {site_h_secim}. hafta tahminleri Cuma 12:00\'de yayınlanacaktır.</div>', unsafe_allow_html=True)
     else:
+        # Seçilen site haftasına denk gelen LİG HAFTASINI bulmamız lazım.
+        # 20 Mart haftası (1. hafta) liglerde 31. haftaydı diyelim.
+        # Bu kısmı dinamik yapmak yerine her ligin o haftaki maçlarını toplayacağız.
         global_list = []
-        with st.spinner("Avrupa taranıyor..."):
+        with st.spinner("Taranıyor..."):
             for l_ad, l_data_raw in all_data.items():
-                l_matches = l_data_raw.get('matches', [])
-                for m in [x for x in l_matches if x['matchday'] == karsilik_lig_h]:
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_matches)
+                l_m = l_data_raw.get('matches', [])
+                if not l_m: continue
+                # Ligin o lig özelindeki aktif haftasını bul
+                f_mds = [x['matchday'] for x in l_m if x['status'] == 'FINISHED']
+                lig_aktif_h = max(f_mds) if f_mds else 1
+                
+                # Arşiv mi yoksa güncel hafta mı?
+                hedef_h = lig_aktif_h if site_h_secim <= site_aktif_haftasi else lig_aktif_h + 1
+                
+                for m in [x for x in l_m if x['matchday'] == hedef_h]:
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_m)
                     if res:
                         p = res['s_c'] if "Standart" in filtre else (res['sp_c'] if "Spektrum" in filtre else res['n_c'])
                         m.update({'res': res, 'l_ad': l_ad, 'puan': p})
@@ -159,7 +160,7 @@ else:
                 t_str = m['res']['std'] if "Standart" in filtre else (m['res']['spec'] if "Spektrum" in filtre else m['res']['nexus'])
                 if winner(t_str) == gw: isabet += 1
 
-        st.markdown(f"""<div class="score-banner"><h2 style="margin:0;">{site_h_secim}. Hafta Başarı Karnesi</h2><div style="display:flex; justify-content:center; gap:30px; margin-top:10px;"><div><small>Biten</small><br><b style="font-size:1.5rem;">{biten}</b></div><div><small>Doğru</small><br><b style="font-size:1.5rem; color:#238636;">{isabet}</b></div><div><small>Oran</small><br><b style="font-size:1.5rem; color:#f85149;">%{int((isabet/biten)*100) if biten>0 else 0}</b></div></div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="score-banner"><h2 style="margin:0;">Sitemiz {site_h_secim}. Hafta Karnesi</h2><div style="display:flex; justify-content:center; gap:30px; margin-top:10px;"><div><small>Biten</small><br><b style="font-size:1.5rem;">{biten}</b></div><div><small>Doğru</small><br><b style="font-size:1.5rem; color:#238636;">{isabet}</b></div><div><small>Oran</small><br><b style="font-size:1.5rem; color:#f85149;">%{int((isabet/biten)*100) if biten>0 else 0}</b></div></div></div>""", unsafe_allow_html=True)
 
         for m in global_list:
             res = m['res']
@@ -174,4 +175,18 @@ else:
             else:
                 m_panel = f"🕒 {m['utcDate'][11:16]}"
 
-            st.markdown(f"""<div class="match-card"><div class="rank-badge">🔥 Güven: %{m['puan']}</div><div class="league-label">{m['l_ad']} - Lig Haftası {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div><div style="width: 30%; text-align: center;">{m_panel}</div><div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box {'active-algo' if 'Standart' in filtre else ''}">🤖 STD<br><b>{res['std']}{c_s}</b></div><div class="prediction-box {'active-algo' if 'Spektrum' in filtre else ''}">🛡️ SPEC<br><b>{res['spec']}{c_sp}</b></div><div class="prediction-box {'active-algo' if 'Nexus' in filtre else ''}">🔥 NEXUS<br><b>{res['nexus']}{c_nx}</b></div></div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="match-card">
+                <div class="rank-badge">🔥 Güven: %{m['puan']}</div>
+                <div class="league-label">{m['l_ad']} - Lig Haftası {m['matchday']}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;">
+                    <div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div>
+                    <div style="width: 30%; text-align: center;">{m_panel}</div>
+                    <div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div>
+                </div>
+                <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+                    <div class="prediction-box {'active-algo' if 'Standart' in filtre else ''}">🤖 STD<br><b>{res['std']}{c_s}</b></div>
+                    <div class="prediction-box {'active-algo' if 'Spektrum' in filtre else ''}">🛡️ SPEC<br><b>{res['spec']}{c_sp}</b></div>
+                    <div class="prediction-box {'active-algo' if 'Nexus' in filtre else ''}">🔥 NEXUS<br><b>{res['nexus']}{c_nx}</b></div>
+                </div>
+            </div>""", unsafe_allow_html=True)
