@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import poisson
 import requests
+from datetime import datetime
 
 # --- 1. AYARLAR ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
@@ -23,7 +24,8 @@ st.markdown("""
     .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; flex: 1; margin: 0 4px; }
     .active-algo { border: 1.5px solid #58A6FF !important; background: rgba(88, 166, 255, 0.1); }
     .success-icon { color: #238636; font-weight: bold; margin-left: 5px; }
-    .score-banner { background: #21262d; padding: 20px; border-radius: 12px; border: 1px solid #58A6FF; text-align: center; margin-bottom: 25px; }
+    .score-banner { background: #21262d; padding: 20 (px); border-radius: 12px; border: 1px solid #58A6FF; text-align: center; margin-bottom: 25px; }
+    .lock-box { background: #21262d; border: 1px dashed #f85149; padding: 20px; border-radius: 12px; text-align: center; color: #f85149; margin-bottom: 20px; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -74,13 +76,21 @@ def lig_verisi_al(lig_kodu):
                             headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
     except: return {}
 
-# --- 5. SIDEBAR ---
-st.sidebar.title("🌍 Global UltraSkor")
-filtre = st.sidebar.radio("🚀 Mod Seçimi:", ["Lig Odaklı", "Standart AI (Global)", "Spektrum AI (Global)", "Nexus AI (Global)"])
-
 def winner(skor_str):
     p = skor_str.split(" - ")
     return "1" if int(p[0]) > int(p[1]) else ("2" if int(p[1]) > int(p[0]) else "X")
+
+# --- 5. ZAMAN KONTROLÜ ---
+def tahminler_acik_mi():
+    simdi = datetime.now()
+    # Cuma = 4 (Pazartesi=0), Saat = 12
+    if simdi.weekday() < 4: return False
+    if simdi.weekday() == 4 and simdi.hour < 12: return False
+    return True
+
+# --- 6. SIDEBAR ---
+st.sidebar.title("🌍 Global UltraSkor")
+filtre = st.sidebar.radio("🚀 Mod Seçimi:", ["Lig Odaklı", "Standart AI (Global)", "Spektrum AI (Global)", "Nexus AI (Global)"])
 
 if filtre == "Lig Odaklı":
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
@@ -89,92 +99,119 @@ if filtre == "Lig Odaklı":
     if m_data:
         haftalar = sorted(list(set([m['matchday'] for m in m_data if m['matchday'] is not None])), reverse=True)
         bit_list = [m['matchday'] for m in m_data if m['status'] == 'FINISHED']
-        mevcut = max(bit_list) if bit_list else 1
-        hafta_secim = st.sidebar.selectbox("📅 Hafta", haftalar, index=haftalar.index(mevcut))
+        mevcut_h = max(bit_list) if bit_list else 1
+        
+        # Eğer aktif haftadaysak ve cuma 12:00 gelmediyse uyarı ver
+        is_future = False
+        hafta_secim = st.sidebar.selectbox("📅 Hafta", haftalar, index=haftalar.index(mevcut_h))
+        
+        if hafta_secim > mevcut_h:
+            is_future = True
         
         st.title(f"🏆 {lig_adi} - {hafta_secim}. Hafta")
-        for m in [x for x in m_data if x['matchday'] == hafta_secim]:
-            res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
-            if res:
-                m_p = f'<h3>{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</h3>' if m['status']=='FINISHED' else f'🕒 {m["utcDate"][11:16]}'
+        
+        if is_future and not tahminler_acik_mi():
+            st.markdown('<div class="lock-box">🔒 Gelecek haftanın tahminleri Cuma 12:00\'de yayınlanacaktır.</div>', unsafe_allow_html=True)
+        else:
+            for m in [x for x in m_data if x['matchday'] == hafta_secim]:
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_data)
+                if res:
+                    m_p = f'<h3>{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</h3>' if m['status']=='FINISHED' else f'🕒 {m["utcDate"][11:16]}'
+                    st.markdown(f"""
+                    <div class="match-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div>
+                            <div style="width: 30%; text-align: center;">{m_p}</div>
+                            <div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+                            <div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div>
+                            <div class="prediction-box">🛡️ SPEC<br><b>{res['spec']}</b></div>
+                            <div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+else:
+    # GLOBAL PANORAMA MODU
+    st.title(f"🚀 Global Haftalık Panorama")
+    
+    # Global modda hafta seçimi için (Tüm liglerin ortak haftasını bulamazsak en büyüğünü alıyoruz)
+    dummy_data = lig_verisi_al(LIGLER["İngiltere"]).get('matches', [])
+    if dummy_data:
+        bitenler = [x['matchday'] for x in dummy_data if x['status'] == 'FINISHED']
+        g_aktif_h = max(bitenler) if bitenler else 1
+        
+        st.sidebar.markdown("---")
+        h_arşiv = st.sidebar.selectbox("📅 Arşiv Haftası Seç", range(1, g_aktif_h + 2), index=g_aktif_h-1)
+        
+        is_locked = False
+        if h_arşiv > g_aktif_h and not tahminler_acik_mi():
+            is_locked = True
+            
+        if is_locked:
+            st.markdown('<div class="lock-box">🔒 Yeni haftanın Global Analizleri Cuma 12:00\'de netleşecektir.</div>', unsafe_allow_html=True)
+        else:
+            global_list = []
+            with st.spinner("Analiz ediliyor..."):
+                for l_ad, l_kod in LIGLER.items():
+                    l_data = lig_verisi_al(l_kod).get('matches', [])
+                    if not l_data: continue
+                    # Seçilen haftadaki maçları al
+                    for m in [x for x in l_data if x['matchday'] == h_arşiv]:
+                        res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_data)
+                        if res:
+                            puan = res['s_c'] if "Standart" in filtre else (res['sp_c'] if "Spektrum" in filtre else res['n_c'])
+                            m.update({'res': res, 'l_ad': l_ad, 'puan': puan})
+                            global_list.append(m)
+            
+            global_list = sorted(global_list, key=lambda x: x['puan'], reverse=True)[:20]
+            
+            isabet, biten_toplam = 0, 0
+            for m in global_list:
+                if m['status'] == 'FINISHED':
+                    biten_toplam += 1
+                    gw = "1" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("2" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "X")
+                    res = m['res']
+                    tahmin = res['std'] if "Standart" in filtre else (res['spec'] if "Spektrum" in filtre else res['nexus'])
+                    if winner(tahmin) == gw: isabet += 1
+
+            algo_adi = filtre.replace('(Global)','')
+            st.markdown(f"""
+            <div class="score-banner">
+                <h2 style="margin:0; color:#58A6FF;">{h_arşiv}. Hafta {algo_adi} Karnesi</h2>
+                <div style="display:flex; justify-content:center; gap:30px; margin-top:10px;">
+                    <div><small>Biten</small><br><b style="font-size:1.5rem;">{biten_toplam}</b></div>
+                    <div><small>Doğru</small><br><b style="font-size:1.5rem; color:#238636;">{isabet}</b></div>
+                    <div><small>Başarı Oranı</small><br><b style="font-size:1.5rem; color:#f85149;">%{int((isabet/biten_toplam)*100) if biten_toplam>0 else 0}</b></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            for m in global_list:
+                res = m['res']
+                c_s, c_sp, c_nx = "", "", ""
+                if m['status'] == 'FINISHED':
+                    gw = "1" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("2" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "X")
+                    if winner(res['std']) == gw: c_s = " ✅"
+                    if winner(res['spec']) == gw: c_sp = " ✅"
+                    if winner(res['nexus']) == gw: c_nx = " ✅"
+                    m_p = f'<h3>{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</h3>'
+                else:
+                    m_p = f'🕒 {m["utcDate"][11:16]}'
+
                 st.markdown(f"""
                 <div class="match-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="rank-badge">🔥 Güven: %{m['puan']}</div>
+                    <div class="league-label">{m['l_ad']} - {m['matchday']}. Hafta</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;">
                         <div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div>
                         <div style="width: 30%; text-align: center;">{m_p}</div>
                         <div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div>
                     </div>
                     <div style="display: flex; justify-content: space-around; margin-top: 15px;">
-                        <div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div>
-                        <div class="prediction-box">🛡️ SPEC<br><b>{res['spec']}</b></div>
-                        <div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div>
+                        <div class="prediction-box {'active-algo' if 'Standart' in filtre else ''}">🤖 STD<br><b>{res['std']}{c_s}</b></div>
+                        <div class="prediction-box {'active-algo' if 'Spektrum' in filtre else ''}">🛡️ SPEC<br><b>{res['spec']}{c_sp}</b></div>
+                        <div class="prediction-box {'active-algo' if 'Nexus' in filtre else ''}">🔥 NEXUS<br><b>{res['nexus']}{c_nx}</b></div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-else:
-    # GLOBAL PANORAMA MODU
-    st.title(f"🚀 Global Haftalık Panorama")
-    global_list = []
-    with st.spinner("Ligler taranıyor..."):
-        for l_ad, l_kod in LIGLER.items():
-            l_data = lig_verisi_al(l_kod).get('matches', [])
-            if not l_data: continue
-            b_list = [x['matchday'] for x in l_data if x['status'] == 'FINISHED']
-            a_h = max(b_list) if b_list else 1
-            for m in [x for x in l_data if x['matchday'] == a_h]:
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_data)
-                if res:
-                    p = res['s_c'] if "Standart" in filtre else (res['sp_c'] if "Spektrum" in filtre else res['n_c'])
-                    m.update({'res': res, 'l_ad': l_ad, 'puan': p})
-                    global_list.append(m)
-    
-    global_list = sorted(global_list, key=lambda x: x['puan'], reverse=True)[:20]
-    isabet, biten = 0, 0
-    for m in global_list:
-        if m['status'] == 'FINISHED':
-            biten += 1
-            gw = "1" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("2" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "X")
-            res = m['res']
-            t = res['std'] if "Standart" in filtre else (res['spec'] if "Spektrum" in filtre else res['nexus'])
-            if winner(t) == gw: isabet += 1
-
-    algo = filtre.replace('(Global)','')
-    st.markdown(f"""
-    <div class="score-banner">
-        <h2 style="margin:0;">{algo} Başarı Tablosu</h2>
-        <div style="display:flex; justify-content:center; gap:30px; margin-top:10px;">
-            <div><small>Biten</small><br><b style="font-size:1.5rem;">{biten}</b></div>
-            <div><small>Doğru</small><br><b style="font-size:1.5rem; color:#238636;">{isabet}</b></div>
-            <div><small>Oran</small><br><b style="font-size:1.5rem; color:#f85149;">%{int((isabet/biten)*100) if biten>0 else 0}</b></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    for m in global_list:
-        res = m['res']
-        c_s, c_sp, c_nx = "", "", ""
-        if m['status'] == 'FINISHED':
-            gw = "1" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("2" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "X")
-            if winner(res['std']) == gw: c_s = " ✅"
-            if winner(res['spec']) == gw: c_sp = " ✅"
-            if winner(res['nexus']) == gw: c_nx = " ✅"
-            m_p = f'<h3>{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</h3>'
-        else:
-            m_p = f'🕒 {m["utcDate"][11:16]}'
-
-        st.markdown(f"""
-        <div class="match-card">
-            <div class="rank-badge">🔥 Güven: %{m['puan']}</div>
-            <div class="league-label">{m['l_ad']} - {m['matchday']}. Hafta</div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;">
-                <div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div>
-                <div style="width: 30%; text-align: center;">{m_p}</div>
-                <div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div>
-            </div>
-            <div style="display: flex; justify-content: space-around; margin-top: 15px;">
-                <div class="prediction-box {'active-algo' if 'Standart' in filtre else ''}">🤖 STD<br><b>{res['std']}{c_s}</b></div>
-                <div class="prediction-box {'active-algo' if 'Spektrum' in filtre else ''}">🛡️ SPEC<br><b>{res['spec']}{c_sp}</b></div>
-                <div class="prediction-box {'active-algo' if 'Nexus' in filtre else ''}">🔥 NEXUS<br><b>{res['nexus']}{c_nx}</b></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
