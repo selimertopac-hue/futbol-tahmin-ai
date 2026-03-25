@@ -94,4 +94,58 @@ elif mod == "Global AI":
     
     st.title(f"🚀 {filtre} - Sitemiz {s_sec}. Hafta")
     
-    # KİLİT MANTI
+    # KİLİT MANTIĞI: Eğer seçilen hafta mevcut haftadan büyükse VE Cuma 12:00 gelmediyse kilitle
+    gelecek_mi = s_sec > site_h_aktif
+    cuma_geldi_mi = (simdi.weekday() >= 4 and (simdi.weekday() > 4 or simdi.hour >= 12))
+    
+    if gelecek_mi and not cuma_geldi_mi:
+        st.markdown(f'<div class="lock-box">🔒 {s_sec}. Hafta Tahminleri Cuma 12:00\'de.<br><div style="font-size:2rem; font-weight:bold;">{geri_sayim()}</div></div>', unsafe_allow_html=True)
+    else:
+        g_l = []
+        for l_ad, l_d in all_d.items():
+            m_l = l_d.get('matches', [])
+            if not m_l: continue
+            # Ligin bitmiş son haftasını bul
+            bitenler = [x['matchday'] for x in m_l if x['status'] == 'FINISHED']
+            l_son_h = max(bitenler) if bitenler else 1
+            
+            # Arşiv mi yoksa güncel/gelecek mi?
+            # s_sec == 1 ise (Sitenin 1. haftası) ligin bitmiş haftasını göster
+            # s_sec > site_h_aktif ise ligin bir sonraki haftasını göster
+            target = l_son_h - (site_h_aktif - s_sec)
+            
+            for m in [x for x in m_l if x['matchday'] == target]:
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_l)
+                if res:
+                    p = res['s_c'] if "Standart" in filtre else (res['sp_c'] if "Spektrum" in filtre else res['n_c'])
+                    m.update({'res': res, 'l_ad': l_ad, 'puan': p})
+                    g_l.append(m)
+        
+        g_l = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]
+        isabet, biten = 0, 0
+        for m in g_l:
+            if m['status'] == 'FINISHED':
+                biten += 1
+                gw = "1" if m['score']['fullTime']['home'] > m['score']['fullTime']['away'] else ("2" if m['score']['fullTime']['away'] > m['score']['fullTime']['home'] else "X")
+                t = m['res']['std'] if "Standart" in filtre else (m['res']['spec'] if "Spektrum" in filtre else m['res']['nexus'])
+                if (lambda x: "1" if int(x.split(" - ")[0]) > int(x.split(" - ")[1]) else ("2" if int(x.split(" - ")[1]) > int(x.split(" - ")[0]) else "X"))(t) == gw: isabet += 1
+        
+        if biten > 0: st.success(f"📈 ARŞİV ANALİZİ: {biten} maçta {isabet} isabet! (%{int((isabet/biten)*100)})")
+        
+        for m in g_l:
+            res = m['res']
+            m_p = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
+            st.markdown(f"""<div class="match-card"><div class="rank-badge">🔥 %{m['puan']}</div><div class="league-label">{m['l_ad']} - Lig Haftası {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div><div style="width: 30%; text-align: center;">{m_p}</div><div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🛡️ SPEC<br><b>{res['spec']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div></div>""", unsafe_allow_html=True)
+else:
+    # LİG ODAKLI (ESKİ SİSTEM)
+    lig = st.sidebar.selectbox("🎯 Lig", list(LIGLER.keys()))
+    l_m = all_d[lig].get('matches', [])
+    if l_m:
+        h_l = sorted(list(set([m['matchday'] for m in l_m if m['matchday']])))
+        g_h = max([m['matchday'] for m in l_m if m['status'] == 'FINISHED'] or [1])
+        h_s = st.sidebar.selectbox("📅 Hafta", h_l, index=h_l.index(g_h))
+        for m in [x for x in l_m if x['matchday'] == h_s]:
+            res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_m)
+            if res:
+                m_p = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
+                st.markdown(f"""<div class="match-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div><div style="width: 30%; text-align: center;">{m_p}</div><div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🛡️ SPEC<br><b>{res['spec']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div></div>""", unsafe_allow_html=True)
