@@ -13,8 +13,6 @@ LIGLER = {
 }
 
 # --- SİTE MİLAT AYARI ---
-# Liglerin 25. haftası = Bizim 1. Bültenimiz
-# Liglerin 26. haftası = Bizim 2. Bültenimiz (Şu anki hafta)
 LIG_HAFTA_OFFSET = 24 
 
 st.set_page_config(page_title="UltraSkor Pro: Global VIP", page_icon="🌍", layout="wide")
@@ -95,7 +93,6 @@ filtre = st.sidebar.radio("🚀 Mod Seçimi:", ["Lig Odaklı", "Standart AI (Glo
 
 all_data = {lig: lig_verisi_al(kod) for lig, kod in LIGLER.items()}
 
-# AKTİF HAFTAYI BELİRLE
 def aktif_hafta_bul():
     mds = []
     for d in all_data.values():
@@ -104,7 +101,6 @@ def aktif_hafta_bul():
     return max(mds) if mds else LIG_HAFTA_OFFSET + 1
 
 gercek_aktif_h = aktif_hafta_bul()
-# Bizim bülten sayımız: (Şu anki lig haftası - miladımız) + 1 (Gelecek hafta için)
 maksimum_bulten_no = (gercek_aktif_h - LIG_HAFTA_OFFSET) + 1
 
 if filtre == "Lig Odaklı":
@@ -112,15 +108,14 @@ if filtre == "Lig Odaklı":
     l_m = all_data[lig_adi].get('matches', [])
     if l_m:
         h_liste = sorted(list(set([m['matchday'] for m in l_m if m['matchday'] and m['matchday'] > LIG_HAFTA_OFFSET and m['matchday'] <= gercek_aktif_h + 1])))
-        h_secim = st.sidebar.selectbox("📅 Hafta", h_liste, index=len(h_liste)-2 if len(h_liste)>1 else 0, format_func=lambda x: f"{x - LIG_HAFTA_OFFSET}. Bülten (Hafta {x})")
+        h_secim = st.sidebar.selectbox("📅 Hafta", h_liste, index=len(h_liste)-2 if len(h_liste)>1 else 0, format_func=lambda x: f"{x - LIG_HAFTA_OFFSET}. Bülten")
         
         st.title(f"🏆 {lig_adi} - Bülten {h_secim - LIG_HAFTA_OFFSET}")
         
         if h_secim > gercek_aktif_h and not tahminler_acik_mi():
-            st.markdown('<div class="lock-box">🔒 Bu bültenin tahminleri Cuma 12:00\'de yayınlanacaktır.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="lock-box">🔒 Gelecek bültenin tahminleri Cuma 12:00\'de yayınlanacaktır.</div>', unsafe_allow_html=True)
         else:
             for m in [x for x in l_m if x['matchday'] == h_secim]:
                 res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_m)
                 if res:
-                    m_sk = f'<h3>{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}</h3>' if m['status']=='FINISHED' else f'🕒 {m["utcDate"][11:16]}'
-                    st.markdown(f"""<div class="match-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="text-align: center; width: 30%;"><img src="{m['homeTeam']['crest']}" width="35"><br><b>{m['homeTeam']['name']}</b></div><div style="width: 30%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 30%;"><img src="{m['awayTeam']['crest']}" width="35"><br><b>{m['awayTeam']['name']}</b></div></div><div style="display: flex; justify-content: space-around; margin-
+                    m_sk = f'<h3>{m["score
