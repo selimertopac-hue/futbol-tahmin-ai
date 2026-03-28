@@ -21,7 +21,7 @@ st.markdown("""
     .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; flex: 1; margin: 0 4px; }
     .ai-insight { background: rgba(88, 166, 255, 0.05); border-left: 4px solid #58A6FF; padding: 12px; margin-top: 15px; border-radius: 4px; font-size: 0.9rem; color: #C9D1D9; font-style: italic; }
     .lock-box { background: #161b22; border: 2px dashed #f85149; padding: 40px; border-radius: 15px; text-align: center; color: #f85149; margin-bottom: 20px; }
-    .milli-ara-box { background: #1c2128; border: 1px solid #58A6FF; padding: 40px; border-radius: 15px; text-align: center; margin: 20px auto; }
+    .milli-ara-box { background: #1c2128; border: 1px solid #58A6FF; padding: 40px; border-radius: 15px; text-align: center; margin: 20px auto; border-top: 5px solid #58A6FF; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -47,9 +47,7 @@ def analiz_et(ev, dep, matches):
         d_g, d_y, d_t = get_stats(dep, False)
         ex, ax = (e_g/l_e)*(d_y/l_e)*l_e, (d_g/l_d)*(e_y/l_d)*l_d
         
-        if (ex + ax) > 3.2: note = "⚽ **Gol Festivali:** xG verileri bol gollü bir maç fısıldıyor."
-        elif e_t > 1.2: note = f"🚀 **Hücum İvmesi:** {ev} son dönemde çok üretken."
-        else: note = "⚖️ **Taktiksel Satranç:** Savunma disiplininin ön planda olacağı bir mücadele."
+        note = f"🚀 {ev} son dönemde hücumda çok üretken." if e_t > 1.2 else "⚖️ Taktiksel disiplinin ön planda olacağı bir mücadele."
 
         def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
@@ -96,16 +94,19 @@ if mod == "Global AI":
 
     # KONTROL 1: GELECEK HAFTA KİLİDİ
     if s_sec > site_h_aktif and not tahmin_acik_mi():
-        st.markdown(f"""<div class="lock-box"><h2>🔒 Tahminler Kilitli</h2><p>{s_sec}. Hafta bülteni Cuma 12:00'de yayına girecektir.</p><div style="font-size:2.5rem; font-weight:bold; font-family:monospace;">{geri_sayim()}</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="lock-box"><h2>🔒 Tahminler Kilitli</h2><p>{s_sec}. Hafta bülteni Cuma 12:00'de yayınlanacaktır.</p><div style="font-size:2.5rem; font-weight:bold; font-family:monospace;">{geri_sayim()}</div></div>""", unsafe_allow_html=True)
     else:
+        # VERİ TOPLAMA
         g_l = []
         for l_ad, l_data in all_d.items():
             matches = l_data.get('matches', [])
             if not matches: continue
             
-            # API'den o haftaki maçları bul (Milli ara kontrolü burada)
+            # API'deki en son biten lig haftasını bul
             bitenler = [m['matchday'] for m in matches if m['status'] == 'FINISHED']
             l_son = max(bitenler) if bitenler else 1
+            
+            # Seçilen site haftasının ligdeki karşılığını hesapla
             target_md = l_son - (site_h_aktif - s_sec)
             
             md_matches = [m for m in matches if m['matchday'] == target_md]
@@ -116,10 +117,17 @@ if mod == "Global AI":
                     m.update({'res': res, 'l_ad': l_ad, 'puan': p})
                     g_l.append(m)
 
-        # KONTROL 2: MİLLİ ARA (MAÇ YOKSA)
+        # KONTROL 2: MİLLİ ARA (EĞER HİÇ MAÇ YOKSA)
         if not g_l:
-            st.markdown("""<div class="milli-ara-box"><h2>🏁 Milli Ara Radarı</h2><p>Bu bülten döneminde takip ettiğimiz liglerde maç bulunmamaktadır.</p><p style="color:#8B949E;">Arşiv haftalarını gezebilir veya bir sonraki bülteni bekleyebilirsiniz.</p></div>""", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="milli-ara-box">
+                <h2>🇪🇺 Milli Takım Arası</h2>
+                <p>Şu an Avrupa'da Milli Takım maçları oynandığı için lig bülteni bulunmamaktadır.</p>
+                <p style="color:#8B949E; font-size:0.9rem;">Sitemiz {s_sec}. haftada liglerin dönüşünü bekliyor. Arşiv bültenlerini inceleyebilir veya bir sonraki haftayı bekleyebilirsiniz.</p>
+            </div>
+            """, unsafe_allow_html=True)
         else:
+            # LİSTELEME
             top_20 = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]
             for m in top_20:
                 res = m['res']
