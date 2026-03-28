@@ -1,5 +1,4 @@
 import streamlit as st
-import pd as pd # Not: pandas as pd olmalı, aşağıda düzelttim
 import pandas as pd
 import numpy as np
 from scipy.stats import poisson
@@ -23,12 +22,11 @@ st.markdown("""
     .ai-insight { background: rgba(88, 166, 255, 0.05); border-left: 4px solid #58A6FF; padding: 12px; margin-top: 15px; border-radius: 4px; font-size: 0.9rem; color: #C9D1D9; font-style: italic; }
     .lock-box { background: #161b22; border: 2px dashed #f85149; padding: 40px; border-radius: 15px; text-align: center; color: #f85149; margin-bottom: 20px; }
     .milli-ara-box { background: #1c2128; border: 1px solid #58A6FF; padding: 40px; border-radius: 15px; text-align: center; margin: 20px auto; }
-    .hall-card { background: #1c2128; border: 1px solid #30363d; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 10px; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. YARDIMCI FONKSİYONLAR ---
+# --- 3. ANALİZ MOTORU ---
 def analiz_et(ev, dep, matches):
     try:
         df_raw = [m for m in matches if m['status'] == 'FINISHED' and m['score']['fullTime']['home'] is not None]
@@ -83,7 +81,6 @@ def geri_sayim():
     return f"{k.days} Gün {k.seconds//3600:02d}:{(k.seconds//60)%60:02d}:{k.seconds%60:02d}"
 
 def tahmin_acik_mi():
-    # Cuma 12:00 kontrolü
     if simdi.weekday() < 4: return False
     if simdi.weekday() == 4 and simdi.hour < 12: return False
     return True
@@ -95,21 +92,18 @@ all_d = {lig: veri_al(kod) for lig, kod in LIGLER.items()}
 if mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["Standart AI", "Spektrum AI", "Nexus AI"])
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", range(1, site_h_aktif + 2), index=site_h_aktif-1)
-    
     st.title(f"🚀 {filtre} - {s_sec}. Hafta")
 
-    # --- KRİTİK KONTROL 1: GELECEK HAFTA KİLİDİ ---
-    if s_sec > site_h_aktif and not tahmin_ac_mi():
-        st.markdown(f"""<div class="lock-box"><h2>🔒 Tahminler Kilitli</h2><p>{s_sec}. Hafta analizleri Cuma 12:00'de yayına girecektir.</p><div style="font-size:2.5rem; font-weight:bold; font-family:monospace;">{geri_sayim()}</div></div>""", unsafe_allow_html=True)
-    
+    # KONTROL 1: GELECEK HAFTA KİLİDİ
+    if s_sec > site_h_aktif and not tahmin_acik_mi():
+        st.markdown(f"""<div class="lock-box"><h2>🔒 Tahminler Kilitli</h2><p>{s_sec}. Hafta bülteni Cuma 12:00'de yayına girecektir.</p><div style="font-size:2.5rem; font-weight:bold; font-family:monospace;">{geri_sayim()}</div></div>""", unsafe_allow_html=True)
     else:
-        # --- VERİ TOPLAMA VE ANALİZ ---
         g_l = []
         for l_ad, l_data in all_d.items():
             matches = l_data.get('matches', [])
             if not matches: continue
             
-            # API'deki lig haftasını sitemizinkine uyduruyoruz
+            # API'den o haftaki maçları bul (Milli ara kontrolü burada)
             bitenler = [m['matchday'] for m in matches if m['status'] == 'FINISHED']
             l_son = max(bitenler) if bitenler else 1
             target_md = l_son - (site_h_aktif - s_sec)
@@ -122,11 +116,10 @@ if mod == "Global AI":
                     m.update({'res': res, 'l_ad': l_ad, 'puan': p})
                     g_l.append(m)
 
-        # --- KRİTİK KONTROL 2: MİLLİ ARA ---
+        # KONTROL 2: MİLLİ ARA (MAÇ YOKSA)
         if not g_l:
-            st.markdown("""<div class="milli-ara-box"><h2>🏁 Milli Ara Radarı</h2><p>Şu an takip ettiğimiz liglerde milli maç arası nedeniyle lig maçı bulunmamaktadır.</p><p style="color:#8B949E;">Arşiv haftalarını gezerek geçmiş başarılarımızı inceleyebilirsiniz.</p></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="milli-ara-box"><h2>🏁 Milli Ara Radarı</h2><p>Bu bülten döneminde takip ettiğimiz liglerde maç bulunmamaktadır.</p><p style="color:#8B949E;">Arşiv haftalarını gezebilir veya bir sonraki bülteni bekleyebilirsiniz.</p></div>""", unsafe_allow_html=True)
         else:
-            # --- LİSTELEME: ✅/❌ VE ANALİZ NOTLARI DAHİL ---
             top_20 = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]
             for m in top_20:
                 res = m['res']
@@ -157,8 +150,7 @@ if mod == "Global AI":
                 </div>""", unsafe_allow_html=True)
 
 elif mod == "🏆 Onur Listesi":
-    st.title("🏆 Sitemizin Gurur Tablosu")
-    c1, c2, c3 = st.columns(3)
-    with c1: st.markdown('<div class="hall-card"><span style="color:#58A6FF;">🤖 Standart AI</span><br><b>%72 Başarı</b></div>', unsafe_allow_html=True)
-    with c2: st.markdown('<div class="hall-card"><span style="color:#58A6FF;">🛡️ Spektrum AI</span><br><b>%76 Başarı</b></div>', unsafe_allow_html=True)
-    with c3: st.markdown('<div class="hall-card"><span style="color:#58A6FF;">🔥 Nexus AI</span><br><b style="color:#238636;">%84 Başarı</b></div>', unsafe_allow_html=True)
+    st.title("🏆 Gurur Tablosu")
+    st.info("Efsane haftalar burada sergilenir.")
+else:
+    st.info("Lig Odaklı mod seçildi.")
