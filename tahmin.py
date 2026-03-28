@@ -167,19 +167,6 @@ elif mod == "Global AI":
             st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⚽ ÜST <span class="success-badge">{h}/3</span></div>', unsafe_allow_html=True)
             for m in festivaller: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]}-{m["awayTeam"]["shortName"]}<br>xG: {m["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
-            surprizler = sorted([x for x in g_l if winner(x['res']['aether']) != "1"], key=lambda x: x['puan'], reverse=True)[:3]
-            with c2:
-                h = check_hit(surprizler, "surpriz")
-                st.markdown(f'<div class="editor-card"><div class="coupon-title">🕵️ SÜRPRİZ (AETHER) <span class="success-badge">{h}/3</span></div>', unsafe_allow_html=True)
-                for m in surprizler: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]}-{m["awayTeam"]["shortName"]}<br>Tahmin: {m["res"]["aether"]}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            festivaller = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:3]
-            with c3:
-                h = check_hit(festivaller, "ust")
-                st.markdown(f'<div class="editor-card"><div class="coupon-title">⚽ ÜST <span class="success-badge">{h}/3</span></div>', unsafe_allow_html=True)
-                for m in festivaller: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]}-{m["awayTeam"]["shortName"]}<br>xG: {m["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
             st.markdown("---")
             for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
                 res = m['res']
