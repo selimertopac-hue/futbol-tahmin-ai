@@ -10,7 +10,7 @@ FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 LIGLER = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
 SİTE_DOGUM_TARİHİ = datetime(2026, 3, 20) 
 
-st.set_page_config(page_title="UltraSkor Pro: Terminal Mode", page_icon="📊", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Hybrid Terminal", page_icon="📈", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -25,6 +25,7 @@ st.markdown("""
     .standings-table { font-size: 0.8rem; width: 100%; border-collapse: collapse; background: #161b22; border-radius: 10px; overflow: hidden; }
     .standings-table th { background: #30363d; padding: 10px; text-align: left; color: #58A6FF; }
     .standings-table td { padding: 8px 10px; border-bottom: 1px solid #30363d; }
+    .lock-box { background: #161b22; border: 2px dashed #f85149; padding: 40px; border-radius: 15px; text-align: center; color: #f85149; margin-bottom: 20px; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -68,37 +69,99 @@ def analiz_et(ev, dep, matches):
         d_g, d_y, d_t = get_stats(dep, False)
         ex, ax = (e_g/l_e)*(d_y/l_e)*l_e, (d_g/l_d)*(e_y/l_d)*l_d
         
+        note = f"🚀 {ev} son dönemde hücumda çok üretken." if e_t > 1.2 else "⚖️ Taktiksel disiplinin ön planda olacağı bir mücadele."
+
         def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
         std, s_c = sk(ex, ax); spec, sp_c = sk(ex*1.1, ax*0.9); nx, n_c = sk(ex*1.2, ax*0.8)
-        return {"std": std, "s_c": s_c, "spec": spec, "sp_c": sp_c, "nexus": nx, "n_c": n_c, "total_xg": (ex+ax)}
+        return {"std": std, "s_c": s_c, "spec": spec, "sp_c": sp_c, "nexus": nx, "n_c": n_c, "note": note}
     except: return None
 
-# --- 4. ANA MENÜ ---
+# --- 4. ZAMAN & HAFTA HESABI ---
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
-mod = st.sidebar.radio("🚀 Menü", ["Global AI", "Lig Odaklı", "🏆 Onur Listesi"])
 
-if mod == "Lig Odaklı":
+def geri_sayim(hedef_tarih):
+    k = hedef_tarih - simdi
+    if k.total_seconds() <= 0: return "0 Gün 00:00:00"
+    return f"{k.days} Gün {k.seconds//3600:02d}:{(k.seconds//60)%60:02d}:{k.seconds%60:02d}"
+
+def winner(sk):
+    p = sk.split(" - ")
+    return "1" if int(p[0]) > int(p[1]) else ("2" if int(p[1]) > int(p[0]) else "X")
+
+# --- 5. ANA MENÜ ---
+mod = st.sidebar.radio("🚀 Menü", ["Global AI", "Lig Odaklı", "🏆 Onur Listesi"])
+all_d = {lig: veri_al(f"competitions/{kod}/matches") for lig, kod in LIGLER.items()}
+
+if mod == "Global AI":
+    filtre = st.sidebar.radio("🤖 Algoritma", ["Standart AI", "Spektrum AI", "Nexus AI"])
+    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
+    
+    HAFTA_ACILISLARI = {
+        1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
+        2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
+        3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12),
+        4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12) 
+    }
+    
+    hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099,1,1))
+    st.title(f"🚀 {filtre} - {s_sec}. Hafta")
+
+    if simdi < hedef_tarih:
+        st.markdown(f"""<div class="lock-box"><h2>🔒 {s_sec}. Hafta Tahminleri Kilitli</h2><p>Bülten yayını: <b>{hedef_tarih.strftime('%d %B %Y %H:%M')}</b></p><div style="font-size:2.5rem; font-weight:bold; font-family:monospace;">{geri_sayim(hedef_tarih)}</div></div>""", unsafe_allow_html=True)
+    else:
+        g_l = []
+        for l_ad, l_data in all_d.items():
+            matches = l_data.get('matches', [])
+            if not matches: continue
+            bitenler = [m['matchday'] for m in matches if m['status'] == 'FINISHED']
+            l_son = max(bitenler) if bitenler else 1
+            target_md = l_son - (site_h_aktif - s_sec)
+            
+            for m in [x for x in matches if x['matchday'] == target_md]:
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], matches)
+                if res:
+                    p = res['s_c'] if "Standart" in filtre else (res['sp_c'] if "Spektrum" in filtre else res['n_c'])
+                    m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': matches})
+                    g_l.append(m)
+
+        if not g_l:
+            st.markdown("""<div class="lock-box"><h2>🏁 Milli Ara Radarı</h2><p>Bu haftaya ait lig maçı bulunmamaktadır.</p></div>""", unsafe_allow_html=True)
+        else:
+            top_20 = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]
+            for m in top_20:
+                res = m['res']
+                c_s, c_sp, c_nx = "", "", ""
+                if m['status'] == 'FINISHED':
+                    gw = winner(f'{m["score"]["fullTime"]["home"]} - {m["score"]["fullTime"]["away"]}')
+                    c_s = " ✅" if winner(res['std']) == gw else " ❌"
+                    c_sp = " ✅" if winner(res['spec']) == gw else " ❌"
+                    c_nx = " ✅" if winner(res['nexus']) == gw else " ❌"
+                    m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>"
+                else: m_sk = f"🕒 {m['utcDate'][11:16]}"
+                
+                st.markdown(f"""<div class="match-card"><div class="rank-badge">🔥 %{m['puan']}</div><div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box">🤖 STD<br><b>{res['std']}{c_s}</b></div><div class="prediction-box">🛡️ SPEC<br><b>{res['spec']}{c_sp}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}{c_nx}</b></div></div><div class="ai-insight">💡 <b>AI Analiz:</b> {res['note']}</div></div>""", unsafe_allow_html=True)
+
+elif mod == "Lig Odaklı":
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
     lig_kodu = LIGLER[lig_adi]
     
-    # Veri Çekme (Puan Durumu ve Maçlar)
     puan_durumu_data = veri_al(f"competitions/{lig_kodu}/standings")
-    maclar_data = veri_al(f"competitions/{lig_kodu}/matches")
+    maclar_data = all_d[lig_adi]
     
-    col_standings, col_matches = st.columns([1, 2.5]) # Sayfayı bölüyoruz
+    col_standings, col_matches = st.columns([1, 2.5])
     
     with col_standings:
         st.subheader("📊 Puan Durumu")
         if puan_durumu_data.get('standings'):
             table = puan_durumu_data['standings'][0]['table']
-            html = '<table class="standings-table"><tr><th>#</th><th>Takım</th><th>O</th><th>P</th></tr>'
+            html = '<table class="standings-table"><tr><th>#</th><th>Takım</th><th>P</th></tr>'
             for t in table:
-                html += f'<tr><td>{t["position"]}</td><td>{t["team"]["shortName"]}</td><td>{t["playedGames"]}</td><td><b>{t["points"]}</b></td></tr>'
+                html += f'<tr><td>{t["position"]}</td><td>{t["team"]["shortName"]}</td><td><b>{t["points"]}</b></td></tr>'
             html += '</table>'
             st.markdown(html, unsafe_allow_html=True)
             
@@ -114,31 +177,7 @@ if mod == "Lig Odaklı":
                 res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_matches)
                 if res:
                     m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
-                    st.markdown(f"""
-                    <div class="match-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="text-align: center; width: 33%;">
-                                <img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>
-                                {get_form_dots(m['homeTeam']['name'], l_matches)}
-                            </div>
-                            <div style="width: 33%; text-align: center;">{m_sk}</div>
-                            <div style="text-align: center; width: 33%;">
-                                <img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>
-                                {get_form_dots(m['awayTeam']['name'], l_matches)}
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-around; margin-top: 15px;">
-                            <div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div>
-                            <div class="prediction-box">🛡️ SPEC<br><b>{res['spec']}</b></div>
-                            <div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div>
-                        </div>
-                    </div>""", unsafe_allow_html=True)
-
-elif mod == "Global AI":
-    # Global AI kodun aynen devam ediyor (önceki v44.0'daki gibi)
-    st.title("🌍 Global AI Analiz")
-    # ... (Global AI kodunu buraya v44.0'dan olduğu gibi ekliyoruz)
-    st.info("Global AI bülteni hazır.")
+                    st.markdown(f"""<div class="match-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], l_matches)}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], l_matches)}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🛡️ SPEC<br><b>{res['spec']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div><div class="ai-insight">💡 <b>AI Analiz:</b> {res['note']}</div></div>""", unsafe_allow_html=True)
 
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Gurur Tablosu")
