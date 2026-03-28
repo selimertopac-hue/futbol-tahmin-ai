@@ -5,23 +5,14 @@ from scipy.stats import poisson
 import requests
 from datetime import datetime, timedelta
 
-# --- 1. AYARLAR & GENİŞLETİLMİŞ LİG HAVUZU ---
+# --- 1. AYARLAR & MİLAT ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
-# Championship (ELC) eklendi, böylece milli aralarda bülten dolacak.
-LIGLER = {
-    "İngiltere": "PL", 
-    "İngiltere 2": "ELC", 
-    "İspanya": "PD", 
-    "İtalya": "SA", 
-    "Almanya": "BL1", 
-    "Fransa": "FL1", 
-    "Hollanda": "DED"
-}
+LIGLER = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
 SİTE_DOGUM_TARİHİ = datetime(2026, 3, 20) 
 
 st.set_page_config(page_title="UltraSkor Pro: Master Terminal", page_icon="🎯", layout="wide")
 
-# --- 2. GÖRSEL STİL (TAMAMEN KORUNDU) ---
+# --- 2. GÖRSEL STİL ---
 st.markdown("""
     <style>
     .stApp { background-color: #0D1117; color: #C9D1D9; }
@@ -31,6 +22,7 @@ st.markdown("""
     .full-hit-seal { position: absolute; top: -10px; right: -10px; background: #D4AF37; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; transform: rotate(15deg); box-shadow: 0 0 10px rgba(212,175,55,0.5); z-index: 10; font-size: 0.8rem; }
     .coupon-item { background: #0d1117; padding: 8px; margin-top: 8px; border-radius: 6px; border: 1px solid #30363d; font-size: 0.85rem; }
     .coupon-title { font-weight: bold; color: #58A6FF; margin-bottom: 10px; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 5px; }
+    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; flex: 1; margin: 0 4px; }
     .ai-insight { background: rgba(88, 166, 255, 0.05); border-left: 4px solid #58A6FF; padding: 12px; margin-top: 15px; border-radius: 4px; font-size: 0.85rem; color: #C9D1D9; font-style: italic; }
     .form-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px; }
     .form-W { background-color: #238636; } .form-D { background-color: #9e9e9e; } .form-L { background-color: #f85149; }
@@ -42,7 +34,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. ANALİZ MOTORU ---
+# --- 3. ANALİZ VE BAŞARI MOTORU ---
 @st.cache_data(ttl=3600)
 def veri_al(endpoint):
     try: return requests.get(f"https://api.football-data.org/v4/{endpoint}", headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
@@ -139,6 +131,7 @@ if mod == "Global AI":
                     g_l.append(m)
 
         if g_l:
+            # Editör Paneli
             st.markdown("### 📝 AI Editörün Kupon Önerileri")
             c1, c2, c3 = st.columns(3)
             
@@ -152,6 +145,7 @@ if mod == "Global AI":
                         elif winner(m['res']['std'] if tip=="banko" else m['res']['nexus']) == gw: hit += 1
                 return hit
 
+            # Banko
             imzalar = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:3]
             with c1:
                 h = check_hit(imzalar, "banko")
@@ -159,7 +153,8 @@ if mod == "Global AI":
                 st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO <span class="success-badge">{h}/3</span></div>', unsafe_allow_html=True)
                 for m in imzalar: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]} - {m["awayTeam"]["shortName"]}<br>Tahmin: {m["res"]["std"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-
+            
+            # Sürpriz
             surprizler = sorted([x for x in g_l if winner(x['res']['nexus']) != "1"], key=lambda x: x['puan'], reverse=True)[:3]
             if not surprizler: surprizler = g_l[-3:]
             with c2:
@@ -169,6 +164,7 @@ if mod == "Global AI":
                 for m in surprizler: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]} - {m["awayTeam"]["shortName"]}<br>Tahmin: {m["res"]["nexus"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
+            # Üst
             festivaller = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:3]
             with c3:
                 h = check_hit(festivaller, "ust")
@@ -178,6 +174,7 @@ if mod == "Global AI":
                 st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown("---")
+            # Liste
             for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
                 res = m['res']
                 m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
