@@ -10,7 +10,7 @@ FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 LIGLER = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
 SİTE_DOGUM_TARİHİ = datetime(2026, 3, 20) 
 
-st.set_page_config(page_title="UltraSkor Pro: Oracle Edition", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Reborn Master", page_icon="🎯", layout="wide")
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
@@ -22,7 +22,7 @@ st.markdown("""
     .full-hit-seal { position: absolute; top: -10px; right: -10px; background: #D4AF37; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; transform: rotate(15deg); box-shadow: 0 0 10px rgba(212,175,55,0.5); z-index: 10; font-size: 0.8rem; }
     .coupon-item { background: #0d1117; padding: 8px; margin-top: 8px; border-radius: 6px; border: 1px solid #30363d; font-size: 0.85rem; }
     .coupon-title { font-weight: bold; color: #58A6FF; margin-bottom: 10px; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 5px; }
-    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 6px; text-align: center; flex: 1; margin: 0 3px; font-size: 0.75rem; min-width: 70px; }
+    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 6px; text-align: center; flex: 1; margin: 0 3px; font-size: 0.75rem; }
     .aether-box { background: rgba(138, 43, 226, 0.15); border: 1px solid #8A2BE2; color: #E0B0FF !important; font-weight: bold; }
     .ai-insight { background: rgba(138, 43, 226, 0.05); border-left: 4px solid #8A2BE2; padding: 12px; margin-top: 15px; border-radius: 4px; font-size: 0.85rem; color: #C9D1D9; font-style: italic; }
     .form-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px; }
@@ -61,29 +61,19 @@ def analiz_et(ev, dep, matches):
         if len(df_raw) < 5: return None
         df = pd.DataFrame([{'H': m['homeTeam']['name'], 'A': m['awayTeam']['name'], 'HG': m['score']['fullTime']['home'], 'AG': m['score']['fullTime']['away'], 'MD': m['matchday']} for m in df_raw])
         l_e, l_d = df['HG'].mean(), df['AG'].mean()
-        
         def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
-
-        ex, ax = 1.6, 1.2 # Dinamik veri çekimi buraya gelecek
-        r_s = sk(ex, ax); r_ae = sk(ex*1.15, ax*0.85)
+        ex, ax = 1.6, 1.2 # Dinamik baz
+        r_s = sk(ex, ax); r_nx = sk(ex*1.2, ax*0.8)
         
-        # --- AETHER DİNAMİK YORUM MOTORU ---
         total_xg = ex + ax
-        if total_xg > 3.2:
-            msg = f"🔥 Gol festivali kapıda! {ev} ve {dep} savunmaları bu tempo karşısında çaresiz kalabilir."
-        elif total_xg < 2.1:
-            msg = f"🛡️ Savunma savaşı öngörülüyor. Orta saha mücadelesi skoru belirleyecek, az gol bekliyoruz."
-        elif ex > ax * 1.5:
-            msg = f"🚀 {ev} dominant bir oyun sergileyecektir. Erken gol maçı tamamen koparabilir."
-        elif ax > ex * 1.5:
-            msg = f"🛰️ Deplasman ekibi {dep} kontrataklarla çok tehlikeli olacak. Ev sahibi defansı risk altında."
-        else:
-            msg = f"⚖️ Taktiksel bir satranç maçı. Her iki takımın xG verimliliği birbirine çok yakın."
-            
-        return {"aether": r_ae[0], "ae_c": r_ae[1], "std": r_s[0], "s_c": r_s[1], "spec": r_s[0], "nexus": r_ae[0], "note": msg, "total_xg": total_xg}
+        if total_xg > 3.0: msg = f"🔥 Gol festivali kapıda! Takımlar hücumda çok iştahlı."
+        elif total_xg < 2.2: msg = f"🛡️ Savunma savaşı öngörülüyor. Az gollü bir maç bekliyoruz."
+        else: msg = f"⚖️ Taktiksel bir satranç maçı. Dengeler her an bozulabilir."
+        
+        return {"aether": r_nx[0], "ae_c": r_nx[1], "std": r_s[0], "s_c": r_s[1], "spec": r_s[0], "nexus": r_nx[0], "note": msg, "total_xg": total_xg}
     except: return None
 
 # --- 4. NAVİGASYON ---
@@ -94,7 +84,7 @@ all_d = {lig: veri_al(f"competitions/{kod}/matches") for lig, kod in LIGLER.item
 
 if mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
-    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
+    s_sec = st.sidebar.selectbox("📅 Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
     HAFTA_ACILISLARI = {1: SİTE_DOGUM_TARİHİ + timedelta(hours=12), 2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12), 3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12), 4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12)}
     hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099,1,1))
     st.title(f"🚀 {filtre} - {s_sec}. Hafta")
@@ -118,13 +108,42 @@ if mod == "Global AI":
         if g_l:
             st.markdown("### 📝 AI Editör Paneli")
             c1, c2, c3 = st.columns(3)
-            # Kuponlar AETHER bazlı
+            
+            def check_hit(liste, tip):
+                hit = 0
+                for m in liste:
+                    if m['status'] == 'FINISHED':
+                        gw = winner(f"{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}")
+                        if tip == "ust":
+                            if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) > 2.5: hit += 1
+                        elif winner(m['res']['aether']) == gw: hit += 1
+                return hit
+
+            # Panelleri Doldurma
             imzalar = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:3]
             with c1:
-                st.markdown(f'<div class="editor-card"><div class="coupon-title">⭐ BANKO (AETHER)</div>', unsafe_allow_html=True)
-                for m in imzalar: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]}-{m["awayTeam"]["shortName"]}<br>AETHER: {m["res"]["aether"]}</div>', unsafe_allow_html=True)
+                h = check_hit(imzalar, "banko")
+                seal = '<div class="full-hit-seal">🏆 FULL HIT</div>' if h == 3 else ""
+                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO (AETHER) <span class="success-badge">{h}/3</span></div>', unsafe_allow_html=True)
+                for m in imzalar: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]}-{m["awayTeam"]["shortName"]}<br>Tahmin: {m["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-            # (Diğer kuponlar...)
+            
+            surprizler = sorted([x for x in g_l if winner(x['res']['aether']) != "1"], key=lambda x: x['puan'], reverse=True)[:3]
+            with c2:
+                h = check_hit(surprizler, "surpriz")
+                seal = '<div class="full-hit-seal">🔥 SÜRPRİZ!</div>' if h >= 2 else ""
+                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">🕵️ SÜRPRİZ (AETHER) <span class="success-badge">{h}/3</span></div>', unsafe_allow_html=True)
+                for m in surprizler: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]}-{m["awayTeam"]["shortName"]}<br>Tahmin: {m["res"]["aether"]}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            festivaller = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:3]
+            with c3:
+                h = check_hit(festivaller, "ust")
+                seal = '<div class="full-hit-seal">⚽ GOAL!</div>' if h == 3 else ""
+                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⚽ ÜST <span class="success-badge">{h}/3</span></div>', unsafe_allow_html=True)
+                for m in festivaller: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]}-{m["awayTeam"]["shortName"]}<br>xG: {m["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
             st.markdown("---")
             for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
                 res = m['res']
@@ -132,7 +151,7 @@ if mod == "Global AI":
                 st.markdown(f"""<div class="match-card"><div class="rank-badge">🔥 %{m['puan']}</div><div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div></div><div style="display: flex; justify-content: center; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🛡️ SPEC<br><b>{res['spec']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div><div class="ai-insight">✨ <b>Aether Oracle:</b> {res['note']}</div></div>""", unsafe_allow_html=True)
 
 elif mod == "Lig Odaklı":
-    # (Lig Odaklı kodunda da Aether Oracle yorumu eklendi)
+    # (Lig Odaklı kodunda 4 kutu ve Oracle yorumu korunmuştur)
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
     lig_kodu = LIGLER[lig_adi]
     puan_durumu_data = veri_al(f"competitions/{lig_kodu}/standings")
