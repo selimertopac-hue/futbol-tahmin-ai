@@ -419,7 +419,6 @@ elif mod == "🏆 Onur Listesi":
 
     st.markdown("---")
     st.info("💡 **Analiz Notu:** Yüzdelerin yanındaki parantez içi değerler (X/20), o algoritmanın haftalık en güvenilir 20 tahmini üzerindeki net isabet sayısını temsil eder.")
-st.markdown("---")
     # --- 4. STRATEJİK İSTİKRAR ANALİZİ ---
     st.subheader("🎯 Algoritma İstikrar Grafiği")
     st.markdown("Yapay zekalarımızın haftalık performans trendleri (Son 3 Hafta):")
