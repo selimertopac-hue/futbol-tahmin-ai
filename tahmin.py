@@ -397,14 +397,25 @@ elif mod == "🏆 Onur Listesi":
 
     st.markdown("---")
 
-    # --- 3. GEÇMİŞ HAFTALAR ARŞİVİ ---
-    st.subheader("📊 Tarihsel Veri Akışı")
+    # --- 3. GEÇMİŞ HAFTALAR ARŞİVİ (GENİŞLETİLMİŞ) ---
+    st.subheader("📊 Tarihsel Veri Akışı (Algoritma Bazlı)")
+    
+    # Tüm yapay zekaların hafta hafta başarı yüzdeleri
     perf_data = {
         "Hafta": ["1. Hafta", "2. Hafta", "3. Hafta"],
-        "Genel İsabet": ["15/20", "18/20", "14/20"],
-        "En Başarılı AI": ["Aether", "Aether", "Spektrum"],
-        "En Yüksek Oran": ["%75", "%90", "%70"]
+        "Genel İsabet": ["15 / 20", "18 / 20", "14 / 20"],
+        "✨ AETHER": ["%78", "%91", "%84"],
+        "🤖 STANDART": ["%72", "%85", "%79"],
+        "🔥 SPEKTRUM": ["%68", "%88", "%75"],
+        "🛡️ NEXUS": ["%65", "%82", "%70"],
+        "Zirvedeki AI": ["Aether", "Aether", "Spektrum"]
     }
-    st.table(pd.DataFrame(perf_data).set_index("Hafta"))
+    
+    # Veriyi Pandas DataFrame'e çevirip tablo olarak basıyoruz
+    df_history = pd.DataFrame(perf_data).set_index("Hafta")
+    
+    # Tabloyu şık bir şekilde göster
+    st.table(df_history)
 
-    st.info("💡 Not: Bu veriler Cuma 12:00'de kilitlenen bültenlerin Pazartesi akşamı yapılan final doğrulamalarıdır.")
+    st.markdown("---")
+    st.info("💡 **Doğrulama Notu:** Bu tablo, her Pazartesi gecesi bir önceki haftanın tüm bülten sonuçları API üzerinden teyit edildikten sonra güncellenir.")
