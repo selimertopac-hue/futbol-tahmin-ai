@@ -86,12 +86,15 @@ def analiz_et(ev, dep, matches):
 
         r_s = sk(ex, ax); r_sp = sk(ex*1.1, ax*0.9); r_nx = sk(ex*1.2, ax*0.8)
         
-        # AETHER MASTER SYNTHESIS
-        a_ex = (ex * 0.4) + (ex * 1.1 * 0.3) + (ex * 1.2 * 0.3)
-        a_ax = (ax * 0.4) + (ax * 0.9 * 0.3) + (ax * 0.8 * 0.3)
-        if e_rec > e_g: a_ex *= 1.05
-        if d_rec > d_g: a_ax *= 1.05
-        r_ae = sk(a_ex, a_ax)
+        # --- AETHER AI MANTIĞI (MASTER SYNTHESIS) ---
+        # Aether, diğer 3 sonucun olasılıklarını ve form grafiklerini harmanlar
+        aether_ex = (ex * 0.4) + (ex * 1.1 * 0.3) + (ex * 1.2 * 0.3)
+        aether_ax = (ax * 0.4) + (ax * 0.9 * 0.3) + (ax * 0.8 * 0.3)
+        # Form trendi ekle
+        if e_rec > e_g: aether_ex *= 1.05
+        if d_rec > d_g: aether_ax *= 1.05
+        
+        r_ae = sk(aether_ex, aether_ax)
 
         # --- AETHER DİNAMİK YORUM MOTORU ---
         total_xg = ex + ax
