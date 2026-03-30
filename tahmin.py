@@ -300,7 +300,7 @@ elif mod == "Global AI":
         # ... Mevcut 'robot_tara' fonksiyonu ve robot listeleme döngülerin buraya gelecek ...
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
-    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
+    s_sec = st.sidebar.'global_hafta_key'("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
     
     # Hafta açılışları ve kilit mantığı...
     HAFTA_ACILISLARI = {
