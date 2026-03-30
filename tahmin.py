@@ -260,7 +260,23 @@ elif mod == "Global AI":
                     else: p = res['n_c']
                     m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': matches})
                     g_l.append(m)
-
+if g_l:
+            # --- BAŞARI GÖSTERGESİ (SCOREBOARD) ---
+            bitenler = [x for x in g_l if x['status'] == 'FINISHED']
+            isabetli = 0
+            for b in bitenler:
+                if winner(b['res']['aether']) == winner(f"{b['score']['fullTime']['home']}-{b['score']['fullTime']['away']}"):
+                    isabetli += 1
+            
+            if bitenler:
+                oran = (isabetli / len(bitenler)) * 100
+                st.markdown(f"""
+                    <div style="background: linear-gradient(90deg, #161b22, #0d1117); border: 1px solid #3fb950; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: center;">
+                        <span style="color: #8B949E; font-size: 0.9rem;">HAFTALIK PERFORMANS ANALİZİ</span><br>
+                        <span style="color: #3fb950; font-size: 1.8rem; font-weight: bold;">{isabetli} / {len(bitenler)} ✅</span>
+                        <span style="color: #58A6FF; margin-left: 15px; font-size: 1.2rem;">BAŞARI: %{oran:.1f}</span>
+                    </div>
+                """, unsafe_allow_html=True)
         if g_l:
             st.markdown("### 📝 AI Editörün Kupon Önerileri")
             c1, c2, c3 = st.columns(3)
@@ -300,12 +316,41 @@ elif mod == "Global AI":
                 for m in festivaller: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]} - {m["awayTeam"]["shortName"]}<br>xG: {m["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            st.markdown("---")
-            for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
+           for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
                 res = m['res']
-                m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
-                st.markdown(f"""<div class="match-card"><div class="rank-badge">🔥 %{m['puan']}</div><div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div><div class="ai-insight">💡 <b>Aether Insight:</b> {res['note']}</div></div>""", unsafe_allow_html=True)
+                icon = ""
+                badge_text = ""
+                if m['status'] == 'FINISHED':
+                    is_hit = winner(res['aether']) == winner(f"{m['score']['fullTime']['home']}-{m['score']['fullTime']['away']}")
+                    icon = "✅ KAZANDI" if is_hit else "❌ KAYBETTİ"
+                    badge_text = f'<span style="color: {"#3fb950" if is_hit else "#f85149"}; font-weight: bold; float: right;">{icon}</span>'
+if res['total_xg'] > 3.2: comment = "🔥 Bu maçta barut fıçısı var! Hücum hatları çok formda, fileler sarsılacaktır."
+                elif res['total_xg'] < 2.0: comment = "🛡️ Taktiksel bir düğüm. Savunmaların konuştuğu, tek golün maçı çözeceği bir senaryo."
+                elif "X" in winner(res['aether']): comment = "⚖️ Denge bozulmuyor. İki takımın xG verimliliği birbirini kilitliyor."
+                else: comment = f"🚀 {m['homeTeam']['shortName']} sahasında oyunun hakimi olur, baskı skoru getirecektir."
 
+                m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
+                
+                st.markdown(f"""
+                    <div class="match-card">
+                        {badge_text}
+                        <div class="rank-badge">🔥 %{m['puan']}</div>
+                        <div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;">
+                            <div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b></div>
+                            <div style="width: 33%; text-align: center;">{m_sk}</div>
+                            <div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+                            <div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div>
+                            <div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div>
+                            <div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div>
+                        </div>
+                        <div class="ai-insight" style="border-left: 4px solid #8A2BE2; background: rgba(138, 43, 226, 0.05);">
+                            ✨ <b>Aether Oracle:</b> {comment}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)                    
 elif mod == "Lig Odaklı":
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
     lig_kodu = LIGLER[lig_adi]
@@ -334,9 +379,3 @@ elif mod == "Lig Odaklı":
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Gurur Tablosu")
     st.markdown('<div style="text-align:center; padding:50px; background:#1c2128; border-radius:15px; border:1px solid #3fb950;"><h2>⭐ Aether AI Rekoru</h2><p>Haftalık %91 Başarı Oranı ile Zirvede!</p></div>', unsafe_allow_html=True)
-
-
-     
-                
-                   
-              
