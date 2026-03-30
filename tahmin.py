@@ -224,7 +224,42 @@ elif mod == "🤖 Tahmin Robotu":
     ]
 
     mac_havuzu = robot_tara(None, s_sec)
+# --- HAFTA SEÇİMİ & KİLİT KONTROLÜ ---
+    s_sec = st.selectbox("📅 Robot Çalışma Haftası", [1, 2, 3, 4], index=site_h_aktif-1)
+    
+    # Global AI ile aynı kilit takvimini kullanıyoruz
+    HAFTA_ACILISLARI = {
+        1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
+        2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
+        3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12), # 3. Hafta Açılışı
+        4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12) 
+    }
+    hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099,1,1))
 
+    # --- KİLİT MEKANİZMASI ---
+    if simdi < hedef_tarih:
+        st.markdown(f"""
+            <div style="background: #161b22; border: 2px dashed #f85149; padding: 50px; border-radius: 15px; text-align: center; margin-top: 20px;">
+                <h1 style="font-size: 4rem; margin: 0;">🔒</h1>
+                <h2 style="color: #f85149;">Robot Veri Akışı Kısıtlı</h2>
+                <p style="color: #8B949E; font-size: 1.1rem;">
+                    Aether AI, {s_sec}. hafta verilerini henüz onaylamadı.<br>
+                    Yapay zekaların "Altın Kuponları" <b>Cuma 12:00</b>'den itibaren işlenecektir.
+                </p>
+                <div style="background: rgba(248, 81, 73, 0.1); padding: 10px; border-radius: 5px; display: inline-block; margin-top: 10px;">
+                    🕒 Kalan Süre: {(hedef_tarih - simdi).days} Gün, {(hedef_tarih - simdi).seconds // 3600} Saat
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # --- EĞER KİLİT AÇIKSA ROBOT ÇALIŞSIN ---
+        st.markdown("Yapay zekalarımızın haftalık bülten içindeki **matematiksel olarak en yüksek** isabet beklediği maçlar.")
+        tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
+        
+        # (Buradan sonrası senin mevcut Robot tarama ve listeleme kodunla aynı devam edecek...)
+        st.success(f"🔓 {s_sec}. Hafta Analizleri Robot Tarafından Doğrulandı.")
+        
+        # ... Mevcut 'robot_tara' fonksiyonu ve robot listeleme döngülerin buraya gelecek ...
     for rb in robot_listesi:
         with rb['tab']:
             st.markdown(f'<div class="robot-card"><h3>👾 {rb["name"]} Robotu Raporu</h3></div>', unsafe_allow_html=True)
