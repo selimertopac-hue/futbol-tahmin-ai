@@ -301,16 +301,29 @@ elif mod == "Global AI":
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
     
-    # Hafta seçici (Unique Key ile)
+    # 1. Önce hafta seçilir (Unique Key ile)
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1, key="global_hafta_unique_key")
     
+    # 2. Sonra takvim oluşturulur
     HAFTA_ACILISLARI = {
         1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
         2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
         3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12),
         4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12) 
     }
-    hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099,1,1))
+    
+    # 3. BURASI KRİTİK: hedef_tarih burada tanımlanmalı!
+    hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099, 1, 1))
+    
+    # 4. Başlık yazılır
+    st.title(f"🚀 {filtre} - {s_sec}. Hafta")
+
+    # 5. VE ŞİMDİ KONTROL EDİLİR (Hata veren satır artık hedef_tarih'i tanıyor)
+    if simdi < hedef_tarih:
+        st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
+    else:
+        # Analizlerin devam ettiği kısım...
+        st.write("Analizler doğrulanıyor...")
 
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
