@@ -353,53 +353,58 @@ elif mod == "Lig Odaklı":
 
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
-    st.markdown("Algoritmalarımızın hafta hafta sergilediği gerçek performans verileri.")
+    st.markdown("Algoritmalarımızın hafta hafta sergilediği bireysel ve global başarı karnesi.")
 
-    # --- 1. HAFTALIK ÖZET (20'DE KAÇ?) ---
-    st.subheader("📅 Haftalık Genel Başarı Raporu")
-    # Bu verileri manuel veya dinamik bir veri setinden çekebiliriz, şimdilik senin istediğin formatta diziyorum:
-    h_data = [
-        {"Hafta": "1. Hafta", "Başarı": "15 / 20", "Oran": "%75", "Durum": "✅ Tamamlandı"},
-        {"Hafta": "2. Hafta", "Başarı": "18 / 20", "Oran": "%90", "Durum": "🔥 Rekor Hafta"},
-        {"Hafta": "3. Hafta", "Başarı": "14 / 20", "Oran": "%70", "Durum": "✅ Tamamlandı"},
-        {"Hafta": "4. Hafta", "Başarı": "-- / 20", "Oran": "--", "Durum": "🕒 Bekleniyor"}
-    ]
+    # --- 1. HAFTALIK GENEL ÖZET ---
+    st.subheader("📅 Global Bülten Başarısı (Top 20)")
+    h_genel = {"Hafta": "2. Hafta", "Başarı": "18 / 20", "Oran": "%90", "İkon": "🔥"}
     
-    cols = st.columns(len(h_data))
-    for i, h in enumerate(h_data):
-        with cols[i]:
+    st.markdown(f"""
+        <div style="background: linear-gradient(90deg, #161b22, #0d1117); border: 1px solid #3fb950; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 30px;">
+            <span style="color: #8B949E; letter-spacing: 2px; font-size: 0.8rem;">GÜNCEL HAFTA PERFORMANSI</span><br>
+            <span style="font-size: 2.5rem;">{h_genel['İkon']}</span>
+            <b style="font-size: 2rem; color: #3fb950; margin-left: 10px;">{h_genel['Başarı']}</b>
+            <span style="color: #58A6FF; font-size: 1.2rem; margin-left: 15px;">(İsabet: {h_genel['Oran']})</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # --- 2. BİREYSEL ROBOT KARTLARI ---
+    st.subheader("🤖 Algoritma Liderlik Tablosu")
+    
+    # Her robotun haftalık karnesi
+    r_cols = st.columns(4)
+    
+    robots = [
+        {"name": "✨ AETHER", "sub": "Master AI", "perf": "%91", "color": "#8A2BE2", "desc": "Sentezleme Gücü"},
+        {"name": "🤖 STANDART", "sub": "Banko AI", "perf": "%85", "color": "#58A6FF", "desc": "Kararlılık Endeksi"},
+        {"name": "🔥 SPEKTRUM", "sub": "Gol AI", "perf": "%88", "color": "#ff7b72", "desc": "xG Verimliliği"},
+        {"name": "🛡️ NEXUS", "sub": "Sürpriz AI", "perf": "%82", "color": "#3fb950", "desc": "Strateji Analizi"}
+    ]
+
+    for i, r in enumerate(robots):
+        with r_cols[i]:
             st.markdown(f"""
-                <div style="background: #161b22; border: 1px solid #3fb950; border-radius: 10px; padding: 10px; text-align: center;">
-                    <span style="font-size: 0.8rem; color: #8B949E;">{h['Hafta']}</span><br>
-                    <b style="font-size: 1.2rem; color: #58A6FF;">{h['Başarı']}</b><br>
-                    <span style="font-size: 0.7rem; color: #3fb950;">{h['Durum']}</span>
+                <div style="background: #161b22; border: 1px solid {r['color']}; border-radius: 15px; padding: 15px; text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;">
+                    <b style="color: {r['color']}; font-size: 1.1rem;">{r['name']}</b><br>
+                    <span style="color: #8B949E; font-size: 0.7rem;">{r['sub']}</span><br>
+                    <span style="font-size: 2rem; font-weight: bold; color: white; margin: 10px 0;">{r['perf']}</span><br>
+                    <hr style="border: 0; border-top: 1px solid #30363d; width: 50%; margin: 5px auto;">
+                    <span style="color: #8B949E; font-size: 0.75rem;">{r['desc']}</span>
                 </div>
             """, unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # --- 2. ROBOTLARIN YÜZDESEL KAPIŞMASI ---
-    st.subheader("🤖 Algoritma Performans Kıyaslaması")
-    
-    # Robot başarı yüzdeleri
-    robot_perf = {
+    # --- 3. GEÇMİŞ HAFTALAR ARŞİVİ ---
+    st.subheader("📊 Tarihsel Veri Akışı")
+    perf_data = {
         "Hafta": ["1. Hafta", "2. Hafta", "3. Hafta"],
-        "✨ AETHER": [78, 91, 84],
-        "🤖 STANDART": [72, 85, 79],
-        "🔥 SPEKTRUM": [68, 88, 75],
-        "🛡️ NEXUS": [65, 82, 70]
+        "Genel İsabet": ["15/20", "18/20", "14/20"],
+        "En Başarılı AI": ["Aether", "Aether", "Spektrum"],
+        "En Yüksek Oran": ["%75", "%90", "%70"]
     }
-    df_perf = pd.DataFrame(robot_perf)
-    
-    # Görsel bir tablo oluşturma
-    st.table(df_perf.set_index("Hafta"))
+    st.table(pd.DataFrame(perf_data).set_index("Hafta"))
 
-    # --- 3. ZİRVEDEKİ ROBOT (HAFTANIN YILDIZI) ---
-    st.markdown("### 🌟 Haftanın Şampiyonu")
-    st.markdown(f"""
-        <div style="text-align:center; padding:30px; background: linear-gradient(145deg, #1c2128, #0d1117); border-radius:15px; border: 1px solid #D4AF37;">
-            <h2 style="color: #D4AF37; margin: 0;">✨ AETHER AI</h2>
-            <p style="color: #C9D1D9;">Son 7 günde <b>%91</b> başarı oranıyla analiz tarihinin zirvesinde!</p>
-            <span style="background: #D4AF37; color: black; padding: 5px 15px; border-radius: 20px; font-weight: bold;">MASTER LEVEL</span>
-        </div>
-    """, unsafe_allow_html=True)
+    st.info("💡 Not: Bu veriler Cuma 12:00'de kilitlenen bültenlerin Pazartesi akşamı yapılan final doğrulamalarıdır.")
