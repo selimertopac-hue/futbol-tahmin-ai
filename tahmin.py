@@ -188,13 +188,70 @@ if mod == "🏠 Canlı Skorlar":
                     </div>
                 </div>
             """, unsafe_allow_html=True)
+
 elif mod == "🤖 Tahmin Robotu":
     st.title("🤖 AI Tahmin Robotu")
+    st.markdown("Yapay zekalarımızın haftalık bülten içindeki **matematiksel olarak en yüksek** isabet beklediği maçlar.")
     
-    # --- 1. HAFTA SEÇİMİ (Benzersiz Anahtar 'key' eklendi) ---
-    s_sec = st.selectbox("📅 Robot Çalışma Haftası", [1, 2, 3, 4], index=site_h_aktif-1, key="robot_hafta_key")
+    # Robot Seçimi (Tabs yapısı profesyonel bir görünüm sağlar)
+    tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
     
-    # Kilit Takvimi
+    # Robotun tarayacağı haftayı seçelim
+    s_sec = st.selectbox("📅 Robot Çalışma Haftası", [1, 2, 3, 4], index=site_h_aktif-1)
+
+    # --- ROBOT ANALİZ FONKSİYONU ---
+    def robot_tara(ai_name, hedef_hafta):
+        tüm_maclar = []
+        for l_ad, l_data in all_d.items():
+            m_list = l_data.get('matches', [])
+            if not m_list: continue
+            # Haftayı doğru yakalayalım
+            l_son = max([m['matchday'] for m in m_list if m['status'] == 'FINISHED'] or [1])
+            t_md = l_son - (site_h_aktif - hedef_hafta)
+            
+            for m in [x for x in m_list if x['matchday'] == t_md]:
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
+                if res:
+                    m.update({'res': res, 'l_ad': l_ad})
+                    tüm_maclar.append(m)
+        return tüm_maclar
+
+    # Robotları Sekmelere Dağıtma
+    robot_listesi = [
+        {"tab": tab_ae, "name": "Aether", "key": "ae_c"},
+        {"tab": tab_std, "name": "Standart", "key": "s_c"},
+        {"tab": tab_spec, "name": "Spektrum", "key": "total_xg"},
+        {"tab": tab_nx, "name": "Nexus", "key": "n_c"}
+    ]
+
+    mac_havuzu = robot_tara(None, s_sec)
+
+    for rb in robot_listesi:
+        with rb['tab']:
+            st.markdown(f'<div class="robot-card"><h3>👾 {rb["name"]} Robotu Raporu</h3></div>', unsafe_allow_html=True)
+            
+            col_b, col_u = st.columns(2)
+            
+            with col_b:
+                st.subheader("✅ En Banko 5")
+                # Kendi puan anahtarına göre en iyileri süz
+                bankolar = sorted(mac_havuzu, key=lambda x: x['res'][rb['key']], reverse=True)[:5]
+                for b in bankolar:
+                    # Aether seçiliyse aether sonucunu, değilse std sonucunu gösterelim
+                    tahmin = b['res']['aether'] if rb['name'] == "Aether" else b['res']['std']
+                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b><br>Tahmin: {tahmin} | Güven: %{int(b["res"]["s_c"])}</div>', unsafe_allow_html=True)
+
+            with col_u:
+                st.subheader("⚽ En Üst 5")
+                # Toplam xG'ye göre en iyileri süz
+                ustler = sorted(mac_havuzu, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
+                for u in ustler:
+                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
+elif mod == "Global AI":
+    filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
+    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
+    
+    # Hafta açılışları ve kilit mantığı...
     HAFTA_ACILISLARI = {
         1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
         2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
@@ -202,129 +259,7 @@ elif mod == "🤖 Tahmin Robotu":
         4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12) 
     }
     hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099,1,1))
-
-    # --- 2. KİLİT MEKANİZMASI ---
-    if simdi < hedef_tarih:
-        st.markdown(f"""
-            <div style="background: #161b22; border: 2px dashed #f85149; padding: 50px; border-radius: 15px; text-align: center; margin-top: 20px;">
-                <h1 style="font-size: 4rem; margin: 0;">🔒</h1>
-                <h2 style="color: #f85149;">Robot Veri Akışı Kısıtlı</h2>
-                <p style="color: #8B949E; font-size: 1.1rem;">
-                    Aether AI, {s_sec}. hafta verilerini henüz onaylamadı.<br>
-                    Yapay zekaların "Altın Kuponları" <b>Cuma 12:00</b>'den itibaren işlenecektir.
-                </p>
-                <div style="background: rgba(248, 81, 73, 0.1); padding: 10px; border-radius: 5px; display: inline-block; margin-top: 10px;">
-                    🕒 Kalan Süre: {(hedef_tarih - simdi).days} Gün, {(hedef_tarih - simdi).seconds // 3600} Saat
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-    else:
-        # --- 3. ANALİZ BAŞLASIN (KİLİT AÇIK) ---
-        st.markdown("Yapay zekalarımızın haftalık bülten içindeki **matematiksel olarak en yüksek** isabet beklediği maçlar.")
-        
-        # Sekmeler (Benzersiz bir yerde, sadece bir kez)
-        tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
-
-        # ROBOT ANALİZ FONKSİYONU (Sadece bir kez tanımlanmalı)
-        def robot_tara_motoru(hedef_hafta):
-            tüm_maclar = []
-            for l_ad, l_data in all_d.items():
-                m_list = l_data.get('matches', [])
-                if not m_list: continue
-                l_son = max([m['matchday'] for m in m_list if m['status'] == 'FINISHED'] or [1])
-                t_md = l_son - (site_h_aktif - hedef_hafta)
-                for m in [x for x in m_list if x['matchday'] == t_md]:
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
-                    if res:
-                        m.update({'res': res, 'l_ad': l_ad})
-                        tüm_maclar.append(m)
-            return tüm_maclar
-
-        mac_havuzu = robot_tara_motoru(s_sec)
-
-        # Robot Listesi Ayarları
-        robot_listesi = [
-            {"tab": tab_ae, "name": "Aether", "key": "ae_c"},
-            {"tab": tab_std, "name": "Standart", "key": "s_c"},
-            {"tab": tab_spec, "name": "Spektrum", "key": "total_xg"},
-            {"tab": tab_nx, "name": "Nexus", "key": "n_c"}
-        ]
-
-        if mac_havuzu:
-            for rb in robot_listesi:
-                with rb['tab']:
-                    st.markdown(f'<div class="robot-card"><h3>👾 {rb["name"]} Robotu Raporu</h3></div>', unsafe_allow_html=True)
-                    col_b, col_u = st.columns(2)
-                    
-                    with col_b:
-                        st.subheader("✅ En Banko 5")
-                        bankolar = sorted(mac_havuzu, key=lambda x: x['res'][rb['key']], reverse=True)[:5]
-                        for b in bankolar:
-                            tahmin = b['res']['aether'] if rb['name'] == "Aether" else b['res']['std']
-                            st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b><br>Tahmin: {tahmin} | Güven: %{int(b["res"]["s_c"])}</div>', unsafe_allow_html=True)
-
-                    with col_u:
-                        st.subheader("⚽ En Üst 5")
-                        ustler = sorted(mac_havuzu, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
-                        for u in ustler:
-                            st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
-        else:
-            st.warning("Seçilen hafta için işlenecek veri bulunamadı.")
-elif mod == "Global AI":
-    filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
-    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1, key="global_hafta_unique_key")
-
-    # --- KİLİT MEKANİZMASI ---
-    if simdi < hedef_tarih:
-        st.markdown(f"""
-            <div style="background: #161b22; border: 2px dashed #f85149; padding: 50px; border-radius: 15px; text-align: center; margin-top: 20px;">
-                <h1 style="font-size: 4rem; margin: 0;">🔒</h1>
-                <h2 style="color: #f85149;">Robot Veri Akışı Kısıtlı</h2>
-                <p style="color: #8B949E; font-size: 1.1rem;">
-                    Aether AI, {s_sec}. hafta verilerini henüz onaylamadı.<br>
-                    Yapay zekaların "Altın Kuponları" <b>Cuma 12:00</b>'den itibaren işlenecektir.
-                </p>
-                <div style="background: rgba(248, 81, 73, 0.1); padding: 10px; border-radius: 5px; display: inline-block; margin-top: 10px;">
-                    🕒 Kalan Süre: {(hedef_tarih - simdi).days} Gün, {(hedef_tarih - simdi).seconds // 3600} Saat
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-    else:
-        # --- EĞER KİLİT AÇIKSA ROBOT ÇALIŞSIN ---
-        st.markdown("Yapay zekalarımızın haftalık bülten içindeki **matematiksel olarak en yüksek** isabet beklediği maçlar.")
-        tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
-        
-        # (Buradan sonrası senin mevcut Robot tarama ve listeleme kodunla aynı devam edecek...)
-        st.success(f"🔓 {s_sec}. Hafta Analizleri Robot Tarafından Doğrulandı.")
-        
-        # ... Mevcut 'robot_tara' fonksiyonu ve robot listeleme döngülerin buraya gelecek ...
-elif mod == "Global AI":
-    filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
-    
-    # 1. ADIM: Önce kullanıcı haftayı seçer
-    # (Hata almamak için 'key' benzersiz olmalı)
-    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1, key="global_hafta_unique_key")
-    
-    # 2. ADIM: Seçilen haftaya göre takvimi oluştururuz
-    HAFTA_ACILISLARI = {
-        1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
-        2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
-        3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12),
-        4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12) 
-    }
-    
-    # 3. ADIM: HATA VEREN DEĞİŞKENİ BURADA TANIMLIYORUZ (Sorgudan önce!)
-    hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099, 1, 1))
-    
-    # 4. ADIM: Başlığı yazdırıyoruz
     st.title(f"🚀 {filtre} - {s_sec}. Hafta")
-
-    # 5. ADIM: ŞİMDİ KONTROL EDİYORUZ (Artık Python hedef_tarih'in ne olduğunu biliyor)
-    if simdi < hedef_tarih:
-        st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
-    else:
-        # Analizlerin aktığı kısım (g_l listesi vb.) buraya gelecek...
-        st.write("Veriler işleniyor...")
 
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
