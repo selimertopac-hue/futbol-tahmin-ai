@@ -255,8 +255,6 @@ elif mod == "🤖 Tahmin Robotu":
         # --- EĞER KİLİT AÇIKSA ROBOT ÇALIŞSIN ---
         st.markdown("Yapay zekalarımızın haftalık bülten içindeki **matematiksel olarak en yüksek** isabet beklediği maçlar.")
         tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
-        
-        # (Buradan sonrası senin mevcut Robot tarama ve listeleme kodunla aynı devam edecek...)
         st.success(f"🔓 {s_sec}. Hafta Analizleri Robot Tarafından Doğrulandı.")
         
         # ... Mevcut 'robot_tara' fonksiyonu ve robot listeleme döngülerin buraya gelecek ...
