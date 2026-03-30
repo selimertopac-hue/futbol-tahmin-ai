@@ -456,7 +456,6 @@ elif mod == "🏆 Onur Listesi":
             </p>
         </div>
     """, unsafe_allow_html=True)
-st.markdown("---")
     # --- 5. RAPOR OLUŞTURUCU (GENERATE REPORT) ---
     st.subheader("📁 Haftalık Bülten Raporu")
     st.markdown("Geçmiş haftanın tüm analiz ve başarı verilerini dijital rapor olarak dışa aktarın.")
