@@ -86,45 +86,38 @@ def analiz_et(ev, dep, matches):
 
         r_s = sk(ex, ax); r_sp = sk(ex*1.1, ax*0.9); r_nx = sk(ex*1.2, ax*0.8)
         
-        # --- AETHER AI MANTIĞI (MASTER SYNTHESIS) ---
-        # Aether, diğer 3 sonucun olasılıklarını ve form grafiklerini harmanlar
-        aether_ex = (ex * 0.4) + (ex * 1.1 * 0.3) + (ex * 1.2 * 0.3)
-        aether_ax = (ax * 0.4) + (ax * 0.9 * 0.3) + (ax * 0.8 * 0.3)
-        # Form trendi ekle
-        if e_rec > e_g: aether_ex *= 1.05
-        if d_rec > d_g: aether_ax *= 1.05
-        
-        r_ae = sk(aether_ex, aether_ax)
+        # AETHER MASTER SYNTHESIS
+        a_ex = (ex * 0.4) + (ex * 1.1 * 0.3) + (ex * 1.2 * 0.3)
+        a_ax = (ax * 0.4) + (ax * 0.9 * 0.3) + (ax * 0.8 * 0.3)
+        if e_rec > e_g: a_ex *= 1.05
+        if d_rec > d_g: a_ax *= 1.05
+        r_ae = sk(a_ex, a_ax)
 
         # --- AETHER DİNAMİK YORUM MOTORU ---
         total_xg = ex + ax
-        win_prob = res_ae_prob = min(99, int(abs(aether_ex - aether_ax) * 45 + 25)) # Başarı olasılığı katsayısı
-        
-        # Senaryo Analizi
         if total_xg > 3.2:
-            comment = f"🔥 Maçta barut fıçısı var! Her iki takımın xG üretkenliği, savunma disiplinini felç edebilir. Gol festivali kapıda."
+            comment = "🔥 Barut fıçısı! Hücum hatları o kadar formda ki savunmaların bu tempoyu kaldırması imkansız. Gol festivali kapıda."
         elif total_xg < 2.1:
-            comment = f"🛡️ Taktiksel bir düğüm. Aether AI, savunmaların konuştuğu, tek bir hatanın sonucu belirleyeceği 'satranç' tipi bir maç bekliyor."
-        elif aether_ex > aether_ax * 1.7:
-            comment = f"🚀 {ev} sahasında mutlak hakimiyet kuracaktır. Erken gelecek bir gol, deplasman ekibinin tüm oyun planını çökertebilir."
-        elif aether_ax > aether_ex * 1.7:
-            comment = f"🛰️ Deplasman ekibi {dep} kontrataklarla çok tehlikeli olacak. Ev sahibinin yüksek savunma çizgisi risk altında."
-        elif abs(aether_ex - aether_ax) < 0.2:
-            comment = f"⚖️ Denge bozulmuyor. İki ekibin verimlilik puanları birbirini kilitliyor. Beraberlik kokan bir mücadele."
+            comment = "🛡️ Taktiksel bir düğüm. Aether Oracle, savunmaların konuştuğu ve tek bir hatanın maçı çözeceği bir satranç müsabakası öngörüyor."
+        elif a_ex > a_ax * 1.7:
+            comment = f"🚀 {ev} sahasında mutlak dominasyon kuracaktır. Erken gelecek bir gol, deplasman ekibinin tüm planlarını sarsabilir."
+        elif a_ax > a_ex * 1.7:
+            comment = f"🛰️ Deplasman ekibi {dep} kontrataklarla çok tehlikeli. Ev sahibinin yüksek savunma hattı büyük risk altında."
+        elif abs(a_ex - a_ax) < 0.2:
+            comment = "⚖️ Denge bozulmuyor. İki ekibin matematiksel verimliliği birbirini kilitliyor; beraberlik kokan bir strateji savaşı."
         else:
-            comment = f"📈 {ev} form katsayısı ile bir adım önde olsa da, geçiş oyunlarındaki tempo skoru her an değiştirebilir."
+            comment = "📈 Form katsayıları ve xG trendleri ev sahibini bir adım öne çıkarsa da, geçiş oyunları skoru her an değiştirebilir."
 
-        note = comment # Yeni dinamik yorum
-        
         return {
-            "std": r_s[0], "s_c": r_s[1], 
-            "spec": r_sp[0], "sp_c": r_sp[1], 
-            "nexus": r_nx[0], "n_c": r_nx[1], 
-            "aether": r_ae[0], "ae_c": r_ae[1], 
-            "note": note, "total_xg": total_xg
+            "std": r_s[0], "s_c": r_s[1], "spec": r_sp[0], "sp_c": r_sp[1], 
+            "nexus": r_nx[0], "n_c": r_nx[1], "aether": r_ae[0], "ae_c": r_ae[1], 
+            "note": comment, "total_xg": total_xg
         }
+    except Exception as e:
+        return None
 
 # --- 4. ZAMAN & HAFTA ---
+simdi = datetime.now()
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 
