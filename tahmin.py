@@ -272,7 +272,7 @@ elif mod == "🤖 Tahmin Robotu":
             st.warning("Seçilen hafta için işlenecek veri bulunamadı.")
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
-    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
+    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1, key="global_hafta_unique_key")
 
     # --- KİLİT MEKANİZMASI ---
     if simdi < hedef_tarih:
