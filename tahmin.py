@@ -300,9 +300,10 @@ elif mod == "Global AI":
         # ... Mevcut 'robot_tara' fonksiyonu ve robot listeleme döngülerin buraya gelecek ...
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
+    
+    # Kilitleri açan ve hatayı bitiren sihirli satır:
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1, key="global_hafta_unique_key")
     
-    # Hafta açılışları ve kilit mantığı...
     HAFTA_ACILISLARI = {
         1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
         2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
@@ -310,7 +311,7 @@ elif mod == "Global AI":
         4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12) 
     }
     hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099,1,1))
-    st.title(f"🚀 {filtre} - {s_sec}. Hafta")
+    st.title(f"🚀 {filtre} - {s_sec}. Hafta"))
 
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
