@@ -105,12 +105,31 @@ simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 
 # --- 5. ANA MENÜ ---
-mod = st.sidebar.radio("🚀 Menü","🏠 Canlı Skorlar", ["Global AI", "Lig Odaklı", "🏆 Onur Listesi"])
-all_d = {lig: veri_al(f"competitions/{kod}/matches") for lig, kod in LIGLER.items()}
-# --- 5. ANA MENÜ ---
-# Menü seçeneklerine "🏠 Canlı Skorlar" eklendi
 mod = st.sidebar.radio("🚀 Menü", ["🏠 Canlı Skorlar", "Global AI", "Lig Odaklı", "🏆 Onur Listesi"])
 all_d = {lig: veri_al(f"competitions/{kod}/matches") for lig, kod in LIGLER.items()}
+
+if mod == "🏠 Canlı Skorlar":
+    st.title("⚡ Canlı Maç Merkezi")
+    live_data = veri_al("matches")
+    matches = live_data.get('matches', [])
+    
+    if not matches:
+        st.info("Şu an aktif maç bulunmuyor.")
+    else:
+        for m in matches:
+            h_s = m['score']['fullTime']['home']
+            a_s = m['score']['fullTime']['away']
+            st.markdown(f"""
+                <div class="match-card" style="border-left: 5px solid #3fb950;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="text-align: right; width: 40%;"><b>{m['homeTeam']['name']}</b></div>
+                        <div style="width: 20%; text-align: center; background: #30363d; border-radius: 5px; padding: 5px;">
+                            <h3 style="margin: 0; color: #3fb950;">{h_s if h_s is not None else 0} - {a_s if a_s is not None else 0}</h3>
+                        </div>
+                        <div style="text-align: left; width: 40%;"><b>{m['awayTeam']['name']}</b></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
 if mod == "🏠 Canlı Skorlar":
     st.title("⚡ Canlı Maç Merkezi")
@@ -152,18 +171,16 @@ if mod == "🏠 Canlı Skorlar":
 
 
 elif mod == "Global AI":
-    # Senin mevcut Global AI kodun...
-elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
     
+    # Hafta açılışları ve kilit mantığı...
     HAFTA_ACILISLARI = {
         1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
         2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
         3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12),
         4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12) 
     }
-    
     hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099,1,1))
     st.title(f"🚀 {filtre} - {s_sec}. Hafta")
 
