@@ -96,9 +96,33 @@ def analiz_et(ev, dep, matches):
         
         r_ae = sk(aether_ex, aether_ax)
 
-        note = f"⚽ xG: {ex+ax:.2f} | Aether AI, maçın kaderini yüksek tempo olarak öngörüyor."
-        return {"std": r_s[0], "s_c": r_s[1], "spec": r_sp[0], "sp_c": r_sp[1], "nexus": r_nx[0], "n_c": r_nx[1], "aether": r_ae[0], "ae_c": r_ae[1], "note": note, "total_xg": ex+ax}
-    except: return None
+        # --- AETHER DİNAMİK YORUM MOTORU ---
+        total_xg = ex + ax
+        win_prob = res_ae_prob = min(99, int(abs(aether_ex - aether_ax) * 45 + 25)) # Başarı olasılığı katsayısı
+        
+        # Senaryo Analizi
+        if total_xg > 3.2:
+            comment = f"🔥 Maçta barut fıçısı var! Her iki takımın xG üretkenliği, savunma disiplinini felç edebilir. Gol festivali kapıda."
+        elif total_xg < 2.1:
+            comment = f"🛡️ Taktiksel bir düğüm. Aether AI, savunmaların konuştuğu, tek bir hatanın sonucu belirleyeceği 'satranç' tipi bir maç bekliyor."
+        elif aether_ex > aether_ax * 1.7:
+            comment = f"🚀 {ev} sahasında mutlak hakimiyet kuracaktır. Erken gelecek bir gol, deplasman ekibinin tüm oyun planını çökertebilir."
+        elif aether_ax > aether_ex * 1.7:
+            comment = f"🛰️ Deplasman ekibi {dep} kontrataklarla çok tehlikeli olacak. Ev sahibinin yüksek savunma çizgisi risk altında."
+        elif abs(aether_ex - aether_ax) < 0.2:
+            comment = f"⚖️ Denge bozulmuyor. İki ekibin verimlilik puanları birbirini kilitliyor. Beraberlik kokan bir mücadele."
+        else:
+            comment = f"📈 {ev} form katsayısı ile bir adım önde olsa da, geçiş oyunlarındaki tempo skoru her an değiştirebilir."
+
+        note = comment # Yeni dinamik yorum
+        
+        return {
+            "std": r_s[0], "s_c": r_s[1], 
+            "spec": r_sp[0], "sp_c": r_sp[1], 
+            "nexus": r_nx[0], "n_c": r_nx[1], 
+            "aether": r_ae[0], "ae_c": r_ae[1], 
+            "note": note, "total_xg": total_xg
+        }
 
 # --- 4. ZAMAN & HAFTA ---
 simdi = datetime.now()
