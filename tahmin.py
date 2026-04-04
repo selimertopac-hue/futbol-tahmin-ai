@@ -119,7 +119,6 @@ def analiz_et(ev, dep, matches):
 
         # --- 5. SONUÇLARI DÖNDÜR ---
         total_xg = ex + ax
-        # Dinamik Yorum Motoru (Aether skoruna göre)
         comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
         if total_xg > 3.0: comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
         elif total_xg < 2.0: comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
@@ -130,6 +129,13 @@ def analiz_et(ev, dep, matches):
             "nexus": r_nx[0], "n_c": r_nx[1], 
             "aether": r_ae[0], "ae_c": r_ae[1], 
             "note": comment, "total_xg": total_xg
+        } # <--- BU SÜSLÜ PARANTEZ HAYATİ ÖNEMDE!
+
+    except Exception as e:
+        return None
+
+# --- FONKSİYON BURADA BİTTİ, ŞİMDİ ANA KODA GEÇİYORUZ ---
+simdi = datetime.now()
 
 # --- 4. ZAMAN & HAFTA ---
 simdi = datetime.now()
