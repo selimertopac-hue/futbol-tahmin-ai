@@ -114,13 +114,29 @@ def analiz_et(ev, dep, matches):
             
         r_sp = sk(sp_ex, sp_ax) # Spektrum'un nihai gol odaklı skoru
 
-        # --- 3. NEXUS AI (Sürpriz & Strateji) ---
+       # --- NEXUS STRATEGIC LOGIC (Sürpriz Analiz Motoru) ---
+        # Nexus'un temeli: Favorinin formsuzluğu + Deplasmanın direnci
         nx_ex, nx_ax = ex, ax
-        if d_rec < 1.05:
-            nx_ex *= 0.92; nx_ax *= 1.05
+        
+        # 🛡️ STRATEJİ 1: "Yorgun Dev" Analizi
+        # Eğer ev sahibi (favori) son 3 maçta beklenen golün (e_g) altında kaldıysa (e_rec)
         if e_rec < e_g * 0.9:
-            nx_ex *= 0.88; nx_ax *= 1.12
-        r_nx = sk(nx_ex, nx_ax)
+            nx_ex *= 0.88  # Ev sahibinin bitiriciliğine güvenme
+            nx_ax *= 1.12  # Deplasmanın iştahını artır
+            
+        # 🛡️ STRATEJİ 2: "Otobüsü Çeken Deplasman"
+        # Eğer deplasman takımı son 3 maçta kalesini iyi savunduysa (d_rec < 1.0)
+        if d_rec < 1.05:
+            nx_ex *= 0.92  # Gol bulmak zorlaşacak
+            nx_ax *= 1.05  # Kontratakla bir tane atabilir
+            
+        # 🛡️ STRATEJİ 3: "Denge ve Kaos"
+        # Eğer iki takımın gücü birbirine çok yakınsa, Nexus 'Beraberlik' sürprizine odaklanır
+        if abs(ex - ax) < 0.3:
+            nx_ex *= 0.95
+            nx_ax *= 0.95 # Skorları 0-0 veya 1-1'e yaklaştırır
+            
+        r_nx = sk(nx_ex, nx_ax) # Nexus'un nihai sürpriz skoru
 
         # --- 4. AETHER MASTER SYNTHESIS (Final Sentez) ---
         # Artık tüm değişkenler (st, sp, nx) yukarıda tanımlandığı için hata vermez
