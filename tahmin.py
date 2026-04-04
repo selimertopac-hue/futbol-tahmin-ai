@@ -262,17 +262,16 @@ elif mod == "🤖 Tahmin Robotu":
                 for u in ustler:
                     st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
 elif mod == "Global AI":
-    # 1. Sidebar Ayarları
+    # 1. Sidebar ve Hafta Seçimi
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=site_h_aktif-1, key="global_hafta_unique_key")
 
-    # 2. SEÇİLEN HAFTANIN TARİH ARALIĞINI HESAPLA (Burası Sihirli Kısım)
-    # Milattan itibaren seçilen haftanın başlangıcını ve bitişini buluyoruz
+    # 2. Seçilen Haftanın Tarih Aralığı (Hibrit Sistem)
     h_baslangic = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
     h_bitis = h_baslangic + timedelta(days=7)
     
-    # Kilit Mekanizması (Cuma 12:00 kuralı)
-    hedef_tarih = h_baslangic + timedelta(days=0, hours=12) # Cuma öğlen 12:00
+    # Cuma 12:00 Kilit Hedefi
+    hedef_tarih = h_baslangic + timedelta(hours=12)
 
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
     st.info(f"📅 Bu hafta {h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')} arası maçları kapsar.")
@@ -281,36 +280,35 @@ elif mod == "Global AI":
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
     else:
-        # --- 3. DİNAMİK VERİ ÇEKME (Tarih Aralığına Göre) ---
+        # 3. VERİ ÇEKME DÖNGÜSÜ
         g_l = []
         for l_ad, l_data in all_d.items():
             m_list = l_data.get('matches', [])
             for m in m_list:
+                # API tarihini Python tarihine çevir
                 m_t_str = m['utcDate'].split('T')[0]
                 m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
                 
-                # EĞER MAÇ SEÇİLEN HAFTANIN TARİHİNDEYSE
+                # Eğer maç, seçilen haftanın tarih aralığındaysa
                 if h_baslangic.date() <= m_t < h_bitis.date():
                     res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
                     if res:
                         m.update({'res': res, 'l_ad': l_ad})
                         g_l.append(m)
 
-        # --- 4. SONUÇLARI GÖSTER ---
-        if g_l:  # Eğer maç bulunduysa
+        # 4. SONUÇLARI GÖSTERME
+        if len(g_l) > 0:
+            # Algoritma seçimine göre anahtar belirle
             anahtar = "ae_c" if "AETHER" in filtre else "s_c" if "Standart" in filtre else "total_xg" if "Spektrum" in filtre else "n_c"
-            sirali_maclar = sorted(g_l, key=lambda x: x['res'][anahtar], reverse=True)
+            sirali_maclar = sorted(g_l, key=lambda x: x['res'].get(anahtar, 0), reverse=True)
 
             for m in sirali_maclar:
                 with st.expander(f"🏟️ {m['homeTeam']['shortName']} vs {m['awayTeam']['shortName']} ({m['l_ad']})"):
                     # Güvenli veri çekme (KeyError önleyici)
-                    skor_t = m['res'].get('skor', 'Analiz Ediliyor...')
-                    st.write(f"**Tahmin:** {m['res']['aether']} | **Skor:** {skor_t}")
-        
-        else:  # <--- HATA BURADAYDI! Bu 'else', yukarıdaki 'if g_l:' ile aynı hizada olmalı.
-            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında maç verisi bulunamadı.")
+                    t_skor = m['res'].get('skor', 'N/A')
+                    st.write(f"**Tahmin:** {m['res'].get('aether', 'Analiz Yok')} | **Skor:** {t_skor}")
         else:
-            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında maç verisi bulunamadı.")
+            st.warning(f"⚠️ {s_sec}. hafta için bu tarih aralığında ({h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')}) maç verisi bulunamadı.")
 
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
