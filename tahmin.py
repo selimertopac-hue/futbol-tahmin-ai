@@ -272,8 +272,8 @@ elif mod == "Global AI":
         4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12),
         5: SİTE_DOGUM_TARİHİ + timedelta(days=28, hours=12),
         6: SİTE_DOGUM_TARİHİ + timedelta(days=35, hours=12), # 27 Mart Cuma Açılışı
-        7: SİTE_DOGUM_TARİHİ + timedelta(days=42, hours=12), # 3 Nisan Cuma Açılışı (GÜNCEL)
-        8: SİTE_DOGUM_TARİHİ + timedelta(days=49, hours=12)
+        7: SİTE_DOGUM_TARİHİ + timedelta(days=42, hours=12),
+        8: SİTE_DOGUM_TARİHİ + timedelta(days=49, hours=12) # 8. Haftayı da açtık
     }
     
     # 3. Hedef tarih tanımı
