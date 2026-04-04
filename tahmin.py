@@ -84,11 +84,25 @@ def analiz_et(ev, dep, matches):
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        # --- 1. STANDART AI (Rasyonel Çapa) ---
-        st_ex, st_ax = ex * 1.05, ax * 0.95
-        if e_rec > 2.0: st_ex *= 0.90
-        if d_rec < 0.5: st_ax *= 1.10
-        r_s = sk(st_ex, st_ax)
+        # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
+        # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
+        st_ex, st_ax = ex, ax
+        
+        # 🏟️ KURAL 1: "Ev Sahibi Kalesi" 
+        # Ev sahibi avantajını ve ligin iç saha galibiyet eğilimini korur
+        st_ex *= 1.05 
+        st_ax *= 0.95
+        
+        # 📈 KURAL 2: "Regresyon (Ortalamaya Dönüş)"
+        # Eğer bir takım normalden çok sapmışsa (aşırı formda veya formsuz), 
+        # Standart AI onu lig ortalamasına doğru biraz 'terbiye' eder.
+        if e_rec > 2.0: st_ex *= 0.90 # Aşırı gaza gelme
+        if d_rec < 0.5: st_ax *= 1.10 # Deplasmanı o kadar da ezme
+        
+        # 🎯 KURAL 3: "Düşük Varyans"
+        # Skor tahminlerinde 4-0, 5-1 gibi uçuk skorlar yerine 
+        # en yüksek olasılıklı (1-0, 2-1, 1-1) skorları tercih eder.
+        r_s = sk(st_ex, st_ax) # Standart'ın nihai rasyonel skoru
 
        # --- SPEKTRUM CHAOS & FLOW LOGIC (Gol ve Tempo Motoru) ---
         # Spektrum'un felsefesi: "Gol golü çeker" veya "Savunma savunmayı kilitler"
