@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # --- 1. AYARLAR & MİLAT ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 LIGLER = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
-SİTE_DOGUM_TARİHİ = datetime(2026, 3, 13) 
+SİTE_DOGUM_TARİHİ = datetime(2026, 3, 6) 
 
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
 
