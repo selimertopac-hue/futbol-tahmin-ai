@@ -305,8 +305,8 @@ elif mod == "Global AI":
 
             for m in sirali_maclar:
                 # BURAYA SENİN MEVCUT EXPANDER VE KART TASARIMINI KOYABİLİRSİN
-                with st.expander(f"🏟️ {m['homeTeam']['shortName']} vs {m['awayTeam']['shortName']} ({m['l_ad']})"):
-                    st.write(f"**Tahmin:** {m['res']['aether']} | **Skor:** {m['res']['skor']}")
+               skor_tahmini = m['res'].get('skor', 'N/A') # 'skor' yoksa 'N/A' yazar, uygulama çökmez.
+st.write(f"**Tahmin:** {m['res']['aether']} | **Skor:** {skor_tahmini}")
         else:
             st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında maç verisi bulunamadı.")
 
