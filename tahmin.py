@@ -197,7 +197,12 @@ elif mod == "🤖 Tahmin Robotu":
     tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
     
     # Robotun tarayacağı haftayı seçelim
-    s_sec = st.selectbox("📅 Robot Çalışma Haftası", [1, 2, 3, 4], index=site_h_aktif-1)
+    s_sec = st.selectbox(
+    "📅 Robot Çalışma Haftası", 
+    [1, 2, 3, 4, 5, 6, 7, 8], 
+    index=min(site_h_aktif - 1, 7), 
+    key="robot_hafta_unique"
+)
 
     # --- ROBOT ANALİZ FONKSİYONU ---
     def robot_tara(ai_name, hedef_hafta):
@@ -249,15 +254,24 @@ elif mod == "🤖 Tahmin Robotu":
                     st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
-    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4], index=site_h_aktif-1)
+    hafta_listesi = [1, 2, 3, 4, 5, 6, 7, 8] # Gelecek haftaları da ekledik
+secili_index = min(site_h_aktif - 1, len(hafta_listesi) - 1)
+
+s_sec = st.sidebar.selectbox(
+    "📅 Sitemiz: Hafta", 
+    hafta_listesi, 
+    index=secili_index, 
+    key="global_hafta_unique_key"
+)
     
     # Hafta açılışları ve kilit mantığı...
     HAFTA_ACILISLARI = {
-        1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
-        2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
-        3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12),
-        4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12) 
-    }
+    1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
+    2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
+    3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12),
+    4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12),
+    5: SİTE_DOGUM_TARİHİ + timedelta(days=28, hours=12) # BU SATIRI EKLE
+}
     hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099,1,1))
     st.title(f"🚀 {filtre} - {s_sec}. Hafta")
 
