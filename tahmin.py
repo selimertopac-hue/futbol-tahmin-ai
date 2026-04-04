@@ -282,7 +282,7 @@ elif mod == "🤖 Tahmin Robotu":
                 # EĞER MAÇ SEÇİLEN HAFTANIN TARİHLERİ ARASINDAYSA
                 if bas <= m_tarih < bit:
                     # analiz_et fonksiyonuna hafta numarasını da gönderiyoruz
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, hedef_hafta_no)
+                    
                     if res:
                         m.update({'res': res, 'l_ad': l_ad})
                         tüm_maclar.append(m)
@@ -382,7 +382,7 @@ elif mod == "Global AI":
                 
                 # Eğer maç seçilen haftanın tarih aralığındaysa analize al
                 if h_baslangic.date() <= m_t < h_bitis.date():
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec) # s_sec eklendi!
                     if res:
                         # Puanlama sistemini seçilen filtreye göre belirle
                         if "AETHER" in filtre: p = res['ae_c']
@@ -482,7 +482,7 @@ elif mod == "Lig Odaklı":
             g_h = max([m['matchday'] for m in l_matches if m['status'] == 'FINISHED'] or [1])
             h_s = st.selectbox("📅 Hafta Seç", sorted(list(set([m['matchday'] for m in l_matches if m['matchday']]))), index=g_h-1)
             for m in [x for x in l_matches if x['matchday'] == h_s]:
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_matches)
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_matches, h_s) # h_s eklendi!
                 if res:
                     m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
                     st.markdown(f"""<div class="match-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], l_matches)}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], l_matches)}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div></div>""", unsafe_allow_html=True)
