@@ -397,148 +397,72 @@ elif mod == "Lig Odaklı":
 
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
-    st.markdown("Algoritmalarımızın hafta hafta sergilediği bireysel ve global başarı karnesi.")
+    st.markdown("Algoritmalarımızın milat tarihinden itibaren sergilediği haftalık başarı karnesi.")
 
-    # --- 1. HAFTALIK GENEL ÖZET ---
-    st.subheader("📅 Global Bülten Başarısı (Top 20)")
-    h_genel = {"Hafta": "2. Hafta", "Başarı": "18 / 20", "Oran": "%90", "İkon": "🔥"}
+    # 1. KAÇ HAFTA VAR? (Dinamik Hafta Hesaplama)
+    toplam_hafta_sayisi = site_h_aktif  # Şu anki aktif haftaya kadar olan süreç
     
+    # 2. GENEL BAŞARI ÖZETİ (Son Tamamlanan Hafta)
+    gecen_hafta = max(1, site_h_aktif - 1)
+    st.subheader(f"📅 Son Tamamlanan Hafta Özeti ({gecen_hafta}. Hafta)")
+    
+    # Örnek başarı simülasyonu (Burayı ileride gerçek sonuçlarla bağlayabilirsin)
     st.markdown(f"""
         <div style="background: linear-gradient(90deg, #161b22, #0d1117); border: 1px solid #3fb950; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 30px;">
-            <span style="color: #8B949E; letter-spacing: 2px; font-size: 0.8rem;">GÜNCEL HAFTA PERFORMANSI</span><br>
-            <span style="font-size: 2.5rem;">{h_genel['İkon']}</span>
-            <b style="font-size: 2rem; color: #3fb950; margin-left: 10px;">{h_genel['Başarı']}</b>
-            <span style="color: #58A6FF; font-size: 1.2rem; margin-left: 15px;">(İsabet: {h_genel['Oran']})</span>
+            <span style="color: #8B949E; letter-spacing: 2px; font-size: 0.8rem;">KÜRESEL İSABET ORANI</span><br>
+            <span style="font-size: 2.5rem;">🔥</span>
+            <b style="font-size: 2rem; color: #3fb950; margin-left: 10px;">18 / 20</b>
+            <span style="color: #58A6FF; font-size: 1.2rem; margin-left: 15px;">(İsabet: %90)</span>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("---")
+    st.divider()
 
-    # --- 2. BİREYSEL ROBOT KARTLARI ---
-    st.subheader("🤖 Algoritma Liderlik Tablosu")
+    # 3. TARİHSEL VERİ AKIŞI (OTOMATİK LİSTELEME)
+    st.subheader("📊 Tarihsel Veri Akışı (Haftalık Arşiv)")
     
-    # Her robotun haftalık karnesi
-    r_cols = st.columns(4)
-    
-    robots = [
-        {"name": "✨ AETHER", "sub": "Master AI", "perf": "%91", "color": "#8A2BE2", "desc": "Sentezleme Gücü"},
-        {"name": "🤖 STANDART", "sub": "Banko AI", "perf": "%85", "color": "#58A6FF", "desc": "Kararlılık Endeksi"},
-        {"name": "🔥 SPEKTRUM", "sub": "Gol AI", "perf": "%88", "color": "#ff7b72", "desc": "xG Verimliliği"},
-        {"name": "🛡️ NEXUS", "sub": "Sürpriz AI", "perf": "%82", "color": "#3fb950", "desc": "Strateji Analizi"}
-    ]
+    # Dinamik tablo verisi oluşturma
+    arsiv_listesi = []
+    for h in range(1, toplam_hafta_sayisi + 1):
+        # Her hafta için başlangıç/bitiş tarihlerini gösterelim
+        h_bas = SİTE_DOGUM_TARİHİ + timedelta(weeks=h-1)
+        h_bit = h_bas + timedelta(days=7)
+        tarih_etiketi = f"{h_bas.strftime('%d.%m')} - {h_bit.strftime('%d.%m')}"
+        
+        # Gelecekte burayı gerçek veri tabanına bağlayabilirsin, şimdilik şablonu kuruyoruz
+        durum = "✅ Tamamlandı" if h < site_h_aktif else "⏳ Devam Ediyor"
+        
+        arsiv_listesi.append({
+            "Hafta": f"{h}. Hafta",
+            "Tarih Aralığı": tarih_etiketi,
+            "✨ AETHER": "%85-92",
+            "🤖 STANDART": "%80-85",
+            "🔥 SPEKTRUM": "%75-88",
+            "🛡️ NEXUS": "%70-82",
+            "Durum": durum
+        })
 
-    for i, r in enumerate(robots):
-        with r_cols[i]:
-            st.markdown(f"""
-                <div style="background: #161b22; border: 1px solid {r['color']}; border-radius: 15px; padding: 15px; text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;">
-                    <b style="color: {r['color']}; font-size: 1.1rem;">{r['name']}</b><br>
-                    <span style="color: #8B949E; font-size: 0.7rem;">{r['sub']}</span><br>
-                    <span style="font-size: 2rem; font-weight: bold; color: white; margin: 10px 0;">{r['perf']}</span><br>
-                    <hr style="border: 0; border-top: 1px solid #30363d; width: 50%; margin: 5px auto;">
-                    <span style="color: #8B949E; font-size: 0.75rem;">{r['desc']}</span>
-                </div>
-            """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-   # --- 3. GEÇMİŞ HAFTALAR ARŞİVİ (DETAYLI ANALİZ) ---
-    st.subheader("📊 Tarihsel Veri Akışı (Algoritma Bazlı)")
-    
-    # Her algoritmanın hem yüzdesi hem de 20'de kaç yaptığı
-    perf_data = {
-        "Hafta": ["1. Hafta", "2. Hafta", "3. Hafta"],
-        "Genel İsabet": ["15 / 20", "18 / 20", "14 / 20"],
-        "✨ AETHER": ["%75 (15/20)", "%90 (18/20)", "%70 (14/20)"],
-        "🤖 STANDART": ["%70 (14/20)", "%85 (17/20)", "%65 (13/20)"],
-        "🔥 SPEKTRUM": ["%65 (13/20)", "%88 (17.6/20)", "%75 (15/20)"],
-        "🛡️ NEXUS": ["%60 (12/20)", "%82 (16.4/20)", "%60 (12/20)"],
-        "Zirvedeki AI": ["Aether", "Aether", "Spektrum"]
-    }
-    
-    # Veriyi Pandas DataFrame'e çevirip tablo olarak basıyoruz
-    df_history = pd.DataFrame(perf_data).set_index("Hafta")
-    
-    # Tabloyu Streamlit'in geniş tablo formatında göster
+    # Pandas ile tabloyu oluştur ve göster
+    df_history = pd.DataFrame(arsiv_listesi).set_index("Hafta")
     st.table(df_history)
 
-    st.markdown("---")
-    st.info("💡 **Analiz Notu:** Yüzdelerin yanındaki parantez içi değerler (X/20), o algoritmanın haftalık en güvenilir 20 tahmini üzerindeki net isabet sayısını temsil eder.")
-    # --- 4. STRATEJİK İSTİKRAR ANALİZİ ---
-    st.subheader("🎯 Algoritma İstikrar Grafiği")
-    st.markdown("Yapay zekalarımızın haftalık performans trendleri (Son 3 Hafta):")
+    st.divider()
 
-    # Basit bir trend analizi görseli (Progress Bar kullanarak)
-    col_ae, col_std, col_sp, col_nx = st.columns(4)
+    # 4. ROBOTLARIN GENEL KARNESİ (İlerleme Çubukları)
+    st.subheader("🎯 Algoritma Genel İstikrarı")
+    c1, c2, c3, c4 = st.columns(4)
     
-    with col_ae:
-        st.write("✨ AETHER (Genel)")
-        st.progress(91) # En son hafta başarısı
-        st.caption("İstikrar: 🟢 Çok Yüksek")
+    with c1:
+        st.write("✨ AETHER")
+        st.progress(91); st.caption("İstikrar: 🟢 Zirve")
+    with c2:
+        st.write("🤖 STANDART")
+        st.progress(84); st.caption("İstikrar: 🟢 Yüksek")
+    with c3:
+        st.write("🔥 SPEKTRUM")
+        st.progress(87); st.caption("İstikrar: 🟡 Değişken")
+    with c4:
+        st.write("🛡️ NEXUS")
+        st.progress(79); st.caption("İstikrar: 🟠 Riskli")
 
-    with col_std:
-        st.write("🤖 STANDART (Banko)")
-        st.progress(85)
-        st.caption("İstikrar: 🟢 Yüksek")
-
-    with col_sp:
-        st.write("🔥 SPEKTRUM (Gol)")
-        st.progress(88)
-        st.caption("İstikrar: 🟡 Dalgalı")
-
-    with col_nx:
-        st.write("🛡️ NEXUS (Sürpriz)")
-        st.progress(82)
-        st.caption("İstikrar: 🔴 Riskli/Yüksek")
-
-    st.markdown("""
-        <div style="padding: 15px; background: rgba(88, 166, 255, 0.05); border-radius: 10px; border: 1px solid #30363d; margin-top: 20px;">
-            <h4 style="margin: 0; color: #58A6FF;">💡 Aether Strateji Notu:</h4>
-            <p style="font-size: 0.85rem; color: #C9D1D9; margin-top: 10px;">
-                Veriler gösteriyor ki; <b>Aether AI</b> son 3 haftadır %80 barajının altına hiç düşmeyerek ana algoritma olduğunu kanıtladı. 
-                <b>Spektrum AI</b> ise liglerin gol ortalaması arttığında (2. Hafta) rekor kırarken, düşük gollü haftalarda (3. Hafta) %75'e geriliyor. 
-                Bu veriler ışığında, robot seçimlerinizi ligin o haftaki <b>"Gol Beklentisi"</b> trendine göre optimize edebilirsiniz.
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-    # --- 5. RAPOR OLUŞTURUCU (GENERATE REPORT) ---
-    st.subheader("📁 Haftalık Bülten Raporu")
-    st.markdown("Geçmiş haftanın tüm analiz ve başarı verilerini dijital rapor olarak dışa aktarın.")
-
-    # Rapor İçeriğini Hazırlama (Metin Formatında)
-    report_text = f"""
-    📊 ULTRASKOR PRO: AETHER INTELLIGENCE - HAFTALIK RAPOR
-    -----------------------------------------------------
-    📅 Hafta: 2. Hafta (Mart 2026)
-    🎯 Genel Başarı: 18 / 20 (İsabet: %90)
-    
-    🤖 ALGORİTMA PERFORMANSLARI:
-    ✨ AETHER AI   : %90 (18/20) - [MASTER]
-    🤖 STANDART AI : %85 (17/20)
-    🔥 SPEKTRUM AI : %88 (17.6/20)
-    🛡️ NEXUS AI    : %82 (16.4/20)
-    
-    🏆 HAFTANIN YILDIZI: AETHER AI
-    💡 NOT: Bu rapor Cuma 12:00 bülten verileri ile Pazartesi sonuçları 
-    arasındaki korelasyon baz alınarak oluşturulmuştur.
-    -----------------------------------------------------
-    🚀 Powered by Aether Oracle Engine
-    """
-
-    col_btn, col_info = st.columns([1, 2])
-    
-    with col_btn:
-        # Raporu TXT/Markdown olarak indirme butonu
-        st.download_button(
-            label="📄 Haftalık Raporu İndir (.txt)",
-            data=report_text,
-            file_name=f"UltraSkor_Haftalik_Rapor_H2.txt",
-            mime="text/plain",
-        )
-    
-    with col_info:
-        st.caption("📥 Rapor; tüm yapay zekaların başarı oranlarını ve senin o meşhur '20 Tahmin' istatistiğini içerir.")
-
-    # Görsel Rapor Önizlemesi (Opsiyonel Şık Görünüm)
-    with st.expander("👁️ Rapor Önizlemesini Gör"):
-        st.code(report_text, language="text")
-        st.success("✅ Rapor verileri güncel API sonuçlarıyla doğrulanmıştır.")
+    st.info(f"💡 **Not:** Onur Listesi, Milat tarihinden ({SİTE_DOGUM_TARİHİ.strftime('%d.%m.%Y')}) itibaren geçen **{toplam_hafta_sayisi} haftalık** süreci otomatik olarak taramaktadır.")
