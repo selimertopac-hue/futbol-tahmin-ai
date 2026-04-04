@@ -85,7 +85,29 @@ def analiz_et(ev, dep, matches):
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
         r_s = sk(ex, ax); r_sp = sk(ex*1.1, ax*0.9); r_nx = sk(ex*1.2, ax*0.8)
+        # --- NEXUS STRATEGIC LOGIC (Sürpriz Analiz Motoru) ---
+        # Nexus'un temeli: Favorinin formsuzluğu + Deplasmanın direnci
+        nx_ex, nx_ax = ex, ax
         
+        # 🛡️ STRATEJİ 1: "Yorgun Dev" Analizi
+        # Eğer ev sahibi (favori) son 3 maçta beklenen golün (e_g) altında kaldıysa (e_rec)
+        if e_rec < e_g * 0.9:
+            nx_ex *= 0.88  # Ev sahibinin bitiriciliğine güvenme
+            nx_ax *= 1.12  # Deplasmanın iştahını artır
+            
+        # 🛡️ STRATEJİ 2: "Otobüsü Çeken Deplasman"
+        # Eğer deplasman takımı son 3 maçta kalesini iyi savunduysa (d_rec < 1.0)
+        if d_rec < 1.05:
+            nx_ex *= 0.92  # Gol bulmak zorlaşacak
+            nx_ax *= 1.05  # Kontratakla bir tane atabilir
+            
+        # 🛡️ STRATEJİ 3: "Denge ve Kaos"
+        # Eğer iki takımın gücü birbirine çok yakınsa, Nexus 'Beraberlik' sürprizine odaklanır
+        if abs(ex - ax) < 0.3:
+            nx_ex *= 0.95
+            nx_ax *= 0.95 # Skorları 0-0 veya 1-1'e yaklaştırır
+            
+        r_nx = sk(nx_ex, nx_ax) # Nexus'un nihai sürpriz skoru
         # --- AETHER AI MANTIĞI (MASTER SYNTHESIS) ---
         # Aether, diğer 3 sonucun olasılıklarını ve form grafiklerini harmanlar
         aether_ex = (ex * 0.4) + (ex * 1.1 * 0.3) + (ex * 1.2 * 0.3)
