@@ -84,104 +84,53 @@ def analiz_et(ev, dep, matches):
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        r_s = sk(ex, ax); r_sp = sk(ex*1.1, ax*0.9); r_nx = sk(ex*1.2, ax*0.8)
-        # --- NEXUS STRATEGIC LOGIC (Sürpriz Analiz Motoru) ---
-        # Nexus'un temeli: Favorinin formsuzluğu + Deplasmanın direnci
+        # --- 1. STANDART AI (Rasyonel Çapa) ---
+        st_ex, st_ax = ex * 1.05, ax * 0.95
+        if e_rec > 2.0: st_ex *= 0.90
+        if d_rec < 0.5: st_ax *= 1.10
+        r_s = sk(st_ex, st_ax)
+
+        # --- 2. SPEKTRUM AI (Tempo & Chaos) ---
+        sp_ex, sp_ax = ex, ax
+        if e_rec > 1.2 and d_rec > 1.2:
+            sp_ex *= 1.18; sp_ax *= 1.18
+        elif e_rec < 0.8 or d_rec < 0.8:
+            sp_ex *= 0.85; sp_ax *= 0.85
+        r_sp = sk(sp_ex, sp_ax)
+
+        # --- 3. NEXUS AI (Sürpriz & Strateji) ---
         nx_ex, nx_ax = ex, ax
-        
-        # 🛡️ STRATEJİ 1: "Yorgun Dev" Analizi
-        # Eğer ev sahibi (favori) son 3 maçta beklenen golün (e_g) altında kaldıysa (e_rec)
-        if e_rec < e_g * 0.9:
-            nx_ex *= 0.88  # Ev sahibinin bitiriciliğine güvenme
-            nx_ax *= 1.12  # Deplasmanın iştahını artır
-            
-        # 🛡️ STRATEJİ 2: "Otobüsü Çeken Deplasman"
-        # Eğer deplasman takımı son 3 maçta kalesini iyi savunduysa (d_rec < 1.0)
         if d_rec < 1.05:
-            nx_ex *= 0.92  # Gol bulmak zorlaşacak
-            nx_ax *= 1.05  # Kontratakla bir tane atabilir
-            
-        # 🛡️ STRATEJİ 3: "Denge ve Kaos"
-        # Eğer iki takımın gücü birbirine çok yakınsa, Nexus 'Beraberlik' sürprizine odaklanır
-        if abs(ex - ax) < 0.3:
-            nx_ex *= 0.95
-            nx_ax *= 0.95 # Skorları 0-0 veya 1-1'e yaklaştırır
-            
-        r_nx = sk(nx_ex, nx_ax) # Nexus'un nihai sürpriz skoru
-       # --- AETHER MASTER SYNTHESIS (Final Sentez) ---
-        # Aether artık 4 farklı zekayı şu oranlarla harmanlıyor:
+            nx_ex *= 0.92; nx_ax *= 1.05
+        if e_rec < e_g * 0.9:
+            nx_ex *= 0.88; nx_ax *= 1.12
+        r_nx = sk(nx_ex, nx_ax)
+
+        # --- 4. AETHER MASTER SYNTHESIS (Final Sentez) ---
+        # Artık tüm değişkenler (st, sp, nx) yukarıda tanımlandığı için hata vermez
         aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
         aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
         
-        r_ae = sk(aether_ex, aether_ax)
-        # Form trendi ekle
+        # Form trendini Aether'e son dokunuş olarak ekle
         if e_rec > e_g: aether_ex *= 1.05
         if d_rec > d_g: aether_ax *= 1.05
         
         r_ae = sk(aether_ex, aether_ax)
-# --- SPEKTRUM CHAOS & FLOW LOGIC (Gol ve Tempo Motoru) ---
-        # Spektrum'un felsefesi: "Gol golü çeker" veya "Savunma savunmayı kilitler"
-        sp_ex, sp_ax = ex, ax
-        
-        # 🔥 SENARYO 1: "Yüksek Volatilite" (Açık Futbol)
-        # Eğer her iki takım da son 3 maçta hem atıp hem yemişse (Yüksek Tempo)
-        if e_rec > 1.2 and d_rec > 1.2:
-            sp_ex *= 1.18  # Maçın kopma ihtimali çok yüksek
-            sp_ax *= 1.18  # Karşılıklı gol (KG VAR) kokusu
-            
-        # ❄️ SENARYO 2: "Negatif Akış" (Düşük Tempo)
-        # Eğer takımlardan biri 'otobüsü çekiyorsa' (Çok az gol yiyorsa)
-        elif e_rec < 0.8 or d_rec < 0.8:
-            sp_ex *= 0.85  # Pozisyon bulmak samanlıkta iğne aramak gibi olacak
-            sp_ax *= 0.85  # Skor 0-0 veya 1-0'a hapsolur
-            
-        # ⚡ SENARYO 3: "Baskın Karakter" 
-        # Eğer ev sahibi çok formda, deplasman ise çok formsuzsa
-        if e_rec > 1.5 and d_rec < 0.7:
-            sp_ex *= 1.25  # Ev sahibi silindir gibi geçebilir
-            sp_ax *= 0.75  # Deplasman gol atamaz
-            
-        r_sp = sk(sp_ex, sp_ax) # Spektrum'un nihai gol odaklı skoru
-        # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
-        # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
-        st_ex, st_ax = ex, ax
-        
-        # 🏟️ KURAL 1: "Ev Sahibi Kalesi" 
-        # Ev sahibi avantajını ve ligin iç saha galibiyet eğilimini korur
-        st_ex *= 1.05 
-        st_ax *= 0.95
-        
-        # 📈 KURAL 2: "Regresyon (Ortalamaya Dönüş)"
-        # Eğer bir takım normalden çok sapmışsa (aşırı formda veya formsuz), 
-        # Standart AI onu lig ortalamasına doğru biraz 'terbiye' eder.
-        if e_rec > 2.0: st_ex *= 0.90 # Aşırı gaza gelme
-        if d_rec < 0.5: st_ax *= 1.10 # Deplasmanı o kadar da ezme
-        
-        # 🎯 KURAL 3: "Düşük Varyans"
-        # Skor tahminlerinde 4-0, 5-1 gibi uçuk skorlar yerine 
-        # en yüksek olasılıklı (1-0, 2-1, 1-1) skorları tercih eder.
-        r_s = sk(st_ex, st_ax) # Standart'ın nihai rasyonel skoru# --- AETHER DİNAMİK YORUM MOTORU ---
+
+        # --- 5. SONUÇLARI DÖNDÜR ---
         total_xg = ex + ax
-        if total_xg > 3.2:
-            comment = "🔥 Barut fıçısı! Hücum hatları o kadar formda ki savunmaların bu tempoyu kaldırması imkansız. Gol festivali kapıda."
-        elif total_xg < 2.1:
-            comment = "🛡️ Taktiksel bir düğüm. Aether Oracle, savunmaların konuştuğu ve tek bir hatanın maçı çözeceği bir satranç müsabakası öngörüyor."
-        elif a_ex > a_ax * 1.7:
-            comment = f"🚀 {ev} sahasında mutlak dominasyon kuracaktır. Erken gelecek bir gol, deplasman ekibinin tüm planlarını sarsabilir."
-        elif a_ax > a_ex * 1.7:
-            comment = f"🛰️ Deplasman ekibi {dep} kontrataklarla çok tehlikeli. Ev sahibinin yüksek savunma hattı büyük risk altında."
-        elif abs(a_ex - a_ax) < 0.2:
-            comment = "⚖️ Denge bozulmuyor. İki ekibin matematiksel verimliliği birbirini kilitliyor; beraberlik kokan bir strateji savaşı."
-        else:
-            comment = "📈 Form katsayıları ve xG trendleri ev sahibini bir adım öne çıkarsa da, geçiş oyunları skoru her an değiştirebilir."
+        # Dinamik Yorum Motoru (Aether skoruna göre)
+        comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
+        if total_xg > 3.0: comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
+        elif total_xg < 2.0: comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
 
         return {
-            "std": r_s[0], "s_c": r_s[1], "spec": r_sp[0], "sp_c": r_sp[1], 
-            "nexus": r_nx[0], "n_c": r_nx[1], "aether": r_ae[0], "ae_c": r_ae[1], 
+            "std": r_s[0], "s_c": r_s[1], 
+            "spec": r_sp[0], "sp_c": r_sp[1], 
+            "nexus": r_nx[0], "n_c": r_nx[1], 
+            "aether": r_ae[0], "ae_c": r_ae[1], 
             "note": comment, "total_xg": total_xg
         }
-    except Exception as e:
-        return None
 
 # --- 4. ZAMAN & HAFTA ---
 simdi = datetime.now()
