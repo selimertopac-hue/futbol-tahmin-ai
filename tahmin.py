@@ -130,7 +130,6 @@ def analiz_et(ev, dep, matches):
             "nexus": r_nx[0], "n_c": r_nx[1], 
             "aether": r_ae[0], "ae_c": r_ae[1], 
             "note": comment, "total_xg": total_xg
-        }
 
 # --- 4. ZAMAN & HAFTA ---
 simdi = datetime.now()
