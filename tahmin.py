@@ -255,45 +255,73 @@ if mod == "🏠 Canlı Skorlar":
 
 elif mod == "🤖 Tahmin Robotu":
     st.title("🤖 AI Tahmin Robotu")
-    st.markdown("Yapay zekalarımızın haftalık bülten içindeki **matematiksel olarak en yüksek** isabet beklediği maçlar.")
     
-    # Robot Seçimi (Tabs yapısı profesyonel bir görünüm sağlar)
-    tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
-    
-    # Robotun tarayacağı haftayı seçelim
-    s_sec = st.selectbox(
-    "📅 Robot Çalışma Haftası", 
-    [1, 2, 3, 4, 5, 6, 7, 8], 
-    index=min(site_h_aktif - 1, 7), 
-    key="robot_hafta_unique"
-)
+    # 1. HAFTA SEÇİMİ (Global AI ile aynı mantık)
+    s_sec = st.selectbox("📅 Analiz Edilecek Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=site_h_aktif-1, key="robot_hafta_sync")
 
-    # --- ROBOT ANALİZ FONKSİYONU ---
-    def robot_tara(ai_name, hedef_hafta):
+    # Seçilen haftanın tarih sınırlarını hesapla
+    h_baslangic = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
+    h_bitis = h_baslangic + timedelta(days=7)
+
+    st.info(f"🤖 Robotlar şu an {s_sec}. Hafta ({h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')}) maçlarını tarıyor...")
+
+    # 2. ROBOT TARAMA FONKSİYONU (GÜNCEL)
+    def robot_tara(hedef_hafta_no):
         tüm_maclar = []
-        # Sistemin o anki tarihini alıyoruz (4 Nisan 2026 gibi)
-        bugun = datetime.now().date()
-        # Önümüzdeki 3 günlük bülteni tarıyoruz (Cuma-Pazartesi arası)
-        bitis = bugun + timedelta(days=3)
+        # Belirlenen tarih aralığı
+        bas = h_baslangic.date()
+        bit = h_bitis.date()
         
         for l_ad, l_data in all_d.items():
             m_list = l_data.get('matches', [])
-            if not m_list: continue
-            
             for m in m_list:
-                # API'den gelen tarihi Python tarih formatına çeviriyoruz
+                # API Tarihini çevir
                 m_tarih_str = m['utcDate'].split('T')[0]
                 m_tarih = datetime.strptime(m_tarih_str, '%Y-%m-%d').date()
                 
-                # EĞER MAÇ BUGÜN, YARIN VEYA SONRAKİ GÜNSE (Dinamik Filtre)
-                if bugun <= m_tarih <= bitis:
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
+                # EĞER MAÇ SEÇİLEN HAFTANIN TARİHLERİ ARASINDAYSA
+                if bas <= m_tarih < bit:
+                    # analiz_et fonksiyonuna hafta numarasını da gönderiyoruz
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, hedef_hafta_no)
                     if res:
                         m.update({'res': res, 'l_ad': l_ad})
                         tüm_maclar.append(m)
-        
         return tüm_maclar
 
+    # 3. VERİYİ ÇEK VE ROBOTLARI GÖSTER
+    mac_havuzu = robot_tara(s_sec)
+
+    if not mac_havuzu:
+        st.warning(f"⚠️ {s_sec}. hafta için bu tarih aralığında veri bulunamadı.")
+    else:
+        tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
+        
+        robot_listesi = [
+            {"tab": tab_ae, "name": "Aether", "key": "ae_c", "tahmin_key": "aether"},
+            {"tab": tab_std, "name": "Standart", "key": "s_c", "tahmin_key": "std"},
+            {"tab": tab_spec, "name": "Spektrum", "key": "sp_c", "tahmin_key": "spec"},
+            {"tab": tab_nx, "name": "Nexus", "key": "n_c", "tahmin_key": "nexus"}
+        ]
+
+        for rb in robot_listesi:
+            with rb['tab']:
+                st.markdown(f'<h3>👾 {rb["name"]} Robotu Haftalık Raporu</h3>', unsafe_allow_html=True)
+                col_b, col_u = st.columns(2)
+                
+                with col_b:
+                    st.subheader("✅ En Güvenilir 5")
+                    # Seçilen robotun kendi puan anahtarına göre sırala
+                    bankolar = sorted(mac_havuzu, key=lambda x: x['res'].get(rb['key'], 0), reverse=True)[:5]
+                    for b in bankolar:
+                        t = b['res'].get(rb['tahmin_key'], "Analiz Yok")
+                        guven = b['res'].get(rb['key'], 0)
+                        st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b><br>Tahmin: {t} | Güven: %{int(guven)}</div>', unsafe_allow_html=True)
+
+                with col_u:
+                    st.subheader("⚽ En Yüksek xG (Üst) 5")
+                    ustler = sorted(mac_havuzu, key=lambda x: x['res'].get('total_xg', 0), reverse=True)[:5]
+                    for u in ustler:
+                        st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
     # Robotları Sekmelere Dağıtma
     robot_listesi = [
         {"tab": tab_ae, "name": "Aether", "key": "ae_c"},
