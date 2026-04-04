@@ -276,87 +276,38 @@ elif mod == "Global AI":
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
     st.info(f"📅 Bu hafta {h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')} arası maçları kapsar.")
 
-    # KİLİT KONTROLÜ
+    # --- KİLİT KONTROLÜ (TEK VE NET) ---
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
     else:
-        # 3. VERİ ÇEKME DÖNGÜSÜ
+        # 3. VERİ ÇEKME DÖNGÜSÜ (Tarih Bazlı)
         g_l = []
         for l_ad, l_data in all_d.items():
             m_list = l_data.get('matches', [])
             for m in m_list:
-                # API tarihini Python tarihine çevir
                 m_t_str = m['utcDate'].split('T')[0]
                 m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
                 
-                # Eğer maç, seçilen haftanın tarih aralığındaysa
+                # Eğer maç seçilen haftanın tarih aralığındaysa analize al
                 if h_baslangic.date() <= m_t < h_bitis.date():
                     res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
                     if res:
-                        m.update({'res': res, 'l_ad': l_ad})
+                        # Puanlama sistemini seçilen filtreye göre belirle
+                        if "AETHER" in filtre: p = res['ae_c']
+                        elif "Standart" in filtre: p = res['s_c']
+                        elif "Spektrum" in filtre: p = res['sp_c']
+                        else: p = res['n_c']
+                        
+                        m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': m_list})
                         g_l.append(m)
 
-        # 4. SONUÇLARI GÖSTERME
+        # 4. SONUÇLARI VE KUPONLARI GÖSTERME
         if len(g_l) > 0:
-            anahtar = "ae_c" if "AETHER" in filtre else "s_c" if "Standart" in filtre else "total_xg" if "Spektrum" in filtre else "n_c"
-            sirali_maclar = sorted(g_l, key=lambda x: x['res'].get(anahtar, 0), reverse=True)
-
-            # --- DÖNGÜ BAŞLIYOR (Maç Kartları) ---
-            for m in sirali_maclar:
-                with st.expander(f"🏟️ {m['homeTeam']['shortName']} vs {m['awayTeam']['shortName']} ({m['l_ad']})"):
-                    t_skor = m['res'].get('skor', 'N/A')
-                    st.write(f"**Tahmin:** {m['res'].get('aether', 'Analiz Yok')} | **Skor:** {t_skor}")
-            # --- DÖNGÜ BURADA BİTTİ (Hiza bir tık sola kaydı) ---
-
-            st.divider() # <--- Hata veren satır burasıydı, şimdi 'for' ile aynı hizada!
-            st.subheader("🎯 Haftanın Otomatik Akıllı Kuponları")
-            
+            # --- A) EDİTÖRÜN AKILLI KUPONLARI (OTOMATİK) ---
+            st.markdown("### 📝 AI Editörün Otomatik Kupon Önerileri")
             c1, c2, c3 = st.columns(3)
             
-            with c1:
-                st.info("💎 Banko Kupon")
-                bankolar = sorted(g_l, key=lambda x: x['res'].get('s_c', 0), reverse=True)[:3]
-                for b in bankolar:
-                    st.write(f"✅ **{b['homeTeam']['shortName']}**: {b['res'].get('aether')} (%{int(b['res'].get('s_c',0))})")
-            
-            with c2:
-                st.warning("💣 Sürpriz Kupon")
-                surprizler = sorted(g_l, key=lambda x: x['res'].get('n_c', 0), reverse=True)[3:6]
-                for s in surprizler:
-                    st.write(f"🌟 **{s['homeTeam']['shortName']}**: {s['res'].get('aether')}")
-            
-            with c3:
-                st.success("⚽ Üst / Gol Kuponu")
-                ustler = sorted(g_l, key=lambda x: x['res'].get('total_xg', 0), reverse=True)[:3]
-                for u in ustler:
-                    st.write(f"🔥 **{u['homeTeam']['shortName']}**: 2.5 ÜST")
-
-        else:
-            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında maç verisi bulunamadı.")
-    if simdi < hedef_tarih:
-        st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
-    else:
-        g_l = []
-        for l_ad, l_data in all_d.items():
-            matches = l_data.get('matches', [])
-            if not matches: continue
-            bitenler = [m['matchday'] for m in matches if m['status'] == 'FINISHED']
-            l_son = max(bitenler) if bitenler else 1
-            target_md = l_son - (site_h_aktif - s_sec)
-            for m in [x for x in matches if x['matchday'] == target_md]:
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], matches)
-                if res:
-                    if "AETHER" in filtre: p = res['ae_c']
-                    elif "Standart" in filtre: p = res['s_c']
-                    elif "Spektrum" in filtre: p = res['sp_c']
-                    else: p = res['n_c']
-                    m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': matches})
-                    g_l.append(m)
-
-        if g_l:
-            st.markdown("### 📝 AI Editörün Kupon Önerileri")
-            c1, c2, c3 = st.columns(3)
-            
+            # Başarı kontrol fonksiyonu (Bitmiş maçlar için)
             def check_hit(liste, tip):
                 hit = 0
                 for m in liste:
@@ -364,9 +315,10 @@ elif mod == "Global AI":
                         gw = winner(f"{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}")
                         if tip == "ust":
                             if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) > 2.5: hit += 1
-                        elif winner(m['res']['aether']) == gw: hit += 1 # Kuponlarda Aether baz alınır
+                        elif winner(m['res']['aether']) == gw: hit += 1
                 return hit
 
+            # 1. Banko Kupon
             imzalar = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:3]
             with c1:
                 h = check_hit(imzalar, "banko")
@@ -375,6 +327,7 @@ elif mod == "Global AI":
                 for m in imzalar: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]} - {m["awayTeam"]["shortName"]}<br>Tahmin: {m["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
+            # 2. Sürpriz Kupon
             surprizler = sorted([x for x in g_l if winner(x['res']['aether']) != "1"], key=lambda x: x['puan'], reverse=True)[:3]
             if not surprizler: surprizler = g_l[-3:]
             with c2:
@@ -384,6 +337,7 @@ elif mod == "Global AI":
                 for m in surprizler: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]} - {m["awayTeam"]["shortName"]}<br>Tahmin: {m["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
+            # 3. Üst Kuponu
             festivaller = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:3]
             with c3:
                 h = check_hit(festivaller, "ust")
@@ -393,11 +347,15 @@ elif mod == "Global AI":
                 st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown("---")
+            
+            # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
+            st.subheader(f"🔥 Haftanın En Güvenilir 20 Analizi")
             for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
                 res = m['res']
                 m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
-                st.markdown(f"""<div class="match-card"><div class="rank-badge">🔥 %{m['puan']}</div><div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div><div class="ai-insight">💡 <b>Aether Insight:</b> {res['note']}</div></div>""", unsafe_allow_html=True)
-
+                st.markdown(f"""<div class="match-card"><div class="rank-badge">🔥 %{int(m['puan'])}</div><div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div><div class="ai-insight">💡 <b>Aether Insight:</b> {res['note']}</div></div>""", unsafe_allow_html=True)
+        else:
+            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında ({h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')}) analiz edilecek maç verisi bulunamadı.")
 elif mod == "Lig Odaklı":
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
     lig_kodu = LIGLER[lig_adi]
