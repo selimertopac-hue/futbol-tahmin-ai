@@ -262,27 +262,53 @@ elif mod == "🤖 Tahmin Robotu":
                 for u in ustler:
                     st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
 elif mod == "Global AI":
-    filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
+    # 1. Sidebar Ayarları
+    filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
+    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=site_h_aktif-1, key="global_hafta_unique_key")
+
+    # 2. SEÇİLEN HAFTANIN TARİH ARALIĞINI HESAPLA (Burası Sihirli Kısım)
+    # Milattan itibaren seçilen haftanın başlangıcını ve bitişini buluyoruz
+    h_baslangic = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
+    h_bitis = h_baslangic + timedelta(days=7)
     
-    # 1. Hafta seçimi (Unique Key ile)
-    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4, 5, 6, 7, 8], index=min(site_h_aktif-1, 7), key="global_hafta_unique_key")
-    
-    # 2. HAFTA_ACILISLARI (Hata aldığın yer burası, elif ile aynı hizada değil, bir TAB içeride olmalı!)
-    HAFTA_ACILISLARI = {
-        1: SİTE_DOGUM_TARİHİ + timedelta(hours=12),
-        2: SİTE_DOGUM_TARİHİ + timedelta(days=7, hours=12),
-        3: SİTE_DOGUM_TARİHİ + timedelta(days=14, hours=12),
-        4: SİTE_DOGUM_TARİHİ + timedelta(days=21, hours=12),
-        5: SİTE_DOGUM_TARİHİ + timedelta(days=28, hours=12),
-        6: SİTE_DOGUM_TARİHİ + timedelta(days=35, hours=12), # 27 Mart Cuma Açılışı
-        7: SİTE_DOGUM_TARİHİ + timedelta(days=42, hours=12),
-        8: SİTE_DOGUM_TARİHİ + timedelta(days=49, hours=12) # 8. Haftayı da açtık
-    }
-    
-    # 3. Hedef tarih tanımı
-    hedef_tarih = HAFTA_ACILISLARI.get(s_sec, datetime(2099, 1, 1))
-    
-    st.title(f"🚀 {filtre} - {s_sec}. Hafta")
+    # Kilit Mekanizması (Cuma 12:00 kuralı)
+    hedef_tarih = h_baslangic + timedelta(days=0, hours=12) # Cuma öğlen 12:00
+
+    st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
+    st.info(f"📅 Bu hafta {h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')} arası maçları kapsar.")
+
+    # KİLİT KONTROLÜ
+    if simdi < hedef_tarih:
+        st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
+    else:
+        # 3. DİNAMİK VERİ ÇEKME (Tarih Aralığına Göre)
+        g_l = []
+        for l_ad, l_data in all_d.items():
+            m_list = l_data.get('matches', [])
+            for m in m_list:
+                # API tarihini Python tarihine çevir
+                m_t_str = m['utcDate'].split('T')[0]
+                m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
+                
+                # EĞER MAÇ SEÇİLEN HAFTANIN TARİHİNDEYSE
+                if h_baslangic.date() <= m_t < h_bitis.date():
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
+                    if res:
+                        m.update({'res': res, 'l_ad': l_ad})
+                        g_l.append(m)
+
+        # 4. SONUÇLARI GÖSTER (Eski kart yapınla devam edebilirsin)
+        if g_l:
+            # Algoritma seçimine göre sıralama yap
+            anahtar = "ae_c" if "AETHER" in filtre else "s_c" if "Standart" in filtre else "total_xg" if "Spektrum" in filtre else "n_c"
+            sirali_maclar = sorted(g_l, key=lambda x: x['res'][anahtar], reverse=True)
+
+            for m in sirali_maclar:
+                # BURAYA SENİN MEVCUT EXPANDER VE KART TASARIMINI KOYABİLİRSİN
+                with st.expander(f"🏟️ {m['homeTeam']['shortName']} vs {m['awayTeam']['shortName']} ({m['l_ad']})"):
+                    st.write(f"**Tahmin:** {m['res']['aether']} | **Skor:** {m['res']['skor']}")
+        else:
+            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında maç verisi bulunamadı.")
 
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
