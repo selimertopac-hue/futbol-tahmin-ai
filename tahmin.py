@@ -281,7 +281,7 @@ elif mod == "🤖 Tahmin Robotu":
                 
                 # EĞER MAÇ SEÇİLEN HAFTANIN TARİHLERİ ARASINDAYSA
                 if bas <= m_tarih < bit:
-                    # analiz_et fonksiyonuna hafta numarasını da gönderiyoruz
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
                     
                     if res:
                         m.update({'res': res, 'l_ad': l_ad})
