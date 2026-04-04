@@ -337,16 +337,26 @@ elif mod == "Global AI":
                 for m in surprizler: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]} - {m["awayTeam"]["shortName"]}<br>Tahmin: {m["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 3. Üst Kuponu
-            festivaller = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:3]
+            # 3. Üst Kuponu (Robotun Karakterine Göre Dinamik)
             with c3:
-                h = check_hit(festivaller, "ust")
-                seal = '<div class="full-hit-seal">⚽ GOAL!</div>' if h == 3 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⚽ ÜST <span class="success-badge">{h}/3</span></div>', unsafe_allow_html=True)
-                for m in festivaller: st.markdown(f'<div class="coupon-item"><b>{m["l_ad"]}</b> | {m["homeTeam"]["shortName"]} - {m["awayTeam"]["shortName"]}<br>xG: {m["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown("---")
+                st.success("⚽ Üst / Gol Kuponu")
+                
+                # Robotun tipine göre gol arama kriterini değiştiriyoruz:
+                if "AETHER" in filtre:
+                    # Aether: Hem xG hem de kendi güven oranının ortalamasına bakar
+                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] + x['res']['ae_c']/20), reverse=True)[:3]
+                elif "Nexus" in filtre:
+                    # Nexus: Daha çok sürpriz ve yüksek skorlu (Nexus skoru) maçları kovalar
+                    ustler = sorted(g_l, key=lambda x: x['res']['total_xg'] * 1.2 if winner(x['res']['nexus']) == "2" else x['res']['total_xg'], reverse=True)[:3]
+                elif "Spektrum" in filtre:
+                    # Spektrum: Saf kan xG avcısıdır, en yüksek xG'yi direkt alır
+                    ustler = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:3]
+                else:
+                    # Standart: En garanti gördüğü (s_c) ve xG'si yüksek maçları seçer
+                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] * x['res']['s_c']), reverse=True)[:3]
+
+                for u in ustler:
+                    st.write(f"🔥 **{u['homeTeam']['shortName']}**: 2.5 ÜST (xG: {u['res']['total_xg']:.2f})")
             
             # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
             st.subheader(f"🔥 Haftanın En Güvenilir 20 Analizi")
