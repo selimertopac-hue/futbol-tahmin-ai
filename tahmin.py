@@ -140,7 +140,25 @@ def analiz_et(ev, dep, matches):
             sp_ax *= 0.75  # Deplasman gol atamaz
             
         r_sp = sk(sp_ex, sp_ax) # Spektrum'un nihai gol odaklı skoru
-        # --- AETHER DİNAMİK YORUM MOTORU ---
+        # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
+        # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
+        st_ex, st_ax = ex, ax
+        
+        # 🏟️ KURAL 1: "Ev Sahibi Kalesi" 
+        # Ev sahibi avantajını ve ligin iç saha galibiyet eğilimini korur
+        st_ex *= 1.05 
+        st_ax *= 0.95
+        
+        # 📈 KURAL 2: "Regresyon (Ortalamaya Dönüş)"
+        # Eğer bir takım normalden çok sapmışsa (aşırı formda veya formsuz), 
+        # Standart AI onu lig ortalamasına doğru biraz 'terbiye' eder.
+        if e_rec > 2.0: st_ex *= 0.90 # Aşırı gaza gelme
+        if d_rec < 0.5: st_ax *= 1.10 # Deplasmanı o kadar da ezme
+        
+        # 🎯 KURAL 3: "Düşük Varyans"
+        # Skor tahminlerinde 4-0, 5-1 gibi uçuk skorlar yerine 
+        # en yüksek olasılıklı (1-0, 2-1, 1-1) skorları tercih eder.
+        r_s = sk(st_ex, st_ax) # Standart'ın nihai rasyonel skoru# --- AETHER DİNAMİK YORUM MOTORU ---
         total_xg = ex + ax
         if total_xg > 3.2:
             comment = "🔥 Barut fıçısı! Hücum hatları o kadar formda ki savunmaların bu tempoyu kaldırması imkansız. Gol festivali kapıda."
