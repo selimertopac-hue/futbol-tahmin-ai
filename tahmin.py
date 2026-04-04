@@ -281,12 +281,11 @@ elif mod == "Global AI":
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
     else:
-        # 3. DİNAMİK VERİ ÇEKME (Tarih Aralığına Göre)
+        # --- 3. DİNAMİK VERİ ÇEKME (Tarih Aralığına Göre) ---
         g_l = []
         for l_ad, l_data in all_d.items():
             m_list = l_data.get('matches', [])
             for m in m_list:
-                # API tarihini Python tarihine çevir
                 m_t_str = m['utcDate'].split('T')[0]
                 m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
                 
@@ -297,16 +296,19 @@ elif mod == "Global AI":
                         m.update({'res': res, 'l_ad': l_ad})
                         g_l.append(m)
 
-        # 4. SONUÇLARI GÖSTER (Eski kart yapınla devam edebilirsin)
-        if g_l:
-            # Algoritma seçimine göre sıralama yap
+        # --- 4. SONUÇLARI GÖSTER ---
+        if g_l:  # Eğer maç bulunduysa
             anahtar = "ae_c" if "AETHER" in filtre else "s_c" if "Standart" in filtre else "total_xg" if "Spektrum" in filtre else "n_c"
             sirali_maclar = sorted(g_l, key=lambda x: x['res'][anahtar], reverse=True)
 
             for m in sirali_maclar:
-                # BURAYA SENİN MEVCUT EXPANDER VE KART TASARIMINI KOYABİLİRSİN
-               skor_tahmini = m['res'].get('skor', 'N/A') # 'skor' yoksa 'N/A' yazar, uygulama çökmez.
-st.write(f"**Tahmin:** {m['res']['aether']} | **Skor:** {skor_tahmini}")
+                with st.expander(f"🏟️ {m['homeTeam']['shortName']} vs {m['awayTeam']['shortName']} ({m['l_ad']})"):
+                    # Güvenli veri çekme (KeyError önleyici)
+                    skor_t = m['res'].get('skor', 'Analiz Ediliyor...')
+                    st.write(f"**Tahmin:** {m['res']['aether']} | **Skor:** {skor_t}")
+        
+        else:  # <--- HATA BURADAYDI! Bu 'else', yukarıdaki 'if g_l:' ile aynı hizada olmalı.
+            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında maç verisi bulunamadı.")
         else:
             st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında maç verisi bulunamadı.")
 
