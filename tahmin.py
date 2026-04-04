@@ -108,10 +108,12 @@ def analiz_et(ev, dep, matches):
             nx_ax *= 0.95 # Skorları 0-0 veya 1-1'e yaklaştırır
             
         r_nx = sk(nx_ex, nx_ax) # Nexus'un nihai sürpriz skoru
-        # --- AETHER AI MANTIĞI (MASTER SYNTHESIS) ---
-        # Aether, diğer 3 sonucun olasılıklarını ve form grafiklerini harmanlar
-        aether_ex = (ex * 0.4) + (ex * 1.1 * 0.3) + (ex * 1.2 * 0.3)
-        aether_ax = (ax * 0.4) + (ax * 0.9 * 0.3) + (ax * 0.8 * 0.3)
+       # --- AETHER MASTER SYNTHESIS (Final Sentez) ---
+        # Aether artık 4 farklı zekayı şu oranlarla harmanlıyor:
+        aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
+        aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
+        
+        r_ae = sk(aether_ex, aether_ax)
         # Form trendi ekle
         if e_rec > e_g: aether_ex *= 1.05
         if d_rec > d_g: aether_ax *= 1.05
