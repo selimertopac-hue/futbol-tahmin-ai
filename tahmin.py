@@ -298,38 +298,41 @@ elif mod == "Global AI":
 
         # 4. SONUÇLARI GÖSTERME
         if len(g_l) > 0:
-            # Algoritma seçimine göre anahtar belirle
             anahtar = "ae_c" if "AETHER" in filtre else "s_c" if "Standart" in filtre else "total_xg" if "Spektrum" in filtre else "n_c"
             sirali_maclar = sorted(g_l, key=lambda x: x['res'].get(anahtar, 0), reverse=True)
 
+            # --- DÖNGÜ BAŞLIYOR (Maç Kartları) ---
             for m in sirali_maclar:
-               # --- OTOMATİK KUPON OLUŞTURUCU (GÜNCEL VERİDEN) ---
-            st.divider()
+                with st.expander(f"🏟️ {m['homeTeam']['shortName']} vs {m['awayTeam']['shortName']} ({m['l_ad']})"):
+                    t_skor = m['res'].get('skor', 'N/A')
+                    st.write(f"**Tahmin:** {m['res'].get('aether', 'Analiz Yok')} | **Skor:** {t_skor}")
+            # --- DÖNGÜ BURADA BİTTİ (Hiza bir tık sola kaydı) ---
+
+            st.divider() # <--- Hata veren satır burasıydı, şimdi 'for' ile aynı hizada!
             st.subheader("🎯 Haftanın Otomatik Akıllı Kuponları")
             
             c1, c2, c3 = st.columns(3)
             
-            # 1. BANKO KUPON (Güven oranı en yüksek 3 maç)
             with c1:
                 st.info("💎 Banko Kupon")
                 bankolar = sorted(g_l, key=lambda x: x['res'].get('s_c', 0), reverse=True)[:3]
                 for b in bankolar:
                     st.write(f"✅ **{b['homeTeam']['shortName']}**: {b['res'].get('aether')} (%{int(b['res'].get('s_c',0))})")
             
-            # 2. SÜRPRİZ KUPON (Nexus AI güveni ve oran potansiyeli)
             with c2:
                 st.warning("💣 Sürpriz Kupon")
                 surprizler = sorted(g_l, key=lambda x: x['res'].get('n_c', 0), reverse=True)[3:6]
                 for s in surprizler:
                     st.write(f"🌟 **{s['homeTeam']['shortName']}**: {s['res'].get('aether')}")
             
-            # 3. ÜST / GOL KUPONU (Toplam xG beklentisi en yüksekler)
             with c3:
                 st.success("⚽ Üst / Gol Kuponu")
                 ustler = sorted(g_l, key=lambda x: x['res'].get('total_xg', 0), reverse=True)[:3]
                 for u in ustler:
                     st.write(f"🔥 **{u['homeTeam']['shortName']}**: 2.5 ÜST")
 
+        else:
+            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında maç verisi bulunamadı.")
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Kilitli</h2><p>Tahminler Cuma 12:00\'de açılacaktır.</p></div>', unsafe_allow_html=True)
     else:
