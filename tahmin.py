@@ -206,28 +206,29 @@ elif mod == "🤖 Tahmin Robotu":
 
     # --- ROBOT ANALİZ FONKSİYONU ---
     def robot_tara(ai_name, hedef_hafta):
-    tüm_maclar = []
-    # Bugünün tarihini ve önümüzdeki 3 günü baz alıyoruz (Cuma-Pazartesi arası)
-    baslangic = datetime.now().date()
-    bitis = baslangic + timedelta(days=3)
-    
-    for l_ad, l_data in all_d.items():
-        m_list = l_data.get('matches', [])
-        if not m_list: continue
+        tüm_maclar = []
+        # Sistemin o anki tarihini alıyoruz (4 Nisan 2026 gibi)
+        bugun = datetime.now().date()
+        # Önümüzdeki 3 günlük bülteni tarıyoruz (Cuma-Pazartesi arası)
+        bitis = bugun + timedelta(days=3)
         
-        for m in m_list:
-            # Maçın tarihini API verisinden alıp Python tarihine çeviriyoruz
-            m_tarih_str = m['utcDate'].split('T')[0]
-            m_tarih = datetime.strptime(m_tarih_str, '%Y-%m-%d').date()
+        for l_ad, l_data in all_d.items():
+            m_list = l_data.get('matches', [])
+            if not m_list: continue
             
-            # EĞER MAÇ BUGÜN, YARIN VEYA SONRAKİ GÜNSE (Hafta sonu bülteni)
-            if baslangic <= m_tarih <= bitis:
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
-                if res:
-                    m.update({'res': res, 'l_ad': l_ad})
-                    tüm_maclar.append(m)
-    
-    return tüm_maclar
+            for m in m_list:
+                # API'den gelen tarihi Python tarih formatına çeviriyoruz
+                m_tarih_str = m['utcDate'].split('T')[0]
+                m_tarih = datetime.strptime(m_tarih_str, '%Y-%m-%d').date()
+                
+                # EĞER MAÇ BUGÜN, YARIN VEYA SONRAKİ GÜNSE (Dinamik Filtre)
+                if bugun <= m_tarih <= bitis:
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
+                    if res:
+                        m.update({'res': res, 'l_ad': l_ad})
+                        tüm_maclar.append(m)
+        
+        return tüm_maclar
 
     # Robotları Sekmelere Dağıtma
     robot_listesi = [
