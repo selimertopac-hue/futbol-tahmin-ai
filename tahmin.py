@@ -60,7 +60,7 @@ def get_form_dots(team_name, matches):
         dots += f'<span class="form-dot form-{res}"></span>'
     return f'<div style="margin-top:3px;">{dots}</div>'
 
-def analiz_et(ev, dep, matches):
+def analiz_et(ev, dep, matches, h_no):
     try:
         df_raw = [m for m in matches if m['status'] == 'FINISHED' and m['score']['fullTime']['home'] is not None]
         if len(df_raw) < 5: return None
