@@ -206,20 +206,26 @@ elif mod == "🤖 Tahmin Robotu":
 
     # --- ROBOT ANALİZ FONKSİYONU ---
     def robot_tara(ai_name, hedef_hafta):
-        tüm_maclar = []
-        for l_ad, l_data in all_d.items():
-            m_list = l_data.get('matches', [])
-            if not m_list: continue
-            # Haftayı doğru yakalayalım
-            l_son = max([m['matchday'] for m in m_list if m['status'] == 'FINISHED'] or [1])
-            t_md = l_son - (site_h_aktif - hedef_hafta)
-            
-            for m in [x for x in m_list if x['matchday'] == t_md]:
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
-                if res:
-                    m.update({'res': res, 'l_ad': l_ad})
-                    tüm_maclar.append(m)
-        return tüm_maclar
+    tüm_maclar = []
+    for l_ad, l_data in all_d.items():
+        m_list = l_data.get('matches', [])
+        if not m_list: continue
+        
+        # --- HATA BURADAYDI, ŞİMDİ DÜZELTTİK ---
+        # Artık bitmiş maçlara bakmıyoruz, direkt API'nin o lig için 
+        # belirlediği 'currentSeason -> currentMatchday' verisini referans alıyoruz.
+        guncel_lig_haftasi = l_data.get('seasons', [{}])[0].get('currentMatchday', 1)
+        
+        # Seçilen hafta farkını güncel lig haftasına ekliyoruz/çıkarıyoruz
+        fark = hedef_hafta - site_h_aktif
+        t_md = guncel_lig_haftasi + fark
+        
+        for m in [x for x in m_list if x['matchday'] == t_md]:
+            res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list)
+            if res:
+                m.update({'res': res, 'l_ad': l_ad})
+                tüm_maclar.append(m)
+    return tüm_maclar
 
     # Robotları Sekmelere Dağıtma
     robot_listesi = [
