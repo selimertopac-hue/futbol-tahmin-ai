@@ -117,7 +117,29 @@ def analiz_et(ev, dep, matches):
         if d_rec > d_g: aether_ax *= 1.05
         
         r_ae = sk(aether_ex, aether_ax)
-
+# --- SPEKTRUM CHAOS & FLOW LOGIC (Gol ve Tempo Motoru) ---
+        # Spektrum'un felsefesi: "Gol golü çeker" veya "Savunma savunmayı kilitler"
+        sp_ex, sp_ax = ex, ax
+        
+        # 🔥 SENARYO 1: "Yüksek Volatilite" (Açık Futbol)
+        # Eğer her iki takım da son 3 maçta hem atıp hem yemişse (Yüksek Tempo)
+        if e_rec > 1.2 and d_rec > 1.2:
+            sp_ex *= 1.18  # Maçın kopma ihtimali çok yüksek
+            sp_ax *= 1.18  # Karşılıklı gol (KG VAR) kokusu
+            
+        # ❄️ SENARYO 2: "Negatif Akış" (Düşük Tempo)
+        # Eğer takımlardan biri 'otobüsü çekiyorsa' (Çok az gol yiyorsa)
+        elif e_rec < 0.8 or d_rec < 0.8:
+            sp_ex *= 0.85  # Pozisyon bulmak samanlıkta iğne aramak gibi olacak
+            sp_ax *= 0.85  # Skor 0-0 veya 1-0'a hapsolur
+            
+        # ⚡ SENARYO 3: "Baskın Karakter" 
+        # Eğer ev sahibi çok formda, deplasman ise çok formsuzsa
+        if e_rec > 1.5 and d_rec < 0.7:
+            sp_ex *= 1.25  # Ev sahibi silindir gibi geçebilir
+            sp_ax *= 0.75  # Deplasman gol atamaz
+            
+        r_sp = sk(sp_ex, sp_ax) # Spektrum'un nihai gol odaklı skoru
         # --- AETHER DİNAMİK YORUM MOTORU ---
         total_xg = ex + ax
         if total_xg > 3.2:
