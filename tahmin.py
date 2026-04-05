@@ -566,8 +566,10 @@ elif mod == "💎 Value Hunter":
         st.success(f"🔍 AI Motoru toplam {len(v_list)} adet 'Değerli Oran' saptadı!")
         
         for v in v_list:
-            res = v['res']
+            res = v['res'] # Analiz sonuçlarını al
             gap = v['v_gap']
+            m_prob = v['m_prob'] # Piyasa beklentisini al
+            ai_guven = res.get('ae_c', 50) # AI Güven puanını al
             
             st.markdown(f"""
                 <div style="background: linear-gradient(135deg, #1e222d 0%, #0d1117 100%); 
@@ -584,11 +586,11 @@ elif mod == "💎 Value Hunter":
                     <div style="display: flex; justify-content: space-around; text-align: center;">
                         <div>
                             <div style="color: #8B949E; font-size: 0.8rem;">🤖 AI GÜVENİ</div>
-                            <div style="color: #58A6FF; font-size: 1.2rem; font-weight: bold;">%{int(ai_prob)}</div>
+                            <div style="color: #58A6FF; font-size: 1.2rem; font-weight: bold;">%{int(ai_guven)}</div>
                         </div>
                         <div>
                             <div style="color: #8B949E; font-size: 0.8rem;">⚖️ PİYASA BEKLENTİSİ</div>
-                            <div style="color: #d73a49; font-size: 1.2rem; font-weight: bold;">%{int(v['m_prob'])}</div>
+                            <div style="color: #d73a49; font-size: 1.2rem; font-weight: bold;">%{int(m_prob)}</div>
                         </div>
                         <div>
                             <div style="color: #8B949E; font-size: 0.8rem;">🎯 AI ÖNERİSİ</div>
