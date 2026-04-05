@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import random
 import numpy as np
 from scipy.stats import poisson
 import requests
