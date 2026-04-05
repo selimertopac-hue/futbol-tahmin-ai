@@ -467,9 +467,10 @@ elif mod == "Global AI":
                 for a in altlar:
                     st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["name"]}</b><br>Alt (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-else:
-            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında analiz edilecek maç verisi bulunamadı.")
+if len(g_l) == 0:
+            st.warning(f"⚠️ {s_sec}. hafta için maç verisi bulunamadı.")
 elif mod == "Lig Odaklı":
+    st.title("🏆 Lig Odaklı Analiz")
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
     lig_kodu = LIGLER[lig_adi]
     puan_durumu_data = veri_al(f"competitions/{lig_kodu}/standings")
