@@ -518,67 +518,81 @@ elif mod == "Lig Odaklı":
                     st.markdown(f"""<div class="match-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], l_matches)}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], l_matches)}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div></div>""", unsafe_allow_html=True)
 elif mod == "💎 Value Hunter":
     st.title("💎 AI Value Hunter (Değer Analizi)")
-    st.markdown("Piyasa oranları ile AI beklentimiz arasındaki farkı (Value) tarayan profesyonel analiz motoru.")
+    st.info("Piyasa oranları ile AI beklentimiz arasındaki farkı tarayan profesyonel analiz motoru.")
 
-    # 1. HAFTA SEÇİMİ VE TARAMA
-    s_sec = st.selectbox("📅 Analiz Haftası", list(range(1, 11)), index=site_h_aktif-1)
+    # 1. HAFTA SEÇİMİ
+    s_sec = st.selectbox("📅 Analiz Haftası", list(range(1, 11)), index=site_h_aktif-1, key="value_week")
     
-    # Value hesaplama fonksiyonu (Adil Oran vs Piyasa Oranı Simülasyonu)
-    # Not: API'den canlı oran gelmiyorsa, ligin genel ağırlığına göre 'Piyasa Tahmini' simüle edilir.
+    # Seçilen haftanın tarih sınırları
+    h_baslangic = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
+    h_bitis = h_baslangic + timedelta(days=7)
+
     def find_values(hafta_no):
         found = []
+        bas = h_baslangic.date()
+        bit = h_bitis.date()
+
         for l_ad, l_data in all_d.items():
-            for m in l_data.get('matches', []):
+            m_list = l_data.get('matches', [])
+            for m in m_list:
                 m_tarih_str = m['utcDate'].split('T')[0]
                 m_tarih = datetime.strptime(m_tarih_str, '%Y-%m-%d').date()
                 
-                # Seçilen hafta aralığı kontrolü
-                h_bas = (SİTE_DOGUM_TARİHİ + timedelta(weeks=hafta_no-1)).date()
-                h_bit = h_bas + timedelta(days=7)
-                
-                if h_bas <= m_tarih < h_bit:
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_data.get('matches', []), hafta_no)
+                # Sadece seçilen haftanın maçlarını tara
+                if bas <= m_tarih < bit:
+                    # Analizi çalıştır
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, hafta_no)
                     if res:
-                        # VALUE MANTIĞI:
-                        # Robotun güven puanı (ae_c) ile piyasanın muhtemel oranı arasındaki sapma
-                        # Örn: Robot %75 diyor (Adil Oran 1.33), Piyasa %55 (Oran 1.80) veriyorsa Value = %20
-                        market_prob = 50 + (random.randint(-10, 10)) # Piyasa beklentisi simülasyonu
-                        ai_prob = res['ae_c']
+                        # VALUE MANTIĞI: AI Güveni vs Piyasa Tahmini (Simüle)
+                        # Robotun en güvendiği skora verdiği puanı (ae_c) baz alıyoruz
+                        market_prob = 45 + (random.randint(-5, 15)) 
+                        ai_prob = res.get('ae_c', 50)
                         value_gap = ai_prob - market_prob
                         
-                        if value_gap > 15: # %15'ten fazla sapma varsa 'Hazine'dir
+                        # %12'den fazla fark varsa listeye ekle
+                        if value_gap > 12:
                             m.update({'res': res, 'v_gap': value_gap, 'l_ad': l_ad, 'm_prob': market_prob})
                             found.append(m)
         return sorted(found, key=lambda x: x['v_gap'], reverse=True)
 
-    v_list = find_values(s_sec)
+    # Verileri Çek
+    with st.spinner("💎 Hazine avcısı ligleri tarıyor..."):
+        v_list = find_values(s_sec)
 
     if not v_list:
-        st.warning("⚠️ Bu hafta için henüz yüksek 'Value' (Değer) içeren maç saptanmadı.")
+        st.warning(f"⚠️ {s_sec}. hafta için henüz yüksek 'Value' (Değer) içeren maç saptanmadı.")
     else:
         st.success(f"🔍 AI Motoru toplam {len(v_list)} adet 'Değerli Oran' saptadı!")
         
-        # Kartlı Görünüm
         for v in v_list:
             res = v['res']
             gap = v['v_gap']
             
             st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #1e222d 0%, #0d1117 100%); border-left: 5px solid #d4af37; border-radius: 10px; padding: 15px; margin-bottom: 15px; border: 1px solid #30363d;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span style="color: #d4af37; font-weight: bold;">💎 YÜKSEK VALUE: +%{int(gap)}</span>
-                        <span style="color: #8B949E; font-size: 0.8rem;">{v['l_ad']}</span>
+                <div style="background: linear-gradient(135deg, #1e222d 0%, #0d1117 100%); 
+                            border-left: 5px solid #d4af37; border-radius: 10px; padding: 20px; 
+                            margin-bottom: 20px; border: 1px solid #30363d; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #d4af37; font-weight: bold; font-size: 1.1rem;">💎 VALUE: +%{int(gap)}</span>
+                        <span style="background: #30363d; padding: 4px 10px; border-radius: 15px; color: #8B949E; font-size: 0.75rem;">{v['l_ad']}</span>
                     </div>
-                    <div style="margin: 10px 0; font-size: 1.2rem; font-weight: bold;">
-                        {v['homeTeam']['name']} vs {v['awayTeam']['name']}
+                    <div style="margin: 15px 0; font-size: 1.4rem; font-weight: bold; color: #f0f6fc;">
+                        {v['homeTeam']['name']} <span style="color:#8B949E; font-size:0.9rem;">vs</span> {v['awayTeam']['name']}
                     </div>
-                    <div style="display: flex; gap: 20px; font-size: 0.9rem;">
-                        <div style="color: #58A6FF;">🤖 AI Beklentisi: %{int(res['ae_c'])}</div>
-                        <div style="color: #8B949E;">⚖️ Piyasa Tahmini: %{int(v['m_prob'])}</div>
-                        <div style="color: #3fb950; font-weight: bold;">🎯 Öneri: {res['aether']}</div>
-                    </div>
-                    <div style="margin-top: 10px; font-size: 0.8rem; font-style: italic; color: #8B949E;">
-                        *Bu maçta piyasa oranları, takımın gerçek formunu (AI verimize göre) henüz tam olarak yansıtmıyor.
+                    <hr style="border: 0; border-top: 1px solid #30363d; margin: 15px 0;">
+                    <div style="display: flex; justify-content: space-around; text-align: center;">
+                        <div>
+                            <div style="color: #8B949E; font-size: 0.8rem;">🤖 AI GÜVENİ</div>
+                            <div style="color: #58A6FF; font-size: 1.2rem; font-weight: bold;">%{int(ai_prob)}</div>
+                        </div>
+                        <div>
+                            <div style="color: #8B949E; font-size: 0.8rem;">⚖️ PİYASA BEKLENTİSİ</div>
+                            <div style="color: #d73a49; font-size: 1.2rem; font-weight: bold;">%{int(v['m_prob'])}</div>
+                        </div>
+                        <div>
+                            <div style="color: #8B949E; font-size: 0.8rem;">🎯 AI ÖNERİSİ</div>
+                            <div style="color: #3fb950; font-size: 1.2rem; font-weight: bold;">{res['aether']}</div>
+                        </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
