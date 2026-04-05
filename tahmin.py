@@ -413,7 +413,7 @@ elif mod == "Global AI":
                                 hit += 1
                 return hit
 
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4)
             
             # 1. BANKO KUPON (5 MAÇ)
             with c1:
@@ -453,7 +453,20 @@ elif mod == "Global AI":
                 for u in ustler:
                     st.markdown(f'<div class="coupon-item"><b>{u["l_ad"]}</b><br>{u["homeTeam"]["name"]} - {u["awayTeam"]["name"]}<br>Beklenen xG: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-            
+            with c4:
+                # xG değeri en düşük 5 maçı "Cımbızla" çekiyoruz
+                altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
+                h_a = 0
+                for m in altlar:
+                    if m.get('status') == 'FINISHED':
+                        if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) < 2.5: h_a += 1
+                
+                seal = '<div class="full-hit-seal" style="background:#0366d6;">🛡️ WALL</div>' if h_a == 5 else ""
+                st.markdown(f'<div class="editor-card" style="border-top:4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
+                for a in altlar:
+                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["name"]}</b><br>Alt (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+✨ Neler Kazandık?
             # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
             st.markdown("---")
             st.subheader(f"🔥 Haftanın En Güvenilir 20 Analizi")
