@@ -465,18 +465,10 @@ elif mod == "Global AI":
                 st.markdown(f'<div class="editor-card" style="border-top:4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
                 for a in altlar:
                     st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["name"]}</b><br>Alt (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True) # Sütun kapanışı
 
         else:
             st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında analiz edilecek maç verisi bulunamadı.")
-✨ Neler Kazandık?
-            # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
-            st.markdown("---")
-            st.subheader(f"🔥 Haftanın En Güvenilir 20 Analizi")
-            for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
-                res = m['res']
-                m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
-                st.markdown(f"""<div class="match-card"><div class="rank-badge">🔥 %{int(m['puan'])}</div><div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div><div class="ai-insight">💡 <b>Aether Insight:</b> {res['note']}</div></div>""", unsafe_allow_html=True)
         
         else:
             st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında analiz edilecek maç verisi bulunamadı.")
