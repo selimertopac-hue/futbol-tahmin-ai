@@ -453,6 +453,7 @@ elif mod == "Global AI":
                 for u in ustler:
                     st.markdown(f'<div class="coupon-item"><b>{u["l_ad"]}</b><br>{u["homeTeam"]["name"]} - {u["awayTeam"]["name"]}<br>Beklenen xG: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+            # 4. YENİ: ALT / SAVUNMA KUPONU (THE IRON WALL)
             with c4:
                 # xG değeri en düşük 5 maçı "Cımbızla" çekiyoruz
                 altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
@@ -463,10 +464,9 @@ elif mod == "Global AI":
                 
                 seal = '<div class="full-hit-seal" style="background:#0366d6;">🛡️ WALL</div>' if h_a == 5 else ""
                 st.markdown(f'<div class="editor-card" style="border-top:4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
-             for a in altlar:
+                for a in altlar:
                     st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["name"]}</b><br>Alt (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-        
 else:
             st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında analiz edilecek maç verisi bulunamadı.")
 elif mod == "Lig Odaklı":
