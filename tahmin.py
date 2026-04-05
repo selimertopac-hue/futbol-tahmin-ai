@@ -413,45 +413,53 @@ elif mod == "Global AI":
                                 hit += 1
                 return hit
 
-            c1, c2, c3 = st.columns(3)
+            # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (Yan Yana 4 Sütun) ---
+            c1, c2, c3, c4 = st.columns(4) # 4 Sütuna çıktık!
             
-            # 1. BANKO KUPON (5 MAÇ)
+            # 1. BANKO KUPON (AETHER & STD)
             with c1:
                 bankolar = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5]
                 h_b = check_hit(bankolar, "banko")
-                seal = '<div class="full-hit-seal">🏆 5/5 FULL HIT</div>' if h_b == 5 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO ({filtre[:6]}) <span class="success-badge">{h_b}/5</span></div>', unsafe_allow_html=True)
+                seal = '<div class="full-hit-seal">🏆 FULL HIT</div>' if h_b == 5 else ""
+                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO <span class="success-badge">{h_b}/5</span></div>', unsafe_allow_html=True)
                 for b in bankolar:
-                    st.markdown(f'<div class="coupon-item"><b>{b["l_ad"]}</b><br>{b["homeTeam"]["name"]} - {b["awayTeam"]["name"]}<br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["name"]}</b><br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 2. SÜRPRİZ KUPON (5 MAÇ)
+            # 2. SÜRPRİZ KUPON (NEXUS)
             with c2:
-                # Sürpriz arayışı (Ev sahibi kazanmaz tahminleri öncelikli)
                 surprizler = sorted([x for x in g_l if winner(x['res']['aether']) != "1"], key=lambda x: x['puan'], reverse=True)[:5]
-                if len(surprizler) < 5: surprizler = sorted(g_l, key=lambda x: x['puan'])[:5] # Veri azsa riskli maçları al
+                if len(surprizler) < 5: surprizler = sorted(g_l, key=lambda x: x['puan'])[:5]
                 h_s = check_hit(surprizler, "surpriz")
-                seal = '<div class="full-hit-seal">🔥 BOMBA KUPON</div>' if h_s >= 3 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">🕵️ SÜRPRİZ ({filtre[:6]}) <span class="success-badge">{h_s}/5</span></div>', unsafe_allow_html=True)
+                seal = '<div class="full-hit-seal" style="background:#6f42c1;">🔥 BOMBA</div>' if h_s >= 3 else ""
+                st.markdown(f'<div class="editor-card" style="border-top:4px solid #6f42c1;">{seal}<div class="coupon-title">🕵️ SÜRPRİZ <span class="success-badge">{h_s}/5</span></div>', unsafe_allow_html=True)
                 for s in surprizler:
-                    st.markdown(f'<div class="coupon-item"><b>{s["l_ad"]}</b><br>{s["homeTeam"]["name"]} - {s["awayTeam"]["name"]}<br>Tahmin: {s["res"]["aether"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{s["homeTeam"]["name"]}</b><br>Tahmin: {s["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 3. ÜST / GOL KUPONU (5 MAÇ)
+            # 3. ÜST / GOL KUPONU (SPEKTRUM)
             with c3:
-                # Robotun gol iştahına göre en gollü 5 maç
-                if "AETHER" in filtre:
-                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] + x['res']['ae_c']/20), reverse=True)[:5]
-                elif "Spektrum" in filtre:
-                    ustler = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
-                else:
-                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] * x['res'].get('s_c', 50)), reverse=True)[:5]
-                
+                ustler = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
                 h_u = check_hit(ustler, "ust")
-                seal = '<div class="full-hit-seal">⚽ GOL FESTİVALİ</div>' if h_u == 5 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⚽ ÜST / GOL <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
+                seal = '<div class="full-hit-seal" style="background:#d73a49;">⚽ GOAL</div>' if h_u == 5 else ""
+                st.markdown(f'<div class="editor-card" style="border-top:4px solid #d73a49;">{seal}<div class="coupon-title">⚽ ÜST <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
                 for u in ustler:
-                    st.markdown(f'<div class="coupon-item"><b>{u["l_ad"]}</b><br>{u["homeTeam"]["name"]} - {u["awayTeam"]["name"]}<br>Beklenen xG: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["name"]}</b><br>Üst (xG: {u["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # 4. YENİ: ALT / SAVUNMA KUPONU (THE IRON WALL)
+            with c4:
+                # xG değeri en düşük 5 maçı "Cımbızla" çekiyoruz
+                altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
+                h_a = 0
+                for m in altlar:
+                    if m.get('status') == 'FINISHED':
+                        if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) < 2.5: h_a += 1
+                
+                seal = '<div class="full-hit-seal" style="background:#0366d6;">🛡️ WALL</div>' if h_a == 5 else ""
+                st.markdown(f'<div class="editor-card" style="border-top:4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
+                for a in altlar:
+                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["name"]}</b><br>Alt (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
