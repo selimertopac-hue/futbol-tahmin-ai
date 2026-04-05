@@ -466,6 +466,9 @@ elif mod == "Global AI":
                 for a in altlar:
                     st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["name"]}</b><br>Alt (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+
+        else:
+            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında analiz edilecek maç verisi bulunamadı.")
 ✨ Neler Kazandık?
             # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
             st.markdown("---")
