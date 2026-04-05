@@ -189,7 +189,7 @@ simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 
 # --- 5. ANA MENÜ ---
-mod = st.sidebar.radio("🚀 Menü", ["🏠 Canlı Skorlar","🤖 Tahmin Robotu", "Global AI", "Lig Odaklı", "🏆 Onur Listesi"])
+mod = st.sidebar.radio("🚀 Menü", ["🏠 Canlı Skorlar","🤖 Tahmin Robotu", "Global AI", "Lig Odaklı","💎 Value Hunter", "🏆 Onur Listesi"])
 all_d = {lig: veri_al(f"competitions/{kod}/matches") for lig, kod in LIGLER.items()}
 
 if mod == "🏠 Canlı Skorlar":
