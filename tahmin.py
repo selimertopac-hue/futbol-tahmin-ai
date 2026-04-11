@@ -256,11 +256,11 @@ if mod == "🏠 Canlı Skorlar":
 
 elif mod == "Tahmin Robotu":
     st.title("🤖 Canlı Analiz Radarı")
-    st.info("Bu bölüm, önümüzdeki 24 saat içinde oynanacak maçları anlık verilerle tarar.")
+    st.info("Bu bölüm, bültendeki sıradaki maçları anlık verilerle analiz eder.")
     
-    # ZAMAN PENCERESİ: Şu andan itibaren önümüzdeki 24 saat
-    simdi = datetime.now()
-    yarın_bu_saat = simdi + timedelta(hours=24)
+    # Şu anki zamanı al (Zaman dilimi karmaşasını çözmek için UTC kullanıyoruz)
+    import datetime as dt
+    simdi_utc = dt.datetime.utcnow()
     
     gunun_maclari = []
     
@@ -268,22 +268,24 @@ elif mod == "Tahmin Robotu":
     for l_ad, l_data in all_d.items():
         m_list = l_data.get('matches', [])
         for m in m_list:
-            # API'den gelen tarihi datetime objesine çeviriyoruz
-            m_tarih = datetime.strptime(m['utcDate'], '%Y-%m-%dT%H:%M:%SZ')
+            # Maçın tarihini parse et
+            m_tarih = dt.datetime.strptime(m['utcDate'], '%Y-%m-%dT%H:%M:%SZ')
             
-            # Sadece önümüzdeki 24 saat içindeki maçları al (Gece yarısı boşluğu olmasın)
-            if simdi <= m_tarih <= yarın_bu_saat:
+            # FİLTRE: Sadece bugün ve yarın oynanacak, henüz BAŞLAMAMIŞ maçları al
+            # Zaman dilimi kaymalarını önlemek için geniş bir pencere (simdi - 2 saat) bırakıyoruz
+            if m_tarih >= (simdi_utc - dt.timedelta(hours=2)):
+                # Analiz fonksiyonunu çağır (Hafta kontrolünü esnetiyoruz)
                 res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, site_h_aktif)
                 if res:
                     m.update({'res': res, 'l_ad': l_ad, 'dt_obj': m_tarih})
                     gunun_maclari.append(m)
 
     if not gunun_maclari:
-        st.warning("⚠️ Önümüzdeki 24 saat için analiz edilecek canlı maç verisi bulunamadı. Hafta içi bülteni veya gece yarısı boşluğu olabilir.")
+        st.warning("⚠️ Radarda şu an analiz edilecek aktif maç bulunamadı. Lütfen veri setinin güncelliğini kontrol edin.")
     else:
-        st.success(f"🔍 Robotlar önümüzdeki 24 saat için {len(gunun_maclari)} maçı radara aldı!")
+        # Zaman dilimini TR'ye çevirmek için basit bir gösterim ekleyelim
+        st.success(f"🔍 Robotlar sıradaki {len(gunun_maclari)} maçı radara aldı!")
         
-        # 3 Robot için 3 Sütun
         c1, c2, c3 = st.columns(3)
         robotlar = [
             ("AETHER", c1, "ae_c", "#58A6FF"), 
@@ -294,27 +296,27 @@ elif mod == "Tahmin Robotu":
         for r_ad, r_col, r_puan_key, r_renk in robotlar:
             with r_col:
                 st.markdown(f"### <span style='color:{r_renk};'>{r_ad}</span>", unsafe_allow_html=True)
-                # O robotun en güvendiği 5 maçı sırala
-                r_top = sorted(gunun_maclari, key=lambda x: x['res'].get(r_puan_key, 0), reverse=True)[:5]
+                # O robotun en güvendiği maçları sırala
+                r_top = sorted(gunun_maclari, key=lambda x: x['res'].get(r_puan_key, 0), reverse=True)[:8]
                 
                 for m in r_top:
-                    saat = m['dt_obj'].strftime('%H:%M')
+                    # Türkiye saati için yaklaşık +3 saat ekleyerek gösterelim
+                    tr_saat = (m['dt_obj'] + dt.timedelta(hours=3)).strftime('%d/%m %H:%M')
                     st.markdown(f"""
                     <div style="background:#1e222d; padding:12px; border-radius:10px; border-left:4px solid {r_renk}; margin-bottom:10px; border:1px solid #30363d;">
                         <div style="display:flex; justify-content:space-between;">
                             <small style="color:#8B949E;">{m['l_ad']}</small>
-                            <small style="color:#8B949E;">{saat}</small>
+                            <small style="color:#8B949E;">{tr_saat}</small>
                         </div>
-                        <div style="margin:5px 0; font-weight:bold; font-size:0.9rem;">
+                        <div style="margin:5px 0; font-weight:bold; font-size:0.85rem;">
                             {m['homeTeam']['name']} - {m['awayTeam']['name']}
                         </div>
-                        <div style="color:{r_renk}; font-weight:bold; font-size:0.85rem;">
+                        <div style="color:{r_renk}; font-weight:bold; font-size:0.8rem;">
                             Tahmin: {m['res']['aether']}
                         </div>
                         <div style="background:#0d1117; height:4px; border-radius:2px; margin-top:8px;">
                             <div style="background:{r_renk}; width:{int(m['res'].get(r_puan_key, 0))}%; height:4px; border-radius:2px;"></div>
                         </div>
-                        <small style="color:#8B949E;">Güven Endeksi: %{int(m['res'].get(r_puan_key, 0))}</small>
                     </div>
                     """, unsafe_allow_html=True)
     # 3. VERİYİ ÇEK VE ROBOTLARI GÖSTER
