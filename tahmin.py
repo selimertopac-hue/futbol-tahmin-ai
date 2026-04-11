@@ -320,48 +320,56 @@ elif mod == "Global AI":
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
     st.info(f"📅 Bu hafta {h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')} arası maçları kapsar.")
 
-    # --- 3. YENİ MANTIK: HAVUZU OLUŞTUR VE MÜHÜRLE ---
+    # --- 3. GÜVENLİ HAVUZ OLUŞTURMA ---
     global_havuz = [] 
     
-    # Tüm liglerdeki maçları tara ve havuzu doldur
+    # Bugünün tarihini baz alarak bir esneklik payı bırakalım
     for l_ad, l_data in all_d.items():
         m_list = l_data.get('matches', [])
         for m in m_list:
-            # Sadece seçilen haftanın maçlarını analiz et
-            m_tarih_str = m['utcDate'].split('T')[0]
-            m_tarih = datetime.strptime(m_tarih_str, '%Y-%m-%d')
-            
-            if h_baslangic <= m_tarih < h_bitis:
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
-                if res:
-                    # 'puan' değerini seçilen filtreye göre dinamik yapıyoruz
-                    puan_anahtari = 'ae_c' if "AETHER" in filtre else 'n_c' if "Nexus" in filtre else 's_c'
-                    m.update({'res': res, 'puan': res.get(puan_anahtari, 50), 'l_ad': l_ad})
-                    global_havuz.append(m)
+            try:
+                # 1. Tarihi temizleyip sadece YYYY-MM-DD formatına çekiyoruz
+                m_tarih_ham = m['utcDate'].split('T')[0]
+                m_tarih = datetime.strptime(m_tarih_ham, '%Y-%m-%d')
+                
+                # 2. Tarih Aralığı Kontrolü (Sınırları 1 gün esnetiyoruz ki saat farkına takılmasın)
+                if (h_baslangic - timedelta(days=1)) <= m_tarih <= (h_bitis + timedelta(days=1)):
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
+                    if res:
+                        # Filtreye göre puanı belirle
+                        p_key = 'ae_c' if "AETHER" in filtre else 'n_c' if "Nexus" in filtre else 's_c'
+                        m.update({'res': res, 'puan': res.get(p_key, 50), 'l_ad': l_ad})
+                        global_havuz.append(m)
+            except Exception as e:
+                continue # Hatalı tarih formatı varsa o maçı atla
 
-    # --- 4. MÜHÜRLEME VE EKRANA BASMA ---
+    # --- 4. MÜHÜRLEME VE GÖSTERİM ---
     import random
-    random.seed(s_sec) # Seçilen haftayı mühür anahtarı yapıyoruz
+    random.seed(int(s_sec)) # Seed'in tam sayı olduğundan emin olalım
 
     if global_havuz:
-        # Puanlara göre sırala ama seed sayesinde liste o hafta için donar
+        # Puanlara göre mühürlü sıralama
         bankolar = sorted(global_havuz, key=lambda x: x['puan'], reverse=True)[:5]
         
-        st.subheader("🌍 Haftalık Mühürlü Banko Kupon")
-        cols = st.columns(len(bankolar))
+        st.subheader(f"🌍 {s_sec}. Hafta Mühürlü Kuponu")
+        cols = st.columns(5)
         for i, m in enumerate(bankolar):
             with cols[i]:
-                # Burayı senin şık kart tasarımınla değiştirebilirsin
                 st.markdown(f"""
-                <div style="background:#1e222d; padding:15px; border-radius:10px; border-bottom:4px solid #3fb950; text-align:center;">
-                    <small>{m['l_ad']}</small><br>
-                    <b>{m['homeTeam']['name']}</b><br>
-                    <span style="color:#3fb950;">{m['res']['aether']}</span><br>
+                <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #3fb950; min-height:150px;">
+                    <small style="color:#8B949E;">{m['l_ad']}</small><br>
+                    <b style="font-size:0.85rem;">{m['homeTeam']['name']}</b><br>
+                    <b style="font-size:0.85rem;">{m['awayTeam']['name']}</b><br>
+                    <hr style="margin:8px 0; border:0; border-top:1px solid #30363d;">
+                    <span style="color:#3fb950; font-weight:bold;">{m['res']['aether']}</span><br>
                     <small>Güven: %{int(m['puan'])}</small>
                 </div>
                 """, unsafe_allow_html=True)
     else:
-        st.warning(f"⚠️ {s_sec}. hafta için analiz edilecek maç verisi bulunamadı.")
+        # Eğer hala boşsa, verinin içinde ne olduğunu görmek için bir ipucu basalım
+        st.warning(f"⚠️ Seçilen tarih aralığında ({h_baslangic.date()} - {h_bitis.date()}) veri bulunamadı.")
+        if st.checkbox("Veri Yapısını Görüntüle (Hata Ayıklama)"):
+            st.write("Toplam taranan maç sayısı:", sum(len(d.get('matches', [])) for d in all_d.values()))
 
             # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (TAM FORMAT) ---
             c1, c2, c3, c4 = st.columns(4) 
