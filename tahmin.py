@@ -254,41 +254,44 @@ if mod == "🏠 Canlı Skorlar":
                 </div>
             """, unsafe_allow_html=True)
 
-elif mod == "🤖 Tahmin Robotu":
-    st.title("🤖 AI Tahmin Robotu")
+elif mod == "Tahmin Robotu":
+    st.title("🤖 Günlük Tahmin Robotu")
+    st.info("Bu bölümdeki analizler, o günün en taze verileriyle anlık olarak güncellenir.")
     
-    # 1. HAFTA SEÇİMİ (Global AI ile aynı mantık)
-    s_sec = st.selectbox("📅 Analiz Edilecek Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=site_h_aktif-1, key="robot_hafta_sync")
+    # Bugünün tarihini al
+    bugun = datetime.now().date()
+    
+    # Bugün oynanacak maçları ayır
+    gunun_maclari = []
+    for l_ad, l_data in all_d.items():
+        for m in l_data.get('matches', []):
+            m_tarih = datetime.strptime(m['utcDate'].split('T')[0], '%Y-%m-%d').date()
+            if m_tarih == bugun:
+                # Analiz çalıştır ve listeye ekle
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_data['matches'], site_h_aktif)
+                if res:
+                    m.update({'res': res, 'l_ad': l_ad})
+                    gunun_maclari.append(m)
 
-    # Seçilen haftanın tarih sınırlarını hesapla
-    h_baslangic = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
-    h_bitis = h_baslangic + timedelta(days=7)
+    # Robotlar için ayrı ayrı "Günün En Güvenilirleri"
+    c1, c2, c3 = st.columns(3)
+    robotlar = [("AETHER", c1, "ae_c"), ("NEXUS", c2, "n_c"), ("SPEKTRUM", c3, "s_c")]
 
-    st.info(f"🤖 Robotlar şu an {s_sec}. Hafta ({h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')}) maçlarını tarıyor...")
-
-    # 2. ROBOT TARAMA FONKSİYONU (GÜNCEL)
-    def robot_tara(hedef_hafta_no):
-        tüm_maclar = []
-        # Belirlenen tarih aralığı
-        bas = h_baslangic.date()
-        bit = h_bitis.date()
-        
-        for l_ad, l_data in all_d.items():
-            m_list = l_data.get('matches', [])
-            for m in m_list:
-                # API Tarihini çevir
-                m_tarih_str = m['utcDate'].split('T')[0]
-                m_tarih = datetime.strptime(m_tarih_str, '%Y-%m-%d').date()
-                
-                # EĞER MAÇ SEÇİLEN HAFTANIN TARİHLERİ ARASINDAYSA
-                if bas <= m_tarih < bit:
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
-                    
-                    if res:
-                        m.update({'res': res, 'l_ad': l_ad})
-                        tüm_maclar.append(m)
-        return tüm_maclar
-
+    for r_ad, r_col, r_puan_key in robotlar:
+        with r_col:
+            st.subheader(f"{r_ad} Radarı")
+            # O günün maçlarını o robotun güven puanına göre sırala
+            r_top = sorted(gunun_maclari, key=lambda x: x['res'].get(r_puan_key, 0), reverse=True)[:3]
+            
+            for m in r_top:
+                st.markdown(f"""
+                <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #3fb950; margin-bottom:10px;">
+                    <small>{m['l_ad']}</small><br>
+                    <b>{m['homeTeam']['name']} - {m['awayTeam']['name']}</b><br>
+                    <span style="color:#3fb950;">Öneri: {m['res']['aether']}</span><br>
+                    <small>Güven: %{int(m['res'].get(r_puan_key, 0))}</small>
+                </div>
+                """, unsafe_allow_html=True)
     # 3. VERİYİ ÇEK VE ROBOTLARI GÖSTER
     mac_havuzu = robot_tara(s_sec)
 
