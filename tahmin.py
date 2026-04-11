@@ -256,7 +256,8 @@ if mod == "🏠 Canlı Skorlar":
 
 elif mod == "Tahmin Robotu":
     st.title("🤖 Tahmin Robotu v2.0")
-    st.markdown("---")
+    # --- EMOJİSİZ VE GÜVENLİ FORMAT ---
+                st.markdown(f"""<div class="match-card"><div class="rank-badge">PUAN: %{int(m['puan'])}</div><div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">STD<br><b>{res['std']}</b></div><div class="prediction-box">NEXUS<br><b>{res['nexus']}</b></div></div><div class="ai-insight">FIKIR: <b>Aether Insight:</b> {res['note']}</div></div>""", unsafe_allow_html=True)
     
     # 1. VERİ TOPLAMA ÜSSÜ
     # Zaman dilimi karmaşasını bitirmek için sadece 'bugün' ve sonrasındaki maçları topluyoruz
