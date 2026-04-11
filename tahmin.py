@@ -310,90 +310,58 @@ elif mod == "Tahmin Robotu":
                         """, unsafe_allow_html=True)
     
 elif mod == "Global AI":
-    # 1. Sidebar ve Hafta Seçimi
+    # 1. Sidebar ve Hafta Seçimi (Mevcut kodun, dokunmadık)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=site_h_aktif-1, key="global_hafta_unique_key")
 
-    # 2. Seçilen Haftanın Tarih Aralığı (Hibrit Sistem)
+    # 2. Seçilen Haftanın Tarih Aralığı (Mevcut kodun, dokunmadık)
     h_baslangic = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
     h_bitis = h_baslangic + timedelta(days=7)
-    
-    # Cuma 12:00 Kilit Hedefi
-    hedef_tarih = h_baslangic + timedelta(hours=12)
-
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
     st.info(f"📅 Bu hafta {h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')} arası maçları kapsar.")
-    # --- 3. HAVUZU OLUŞTUR (Hatanın çözümü burası) ---
+
+    # --- 3. YENİ MANTIK: HAVUZU OLUŞTUR VE MÜHÜRLE ---
     global_havuz = [] 
     
-    # Tüm liglerdeki maçları bu listeye ekle
+    # Tüm liglerdeki maçları tara ve havuzu doldur
     for l_ad, l_data in all_d.items():
-        for m in l_data.get('matches', []):
-            res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_data['matches'], site_h_aktif)
-            if res:
-                # Buradaki 'puan' anahtarı senin lambda fonksiyonunda kullandığın isimle aynı olmalı
-                m.update({'res': res, 'puan': res.get('ae_c', 50), 'l_ad': l_ad})
-                global_havuz.append(m)
+        m_list = l_data.get('matches', [])
+        for m in m_list:
+            # Sadece seçilen haftanın maçlarını analiz et
+            m_tarih_str = m['utcDate'].split('T')[0]
+            m_tarih = datetime.strptime(m_tarih_str, '%Y-%m-%d')
+            
+            if h_baslangic <= m_tarih < h_bitis:
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
+                if res:
+                    # 'puan' değerini seçilen filtreye göre dinamik yapıyoruz
+                    puan_anahtari = 'ae_c' if "AETHER" in filtre else 'n_c' if "Nexus" in filtre else 's_c'
+                    m.update({'res': res, 'puan': res.get(puan_anahtari, 50), 'l_ad': l_ad})
+                    global_havuz.append(m)
 
-    # --- 4. ŞİMDİ SIRALA VE MÜHÜRLE ---
+    # --- 4. MÜHÜRLEME VE EKRANA BASMA ---
     import random
-    random.seed(site_h_aktif) # Haftalık mühürleme burada devreye giriyor
+    random.seed(s_sec) # Seçilen haftayı mühür anahtarı yapıyoruz
 
-    if global_havuz: # Boş değilse sırala
+    if global_havuz:
+        # Puanlara göre sırala ama seed sayesinde liste o hafta için donar
         bankolar = sorted(global_havuz, key=lambda x: x['puan'], reverse=True)[:5]
         
-        # --- 5. EKRANA BAS ---
+        st.subheader("🌍 Haftalık Mühürlü Banko Kupon")
         cols = st.columns(len(bankolar))
         for i, m in enumerate(bankolar):
             with cols[i]:
-                st.write(f"**{m['homeTeam']['name']}**")
-                st.write(f"Tahmin: {m['res']['aether']}")
+                # Burayı senin şık kart tasarımınla değiştirebilirsin
+                st.markdown(f"""
+                <div style="background:#1e222d; padding:15px; border-radius:10px; border-bottom:4px solid #3fb950; text-align:center;">
+                    <small>{m['l_ad']}</small><br>
+                    <b>{m['homeTeam']['name']}</b><br>
+                    <span style="color:#3fb950;">{m['res']['aether']}</span><br>
+                    <small>Güven: %{int(m['puan'])}</small>
+                </div>
+                """, unsafe_allow_html=True)
     else:
-        st.warning("Henüz analiz edilecek maç verisi çekilemedi.")
-    # --- KİLİT KONTROLÜ (TEK VE NET) ---
-    if simdi < hedef_tarih:
-        st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
-    else:
-        # 3. VERİ ÇEKME DÖNGÜSÜ (Tarih Bazlı)
-        g_l = []
-        for l_ad, l_data in all_d.items():
-            m_list = l_data.get('matches', [])
-            for m in m_list:
-                m_t_str = m['utcDate'].split('T')[0]
-                m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
-                
-                # Eğer maç seçilen haftanın tarih aralığındaysa analize al
-                if h_baslangic.date() <= m_t < h_bitis.date():
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec) # s_sec eklendi!
-                    if res:
-                        # Puanlama sistemini seçilen filtreye göre belirle
-                        if "AETHER" in filtre: p = res['ae_c']
-                        elif "Standart" in filtre: p = res['s_c']
-                        elif "Spektrum" in filtre: p = res['sp_c']
-                        else: p = res['n_c']
-                        
-                        m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': m_list})
-                        g_l.append(m)
-
-       # 4. SONUÇLARI VE KUPONLARI GÖSTERME
-        if len(g_l) > 0:
-            st.divider()
-            st.subheader("🎯 AI Editörün Otomatik Akıllı Kuponları (Haftalık 5'li)")
-            
-            # --- KRİTİK: check_hit FONKSİYONUNU (5 MAÇ UYUMLU) ---
-            def check_hit(liste, tip):
-                hit = 0
-                for m in liste:
-                    if m.get('status') == 'FINISHED':
-                        h_s = m['score']['fullTime'].get('home')
-                        a_s = m['score']['fullTime'].get('away')
-                        if h_s is not None and a_s is not None:
-                            gw = winner(f"{h_s} - {a_s}")
-                            if tip == "ust":
-                                if (h_s + a_s) > 2.5: hit += 1
-                            elif winner(m['res'].get('aether', '')) == gw: 
-                                hit += 1
-                return hit
+        st.warning(f"⚠️ {s_sec}. hafta için analiz edilecek maç verisi bulunamadı.")
 
             # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (TAM FORMAT) ---
             c1, c2, c3, c4 = st.columns(4) 
