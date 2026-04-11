@@ -370,7 +370,69 @@ elif mod == "Global AI":
         st.warning(f"⚠️ Seçilen tarih aralığında ({h_baslangic.date()} - {h_bitis.date()}) veri bulunamadı.")
         if st.checkbox("Veri Yapısını Görüntüle (Hata Ayıklama)"):
             st.write("Toplam taranan maç sayısı:", sum(len(d.get('matches', [])) for d in all_d.values()))
+     # --- 5. DİĞER KUPONLARI OLUŞTUR (MÜHÜRLÜ) ---
+    st.markdown("---") # Bir ayırıcı çizgi
+    
+    # Kriterlere göre havuzu tekrar sıralıyoruz (Seed hala aktif, yerler değişmez)
+    surprizler = sorted(global_havuz, key=lambda x: x['res'].get('n_c', 50), reverse=True)[:5]
+    ustler = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50), reverse=True)[:5]
+    
+    # SENİN ÖZEL MODUN: ALT / SAVUNMA (En düşük gol beklentisi olanları başa çekiyoruz)
+    # Burada 's_c' (Spektrum/Gol) puanı en düşük olanları alarak 'Alt' yapıyoruz
+    altlar = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50))[:5]
 
+    # --- EKRANA BASMA: SÜRPRİZ VE ÜST ---
+    col_s, col_u = st.columns(2)
+    
+    with col_s:
+        st.subheader("🕵️ Haftalık Sürpriz Kupon")
+        for m in surprizler:
+            st.success(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: {m['res']['nexus']}")
+
+    with col_u:
+        st.subheader("🔥 Haftalık Üst Kupon")
+        for m in ustler:
+            st.error(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: 2.5 ÜST")
+
+    st.markdown("---")
+    # --- 5. DİĞER KUPONLARI OLUŞTUR (MÜHÜRLÜ) ---
+    st.markdown("---") # Bir ayırıcı çizgi
+    
+    # Kriterlere göre havuzu tekrar sıralıyoruz (Seed hala aktif, yerler değişmez)
+    surprizler = sorted(global_havuz, key=lambda x: x['res'].get('n_c', 50), reverse=True)[:5]
+    ustler = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50), reverse=True)[:5]
+    
+    # SENİN ÖZEL MODUN: ALT / SAVUNMA (En düşük gol beklentisi olanları başa çekiyoruz)
+    # Burada 's_c' (Spektrum/Gol) puanı en düşük olanları alarak 'Alt' yapıyoruz
+    altlar = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50))[:5]
+
+    # --- EKRANA BASMA: SÜRPRİZ VE ÜST ---
+    col_s, col_u = st.columns(2)
+    
+    with col_s:
+        st.subheader("🕵️ Haftalık Sürpriz Kupon")
+        for m in surprizler:
+            st.success(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: {m['res']['nexus']}")
+
+    with col_u:
+        st.subheader("🔥 Haftalık Üst Kupon")
+        for m in ustler:
+            st.error(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: 2.5 ÜST")
+
+    st.markdown("---")
+    
+    # --- EKRANA BASMA: SENİN ÖZEL ALT KUPONUN ---
+    st.subheader("🛡️ The Iron Wall: Haftalık Alt (Savunma) Kuponu")
+    cols_alt = st.columns(5)
+    for i, m in enumerate(altlar):
+        with cols_alt[i]:
+            st.info(f"**{m['homeTeam']['name']}**\n\n**{m['awayTeam']['name']}**\n\n🎯 2.5 ALT") 
+    # --- EKRANA BASMA: SENİN ÖZEL ALT KUPONUN ---
+    st.subheader("🛡️ The Iron Wall: Haftalık Alt (Savunma) Kuponu")
+    cols_alt = st.columns(5)
+    for i, m in enumerate(altlar):
+        with cols_alt[i]:
+            st.info(f"**{m['homeTeam']['name']}**\n\n**{m['awayTeam']['name']}**\n\n🎯 2.5 ALT")
             # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (TAM FORMAT) ---
             c1, c2, c3, c4 = st.columns(4) 
             
