@@ -310,39 +310,70 @@ elif mod == "Tahmin Robotu":
                         """, unsafe_allow_html=True)
     
 elif mod == "Global AI":
-    # 1. Sidebar ve Hafta Seçimi (Mevcut kodun, dokunmadık)
+    # 1. Sidebar ve Filtreler
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=site_h_aktif-1, key="global_hafta_unique_key")
 
-    # 2. Seçilen Haftanın Tarih Aralığı (Mevcut kodun, dokunmadık)
     h_baslangic = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
     h_bitis = h_baslangic + timedelta(days=7)
+    
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
     st.info(f"📅 Bu hafta {h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')} arası maçları kapsar.")
 
-    # --- 3. GÜVENLİ HAVUZ OLUŞTURMA ---
+    # --- 2. HAVUZ OLUŞTURMA ---
     global_havuz = [] 
-    
-    # Bugünün tarihini baz alarak bir esneklik payı bırakalım
     for l_ad, l_data in all_d.items():
         m_list = l_data.get('matches', [])
         for m in m_list:
-            try:
-                # 1. Tarihi temizleyip sadece YYYY-MM-DD formatına çekiyoruz
-                m_tarih_ham = m['utcDate'].split('T')[0]
-                m_tarih = datetime.strptime(m_tarih_ham, '%Y-%m-%d')
-                
-                # 2. Tarih Aralığı Kontrolü (Sınırları 1 gün esnetiyoruz ki saat farkına takılmasın)
-                if (h_baslangic - timedelta(days=1)) <= m_tarih <= (h_bitis + timedelta(days=1)):
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
-                    if res:
-                        # Filtreye göre puanı belirle
-                        p_key = 'ae_c' if "AETHER" in filtre else 'n_c' if "Nexus" in filtre else 's_c'
-                        m.update({'res': res, 'puan': res.get(p_key, 50), 'l_ad': l_ad})
-                        global_havuz.append(m)
-            except Exception as e:
-                continue # Hatalı tarih formatı varsa o maçı atla
+            if str(m.get('matchday')) == str(s_sec):
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
+                if res:
+                    p_key = 'ae_c' if "AETHER" in filtre else 'n_c' if "Nexus" in filtre else 's_c'
+                    m.update({'res': res, 'puan': res.get(p_key, 50), 'l_ad': l_ad})
+                    global_havuz.append(m)
 
+    # --- 3. MÜHÜRLEME VE KUPONLAR ---
+    import random
+    random.seed(int(s_sec)) 
+
+    if global_havuz:
+        # KUPONLARI SIRALA
+        bankolar = sorted(global_havuz, key=lambda x: x['puan'], reverse=True)[:5]
+        surprizler = sorted(global_havuz, key=lambda x: x['res'].get('n_c', 50), reverse=True)[:5]
+        ustler = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50), reverse=True)[:5]
+        altlar = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50))[:5] # En düşük gol puanlılar
+
+        # --- GÖSTERİM: BANKOLAR ---
+        st.subheader("⭐ Haftalık Mühürlü Banko Kupon")
+        cols_b = st.columns(5)
+        for i, m in enumerate(bankolar):
+            with cols_b[i]:
+                st.markdown(f'<div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #3fb950;"><b>{m["homeTeam"]["name"]}</b><br><span style="color:#3fb950;">{m["res"]["aether"]}</span></div>', unsafe_allow_html=True)
+
+        st.markdown("---")
+        
+        # --- GÖSTERİM: SÜRPRİZ VE ÜST ---
+        col_s, col_u = st.columns(2)
+        with col_s:
+            st.subheader("🕵️ Haftalık Sürpriz")
+            for m in surprizler:
+                st.write(f"🔍 {m['homeTeam']['name']} - {m['res']['nexus']}")
+        with col_u:
+            st.subheader("🔥 Haftalık Üst")
+            for m in ustler:
+                st.write(f"⚽ {m['homeTeam']['name']} - 2.5 ÜST")
+
+        st.markdown("---")
+
+        # --- GÖSTERİM: THE IRON WALL (ALT) ---
+        st.subheader("🛡️ The Iron Wall: Haftalık Alt Kuponu")
+        cols_a = st.columns(5)
+        for i, m in enumerate(altlar):
+            with cols_a[i]:
+                st.markdown(f'<div style="background:#0d1117; padding:10px; border-radius:10px; border-top:3px solid #58A6FF; text-align:center;"><b>{m["homeTeam"]["name"]}</b><br><small>2.5 ALT</small></div>', unsafe_allow_html=True)
+    
+    else: # İŞTE BURADAKİ ELSE'İN HİZASI ÇOK ÖNEMLİ
+        st.error(f"❌ {s_sec}. hafta için maç verisi bulunamadı.")
     # --- 4. MÜHÜRLEME VE GÖSTERİM ---
     import random
     random.seed(int(s_sec)) # Seed'in tam sayı olduğundan emin olalım
