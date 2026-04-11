@@ -328,27 +328,37 @@ elif mod == "Global AI":
             if str(m.get('matchday')) == str(s_sec):
                 res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
                 if res:
+                    # Seçilen algoritmaya göre puanlama anahtarını belirle
                     p_key = 'ae_c' if "AETHER" in filtre else 'n_c' if "Nexus" in filtre else 's_c'
                     m.update({'res': res, 'puan': res.get(p_key, 50), 'l_ad': l_ad})
                     global_havuz.append(m)
 
-    # --- 3. MÜHÜRLEME VE KUPONLAR ---
+    # --- 3. MÜHÜRLEME VE KUPONLARI SIRALAMA ---
     import random
-    random.seed(int(s_sec)) 
+    random.seed(int(s_sec)) # Mührü haftaya göre vuruyoruz
 
     if global_havuz:
-        # KUPONLARI SIRALA
+        # Kriterlere göre listeleri hazırla
         bankolar = sorted(global_havuz, key=lambda x: x['puan'], reverse=True)[:5]
         surprizler = sorted(global_havuz, key=lambda x: x['res'].get('n_c', 50), reverse=True)[:5]
         ustler = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50), reverse=True)[:5]
-        altlar = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50))[:5] # En düşük gol puanlılar
+        altlar = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50))[:5] # En düşük gol puanlılar (Savunma)
 
         # --- GÖSTERİM: BANKOLAR ---
         st.subheader("⭐ Haftalık Mühürlü Banko Kupon")
         cols_b = st.columns(5)
         for i, m in enumerate(bankolar):
             with cols_b[i]:
-                st.markdown(f'<div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #3fb950;"><b>{m["homeTeam"]["name"]}</b><br><span style="color:#3fb950;">{m["res"]["aether"]}</span></div>', unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #3fb950; min-height:140px; border:1px solid #30363d;">
+                    <small style="color:#8B949E; font-size:0.7rem;">{m['l_ad']}</small><br>
+                    <b style="font-size:0.85rem;">{m['homeTeam']['name']}</b><br>
+                    <b style="font-size:0.85rem;">{m['awayTeam']['name']}</b><br>
+                    <hr style="margin:8px 0; border:0; border-top:1px solid #30363d;">
+                    <span style="color:#3fb950; font-weight:bold;">{m['res']['aether']}</span><br>
+                    <small style="color:#8B949E;">Güven: %{int(m['puan'])}</small>
+                </div>
+                """, unsafe_allow_html=True)
 
         st.markdown("---")
         
@@ -357,11 +367,11 @@ elif mod == "Global AI":
         with col_s:
             st.subheader("🕵️ Haftalık Sürpriz")
             for m in surprizler:
-                st.write(f"🔍 {m['homeTeam']['name']} - {m['res']['nexus']}")
+                st.success(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: {m['res']['nexus']}")
         with col_u:
             st.subheader("🔥 Haftalık Üst")
             for m in ustler:
-                st.write(f"⚽ {m['homeTeam']['name']} - 2.5 ÜST")
+                st.error(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: 2.5 ÜST")
 
         st.markdown("---")
 
@@ -370,100 +380,19 @@ elif mod == "Global AI":
         cols_a = st.columns(5)
         for i, m in enumerate(altlar):
             with cols_a[i]:
-                st.markdown(f'<div style="background:#0d1117; padding:10px; border-radius:10px; border-top:3px solid #58A6FF; text-align:center;"><b>{m["homeTeam"]["name"]}</b><br><small>2.5 ALT</small></div>', unsafe_allow_html=True)
-    
-    else: # İŞTE BURADAKİ ELSE'İN HİZASI ÇOK ÖNEMLİ
-        st.error(f"❌ {s_sec}. hafta için maç verisi bulunamadı.")
-    # --- 4. MÜHÜRLEME VE GÖSTERİM ---
-    import random
-    random.seed(int(s_sec)) # Seed'in tam sayı olduğundan emin olalım
-
-    if global_havuz:
-        # Puanlara göre mühürlü sıralama
-        bankolar = sorted(global_havuz, key=lambda x: x['puan'], reverse=True)[:5]
-        
-        st.subheader(f"🌍 {s_sec}. Hafta Mühürlü Kuponu")
-        cols = st.columns(5)
-        for i, m in enumerate(bankolar):
-            with cols[i]:
                 st.markdown(f"""
-                <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #3fb950; min-height:150px;">
+                <div style="background:#0d1117; padding:10px; border-radius:10px; border-top:3px solid #58A6FF; text-align:center; border:1px solid #30363d;">
                     <small style="color:#8B949E;">{m['l_ad']}</small><br>
                     <b style="font-size:0.85rem;">{m['homeTeam']['name']}</b><br>
                     <b style="font-size:0.85rem;">{m['awayTeam']['name']}</b><br>
-                    <hr style="margin:8px 0; border:0; border-top:1px solid #30363d;">
-                    <span style="color:#3fb950; font-weight:bold;">{m['res']['aether']}</span><br>
-                    <small>Güven: %{int(m['puan'])}</small>
+                    <span style="color:#58A6FF; font-weight:bold;">2.5 ALT</span>
                 </div>
                 """, unsafe_allow_html=True)
+    
     else:
-        # Eğer hala boşsa, verinin içinde ne olduğunu görmek için bir ipucu basalım
-        st.warning(f"⚠️ Seçilen tarih aralığında ({h_baslangic.date()} - {h_bitis.date()}) veri bulunamadı.")
-        if st.checkbox("Veri Yapısını Görüntüle (Hata Ayıklama)"):
-            st.write("Toplam taranan maç sayısı:", sum(len(d.get('matches', [])) for d in all_d.values()))
-     # --- 5. DİĞER KUPONLARI OLUŞTUR (MÜHÜRLÜ) ---
-    st.markdown("---") # Bir ayırıcı çizgi
-    
-    # Kriterlere göre havuzu tekrar sıralıyoruz (Seed hala aktif, yerler değişmez)
-    surprizler = sorted(global_havuz, key=lambda x: x['res'].get('n_c', 50), reverse=True)[:5]
-    ustler = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50), reverse=True)[:5]
-    
-    # SENİN ÖZEL MODUN: ALT / SAVUNMA (En düşük gol beklentisi olanları başa çekiyoruz)
-    # Burada 's_c' (Spektrum/Gol) puanı en düşük olanları alarak 'Alt' yapıyoruz
-    altlar = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50))[:5]
-
-    # --- EKRANA BASMA: SÜRPRİZ VE ÜST ---
-    col_s, col_u = st.columns(2)
-    
-    with col_s:
-        st.subheader("🕵️ Haftalık Sürpriz Kupon")
-        for m in surprizler:
-            st.success(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: {m['res']['nexus']}")
-
-    with col_u:
-        st.subheader("🔥 Haftalık Üst Kupon")
-        for m in ustler:
-            st.error(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: 2.5 ÜST")
-
-    st.markdown("---")
-    # --- 5. DİĞER KUPONLARI OLUŞTUR (MÜHÜRLÜ) ---
-    st.markdown("---") # Bir ayırıcı çizgi
-    
-    # Kriterlere göre havuzu tekrar sıralıyoruz (Seed hala aktif, yerler değişmez)
-    surprizler = sorted(global_havuz, key=lambda x: x['res'].get('n_c', 50), reverse=True)[:5]
-    ustler = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50), reverse=True)[:5]
-    
-    # SENİN ÖZEL MODUN: ALT / SAVUNMA (En düşük gol beklentisi olanları başa çekiyoruz)
-    # Burada 's_c' (Spektrum/Gol) puanı en düşük olanları alarak 'Alt' yapıyoruz
-    altlar = sorted(global_havuz, key=lambda x: x['res'].get('s_c', 50))[:5]
-
-    # --- EKRANA BASMA: SÜRPRİZ VE ÜST ---
-    col_s, col_u = st.columns(2)
-    
-    with col_s:
-        st.subheader("🕵️ Haftalık Sürpriz Kupon")
-        for m in surprizler:
-            st.success(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: {m['res']['nexus']}")
-
-    with col_u:
-        st.subheader("🔥 Haftalık Üst Kupon")
-        for m in ustler:
-            st.error(f"**{m['homeTeam']['name']} - {m['awayTeam']['name']}** | Tahmin: 2.5 ÜST")
-
-    st.markdown("---")
-    
-    # --- EKRANA BASMA: SENİN ÖZEL ALT KUPONUN ---
-    st.subheader("🛡️ The Iron Wall: Haftalık Alt (Savunma) Kuponu")
-    cols_alt = st.columns(5)
-    for i, m in enumerate(altlar):
-        with cols_alt[i]:
-            st.info(f"**{m['homeTeam']['name']}**\n\n**{m['awayTeam']['name']}**\n\n🎯 2.5 ALT") 
-    # --- EKRANA BASMA: SENİN ÖZEL ALT KUPONUN ---
-    st.subheader("🛡️ The Iron Wall: Haftalık Alt (Savunma) Kuponu")
-    cols_alt = st.columns(5)
-    for i, m in enumerate(altlar):
-        with cols_alt[i]:
-            st.info(f"**{m['homeTeam']['name']}**\n\n**{m['awayTeam']['name']}**\n\n🎯 2.5 ALT")
+        # Eğer havuz boşsa bu mesaj gösterilir
+        st.error(f"❌ {s_sec}. hafta için maç verisi bulunamadı.")
+        st.warning("⚠️ Seçilen hafta API verilerinde mevcut olmayabilir veya henüz maçlar tanımlanmamış olabilir.")
             # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (TAM FORMAT) ---
             c1, c2, c3, c4 = st.columns(4) 
             
