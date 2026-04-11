@@ -401,20 +401,27 @@ elif mod == "Global AI":
         if len(g_l) > 0:
             st.divider()
             st.subheader("🎯 AI Editörün Otomatik Akıllı Kuponları (Haftalık 5'li)")
-
-            # --- [YENİ] MÜHÜRLEME SİSTEMİ BAŞLANGICI ---
-            # Seçilen hafta numarasını (s_sec) 'tohum' (seed) olarak kullanıyoruz.
-            # Bu sayede veriler değişse bile o hafta için sıralama mühürlenmiş olur.
-            import random
-            random.seed(int(s_sec)) 
-            # --- [YENİ] MÜHÜRLEME SİSTEMİ BİTİŞİ ---
+            
+            # --- KRİTİK: check_hit FONKSİYONUNU (5 MAÇ UYUMLU) ---
+            def check_hit(liste, tip):
+                hit = 0
+                for m in liste:
+                    if m.get('status') == 'FINISHED':
+                        h_s = m['score']['fullTime'].get('home')
+                        a_s = m['score']['fullTime'].get('away')
+                        if h_s is not None and a_s is not None:
+                            gw = winner(f"{h_s} - {a_s}")
+                            if tip == "ust":
+                                if (h_s + a_s) > 2.5: hit += 1
+                            elif winner(m['res'].get('aether', '')) == gw: 
+                                hit += 1
+                return hit
 
             # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (TAM FORMAT) ---
             c1, c2, c3, c4 = st.columns(4) 
             
-            # 1. BANKO KUPON (5 MAÇ) - MÜHÜRLÜ SIRALAMA
+            # 1. BANKO KUPON (5 MAÇ)
             with c1:
-                # 'global_havuz' (g_l) listesini mühürlü seed ile sıralıyoruz
                 bankolar = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5]
                 h_b = check_hit(bankolar, "banko")
                 seal = '<div class="full-hit-seal">🏆 5/5 FULL HIT</div>' if h_b == 5 else ""
@@ -423,14 +430,10 @@ elif mod == "Global AI":
                     st.markdown(f'<div class="coupon-item"><b>{b["l_ad"]}</b><br>{b["homeTeam"]["name"]} - {b["awayTeam"]["name"]}<br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 2. SÜRPRİZ KUPON (5 MAÇ) - MÜHÜRLÜ SIRALAMA
+            # 2. SÜRPRİZ KUPON (5 MAÇ)
             with c2:
-                # Sürpriz havuzunu oluştururken yine mühürlü anahtarı kullanıyoruz
-                surpriz_havuzu = [x for x in g_l if winner(x['res'].get('aether', '')) != "1"]
-                surprizler = sorted(surpriz_havuzu, key=lambda x: x['puan'], reverse=True)[:5]
-                if len(surprizler) < 5: 
-                    surprizler = sorted(g_l, key=lambda x: x['puan'])[:5]
-                
+                surprizler = sorted([x for x in g_l if winner(x['res']['aether']) != "1"], key=lambda x: x['puan'], reverse=True)[:5]
+                if len(surprizler) < 5: surprizler = sorted(g_l, key=lambda x: x['puan'])[:5]
                 h_s = check_hit(surprizler, "surpriz")
                 seal = '<div class="full-hit-seal">🔥 BOMBA KUPON</div>' if h_s >= 3 else ""
                 st.markdown(f'<div class="editor-card" style="border-top: 4px solid #6f42c1;">{seal}<div class="coupon-title">🕵️ SÜRPRİZ ({filtre[:6]}) <span class="success-badge">{h_s}/5</span></div>', unsafe_allow_html=True)
@@ -438,17 +441,15 @@ elif mod == "Global AI":
                     st.markdown(f'<div class="coupon-item"><b>{s["l_ad"]}</b><br>{s["homeTeam"]["name"]} - {s["awayTeam"]["name"]}<br>Tahmin: {s["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 3. ÜST / GOL KUPONU (5 MAÇ) - MÜHÜRLÜ SIRALAMA
+            # 3. ÜST / GOL KUPONU (5 MAÇ)
             with c3:
-                # Robotun xG tercihlerini yine mühürlü bir şekilde diziyoruz
                 if "AETHER" in filtre:
-                    ust_liste = sorted(g_l, key=lambda x: (x['res']['total_xg'] + x['res']['ae_c']/20), reverse=True)
+                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] + x['res']['ae_c']/20), reverse=True)[:5]
                 elif "Spektrum" in filtre:
-                    ust_liste = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)
+                    ustler = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
                 else:
-                    ust_liste = sorted(g_l, key=lambda x: (x['res']['total_xg'] * x['res'].get('s_c', 50)), reverse=True)
+                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] * x['res'].get('s_c', 50)), reverse=True)[:5]
                 
-                ustler = ust_liste[:5]
                 h_u = check_hit(ustler, "ust")
                 seal = '<div class="full-hit-seal">⚽ GOL FESTİVALİ</div>' if h_u == 5 else ""
                 st.markdown(f'<div class="editor-card" style="border-top: 4px solid #d73a49;">{seal}<div class="coupon-title">⚽ ÜST / GOL <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
@@ -456,24 +457,31 @@ elif mod == "Global AI":
                     st.markdown(f'<div class="coupon-item"><b>{u["l_ad"]}</b><br>{u["homeTeam"]["name"]} - {u["awayTeam"]["name"]}<br>Beklenen xG: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT / SAVUNMA KUPONU - MÜHÜRLÜ SIRALAMA
+            # 4. ALT / SAVUNMA KUPONU (ROBOT BAZLI AKILLI FİLTRE)
             with c4:
-                # Savunma maçlarını robot bazlı mühürlü bir şekilde diziyoruz
+                # --- ROBOT KARAKTERİNE GÖRE ALT MAÇLARI FİLTRELE ---
                 if "AETHER" in filtre:
-                    alt_liste = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['ae_c']))
+                    # Aether için: Hem xG düşük hem de güven oranı (ae_c) yüksek maçlar
+                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['ae_c']))[:5]
                 elif "Nexus" in filtre:
-                    alt_liste = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['n_c']))
+                    # Nexus için: Sürpriz şekilde az gol beklediği (n_c yüksek) maçlar
+                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['n_c']))[:5]
                 elif "Spektrum" in filtre:
-                    alt_liste = sorted(g_l, key=lambda x: x['res']['total_xg'])
+                    # Spektrum için: En düşük xG'li (Kaosun olmadığı) maçlar
+                    altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
                 else:
-                    alt_liste = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['s_c']))
-                
-                altlar = alt_liste[:5]
-                h_a = check_hit(altlar, "alt") # check_hit'e "alt" desteği eklenmiş varsayılırsa
+                    # Standart için: En rasyonel düşük skorlu maçlar
+                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['s_c']))[:5]
+
+                h_a = 0
+                for m in altlar:
+                    if m.get('status') == 'FINISHED':
+                        if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) < 2.5: h_a += 1
                 
                 seal = '<div class="full-hit-seal" style="background:#0366d6;">🛡️ ÇELİK DUVAR</div>' if h_a == 5 else ""
                 st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT / AZ GOLLÜ <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
                 for a in altlar:
+                    # O anki robotun tahminini de gösterelim (Örn: 1-0)
                     r_tahmin = a['res']['aether'] if "AETHER" in filtre else a['res'].get(filtre.lower(), "0-0")
                     st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Tahmin: {r_tahmin} (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
