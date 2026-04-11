@@ -319,71 +319,7 @@ elif mod == "Tahmin Robotu":
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-    # 3. VERİYİ ÇEK VE ROBOTLARI GÖSTER
-    mac_havuzu = robot_tara(s_sec)
-
-    if not mac_havuzu:
-        st.warning(f"⚠️ {s_sec}. hafta için bu tarih aralığında veri bulunamadı.")
-    else:
-        tab_ae, tab_std, tab_spec, tab_nx = st.tabs(["✨ AETHER", "🤖 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS"])
-        
-        robot_listesi = [
-            {"tab": tab_ae, "name": "Aether", "key": "ae_c", "tahmin_key": "aether"},
-            {"tab": tab_std, "name": "Standart", "key": "s_c", "tahmin_key": "std"},
-            {"tab": tab_spec, "name": "Spektrum", "key": "sp_c", "tahmin_key": "spec"},
-            {"tab": tab_nx, "name": "Nexus", "key": "n_c", "tahmin_key": "nexus"}
-        ]
-
-        for rb in robot_listesi:
-            with rb['tab']:
-                st.markdown(f'<h3>👾 {rb["name"]} Robotu Haftalık Raporu</h3>', unsafe_allow_html=True)
-                col_b, col_u = st.columns(2)
-                
-                with col_b:
-                    st.subheader("✅ En Güvenilir 5")
-                    # Seçilen robotun kendi puan anahtarına göre sırala
-                    bankolar = sorted(mac_havuzu, key=lambda x: x['res'].get(rb['key'], 0), reverse=True)[:5]
-                    for b in bankolar:
-                        t = b['res'].get(rb['tahmin_key'], "Analiz Yok")
-                        guven = b['res'].get(rb['key'], 0)
-                        st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b><br>Tahmin: {t} | Güven: %{int(guven)}</div>', unsafe_allow_html=True)
-
-                with col_u:
-                    st.subheader("⚽ En Yüksek xG (Üst) 5")
-                    ustler = sorted(mac_havuzu, key=lambda x: x['res'].get('total_xg', 0), reverse=True)[:5]
-                    for u in ustler:
-                        st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
-    # Robotları Sekmelere Dağıtma
-    robot_listesi = [
-        {"tab": tab_ae, "name": "Aether", "key": "ae_c"},
-        {"tab": tab_std, "name": "Standart", "key": "s_c"},
-        {"tab": tab_spec, "name": "Spektrum", "key": "total_xg"},
-        {"tab": tab_nx, "name": "Nexus", "key": "n_c"}
-    ]
-
-    mac_havuzu = robot_tara(None, s_sec)
-
-    for rb in robot_listesi:
-        with rb['tab']:
-            st.markdown(f'<div class="robot-card"><h3>👾 {rb["name"]} Robotu Raporu</h3></div>', unsafe_allow_html=True)
-            
-            col_b, col_u = st.columns(2)
-            
-            with col_b:
-                st.subheader("✅ En Banko 5")
-                # Kendi puan anahtarına göre en iyileri süz
-                bankolar = sorted(mac_havuzu, key=lambda x: x['res'][rb['key']], reverse=True)[:5]
-                for b in bankolar:
-                    # Aether seçiliyse aether sonucunu, değilse std sonucunu gösterelim
-                    tahmin = b['res']['aether'] if rb['name'] == "Aether" else b['res']['std']
-                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b><br>Tahmin: {tahmin} | Güven: %{int(b["res"]["s_c"])}</div>', unsafe_allow_html=True)
-
-            with col_u:
-                st.subheader("⚽ En Üst 5")
-                # Toplam xG'ye göre en iyileri süz
-                ustler = sorted(mac_havuzu, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
-                for u in ustler:
-                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
+    
 elif mod == "Global AI":
     # 1. Sidebar ve Hafta Seçimi
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
