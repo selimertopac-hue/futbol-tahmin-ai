@@ -255,70 +255,74 @@ if mod == "🏠 Canlı Skorlar":
             """, unsafe_allow_html=True)
 
 elif mod == "Tahmin Robotu":
-    st.title("🤖 Canlı Analiz Radarı")
-    st.info("Bu bölüm, bültendeki sıradaki maçları anlık verilerle analiz eder.")
+    st.title("🤖 Tahmin Robotu v2.0")
+    st.markdown("---")
     
-    # Şu anki zamanı al (Zaman dilimi karmaşasını çözmek için UTC kullanıyoruz)
-    import datetime as dt
-    simdi_utc = dt.datetime.utcnow()
-    
-    gunun_maclari = []
-    
-    # Tüm ligleri tara
+    # 1. VERİ TOPLAMA ÜSSÜ
+    # Zaman dilimi karmaşasını bitirmek için sadece 'bugün' ve sonrasındaki maçları topluyoruz
+    gelecek_maclar = []
+    simdi = datetime.now()
+
     for l_ad, l_data in all_d.items():
         m_list = l_data.get('matches', [])
         for m in m_list:
-            # Maçın tarihini parse et
-            m_tarih = dt.datetime.strptime(m['utcDate'], '%Y-%m-%dT%H:%M:%SZ')
-            
-            # FİLTRE: Sadece bugün ve yarın oynanacak, henüz BAŞLAMAMIŞ maçları al
-            # Zaman dilimi kaymalarını önlemek için geniş bir pencere (simdi - 2 saat) bırakıyoruz
-            if m_tarih >= (simdi_utc - dt.timedelta(hours=2)):
-                # Analiz fonksiyonunu çağır (Hafta kontrolünü esnetiyoruz)
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, site_h_aktif)
-                if res:
-                    m.update({'res': res, 'l_ad': l_ad, 'dt_obj': m_tarih})
-                    gunun_maclari.append(m)
+            try:
+                # Tarih parse işlemi (T ve Z karakterlerini temizleyerek garantili okuma)
+                t_str = m['utcDate'].replace('T', ' ').replace('Z', '')
+                m_tarih = datetime.strptime(t_str, '%Y-%m-%d %H:%M:%S')
+                
+                # Sadece henüz başlamamış veya yeni başlamış maçları al
+                if m_tarih >= (simdi - timedelta(hours=3)):
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, site_h_aktif)
+                    if res:
+                        m.update({'res': res, 'l_ad': l_ad, 'dt_obj': m_tarih})
+                        gelecek_maclar.append(m)
+            except:
+                continue
 
-    if not gunun_maclari:
-        st.warning("⚠️ Radarda şu an analiz edilecek aktif maç bulunamadı. Lütfen veri setinin güncelliğini kontrol edin.")
+    # 2. EKRAN KONTROLÜ
+    if not gelecek_maclar:
+        st.error("⚠️ Veri Bulunamadı: Şu an bültende analiz edilecek aktif maç görünmüyor. Lütfen API bağlantısını veya hafta seçimini kontrol edin.")
     else:
-        # Zaman dilimini TR'ye çevirmek için basit bir gösterim ekleyelim
-        st.success(f"🔍 Robotlar sıradaki {len(gunun_maclari)} maçı radara aldı!")
+        # En yakın tarihli 24 maçı alalım (Ekranı doldurmak için)
+        gelecek_maclar = sorted(gelecek_maclar, key=lambda x: x['dt_obj'])[:24]
         
-        c1, c2, c3 = st.columns(3)
-        robotlar = [
-            ("AETHER", c1, "ae_c", "#58A6FF"), 
-            ("NEXUS", c2, "n_c", "#a371f7"), 
-            ("SPEKTRUM", c3, "s_c", "#d73a49")
+        st.success(f"✅ Robotlar sahaya indi! Toplam {len(gelecek_maclar)} maç analiz ediliyor.")
+
+        # 3. ROBOT SEKMELERİ (Daha temiz bir görünüm için Sekmeli Yapı)
+        tab1, tab2, tab3 = st.tabs(["💎 AETHER (Denge)", "🕵️ NEXUS (Sürpriz)", "🔥 SPEKTRUM (Gol)"])
+
+        robot_ayarlar = [
+            (tab1, "ae_c", "#58A6FF", "Aether"),
+            (tab2, "n_c", "#a371f7", "Nexus"),
+            (tab3, "s_c", "#d73a49", "Spektrum")
         ]
 
-        for r_ad, r_col, r_puan_key, r_renk in robotlar:
-            with r_col:
-                st.markdown(f"### <span style='color:{r_renk};'>{r_ad}</span>", unsafe_allow_html=True)
-                # O robotun en güvendiği maçları sırala
-                r_top = sorted(gunun_maclari, key=lambda x: x['res'].get(r_puan_key, 0), reverse=True)[:8]
+        for tab, p_key, p_renk, p_ad in robot_ayarlar:
+            with tab:
+                st.markdown(f"### {p_ad} Günlük Radar Raporu")
+                # Maçları robotun güven puanına göre sırala
+                robot_ozel_liste = sorted(gelecek_maclar, key=lambda x: x['res'].get(p_key, 0), reverse=True)
                 
-                for m in r_top:
-                    # Türkiye saati için yaklaşık +3 saat ekleyerek gösterelim
-                    tr_saat = (m['dt_obj'] + dt.timedelta(hours=3)).strftime('%d/%m %H:%M')
-                    st.markdown(f"""
-                    <div style="background:#1e222d; padding:12px; border-radius:10px; border-left:4px solid {r_renk}; margin-bottom:10px; border:1px solid #30363d;">
-                        <div style="display:flex; justify-content:space-between;">
-                            <small style="color:#8B949E;">{m['l_ad']}</small>
-                            <small style="color:#8B949E;">{tr_saat}</small>
-                        </div>
-                        <div style="margin:5px 0; font-weight:bold; font-size:0.85rem;">
-                            {m['homeTeam']['name']} - {m['awayTeam']['name']}
-                        </div>
-                        <div style="color:{r_renk}; font-weight:bold; font-size:0.8rem;">
-                            Tahmin: {m['res']['aether']}
-                        </div>
-                        <div style="background:#0d1117; height:4px; border-radius:2px; margin-top:8px;">
-                            <div style="background:{r_renk}; width:{int(m['res'].get(r_puan_key, 0))}%; height:4px; border-radius:2px;"></div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                # Her robot için 3'lü kolon düzeni
+                cols = st.columns(3)
+                for idx, m in enumerate(robot_ozel_liste[:12]): # Her robot için en iyi 12 maç
+                    col = cols[idx % 3]
+                    with col:
+                        guven = int(m['res'].get(p_key, 0))
+                        saat = (m['dt_obj'] + timedelta(hours=3)).strftime('%H:%M')
+                        tarih = m['dt_obj'].strftime('%d/%m')
+                        
+                        col.markdown(f"""
+                        <div style="background:#1e222d; padding:15px; border-radius:12px; border-bottom:4px solid {p_renk}; margin-bottom:15px; border:1px solid #30363d; min-height:180px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                                <span style="color:#8B949E; font-size:0.75rem;">{m['l_ad']}</span>
+                                <span style="color:#8B949E; font-size:0.75rem;">{tarih} - {saat}</span>
+                            </div>
+                            <div style="font-weight:bold; font-size:0.95rem; margin-bottom:10px; color:#f0f6fc;">
+                                {m['homeTeam']['name']}<br>{m['awayTeam']['name']}
+                            </div>
+                            <div style="background
     
 elif mod == "Global AI":
     # 1. Sidebar ve Hafta Seçimi
