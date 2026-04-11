@@ -323,7 +323,23 @@ elif mod == "Global AI":
 
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
     st.info(f"📅 Bu hafta {h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')} arası maçları kapsar.")
-
+    # 3. ADIM: MÜHÜRLEME KODUNU BURAYA YAPIŞTIR
+    # site_h_aktif (Hafta No) değişmediği sürece bu sıralama ASLA değişmez.
+    import random
+    random.seed(site_h_aktif) 
+    
+    # Karıştırmadan önce puanlara göre diz, ama seed sayesinde her zaman aynı "en iyiler" seçilir.
+    # Eğer aynı puanda maçlar varsa, seed devreye girer ve sıralamayı dondurur.
+    bankolar = sorted(global_havuz, key=lambda x: x['puan'], reverse=True)[:5]
+    surprizler = sorted(global_havuz, key=lambda x: x['res']['n_c'], reverse=True)[:5]
+    
+    # 3. ADIM: EKRANA BASMA (Bundan sonrası sabit kalır)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("⭐ Haftalık Banko Kupon")
+        for m in bankolar:
+            # Buradaki görselleştirme kodların...
+            st.write(f"{m['homeTeam']['name']} - {m['awayTeam']['name']}")
     # --- KİLİT KONTROLÜ (TEK VE NET) ---
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
