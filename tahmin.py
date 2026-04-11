@@ -255,43 +255,68 @@ if mod == "🏠 Canlı Skorlar":
             """, unsafe_allow_html=True)
 
 elif mod == "Tahmin Robotu":
-    st.title("🤖 Günlük Tahmin Robotu")
-    st.info("Bu bölümdeki analizler, o günün en taze verileriyle anlık olarak güncellenir.")
+    st.title("🤖 Canlı Analiz Radarı")
+    st.info("Bu bölüm, önümüzdeki 24 saat içinde oynanacak maçları anlık verilerle tarar.")
     
-    # Bugünün tarihini al
-    bugun = datetime.now().date()
+    # ZAMAN PENCERESİ: Şu andan itibaren önümüzdeki 24 saat
+    simdi = datetime.now()
+    yarın_bu_saat = simdi + timedelta(hours=24)
     
-    # Bugün oynanacak maçları ayır
     gunun_maclari = []
+    
+    # Tüm ligleri tara
     for l_ad, l_data in all_d.items():
-        for m in l_data.get('matches', []):
-            m_tarih = datetime.strptime(m['utcDate'].split('T')[0], '%Y-%m-%d').date()
-            if m_tarih == bugun:
-                # Analiz çalıştır ve listeye ekle
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_data['matches'], site_h_aktif)
+        m_list = l_data.get('matches', [])
+        for m in m_list:
+            # API'den gelen tarihi datetime objesine çeviriyoruz
+            m_tarih = datetime.strptime(m['utcDate'], '%Y-%m-%dT%H:%M:%SZ')
+            
+            # Sadece önümüzdeki 24 saat içindeki maçları al (Gece yarısı boşluğu olmasın)
+            if simdi <= m_tarih <= yarın_bu_saat:
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, site_h_aktif)
                 if res:
-                    m.update({'res': res, 'l_ad': l_ad})
+                    m.update({'res': res, 'l_ad': l_ad, 'dt_obj': m_tarih})
                     gunun_maclari.append(m)
 
-    # Robotlar için ayrı ayrı "Günün En Güvenilirleri"
-    c1, c2, c3 = st.columns(3)
-    robotlar = [("AETHER", c1, "ae_c"), ("NEXUS", c2, "n_c"), ("SPEKTRUM", c3, "s_c")]
+    if not gunun_maclari:
+        st.warning("⚠️ Önümüzdeki 24 saat için analiz edilecek canlı maç verisi bulunamadı. Hafta içi bülteni veya gece yarısı boşluğu olabilir.")
+    else:
+        st.success(f"🔍 Robotlar önümüzdeki 24 saat için {len(gunun_maclari)} maçı radara aldı!")
+        
+        # 3 Robot için 3 Sütun
+        c1, c2, c3 = st.columns(3)
+        robotlar = [
+            ("AETHER", c1, "ae_c", "#58A6FF"), 
+            ("NEXUS", c2, "n_c", "#a371f7"), 
+            ("SPEKTRUM", c3, "s_c", "#d73a49")
+        ]
 
-    for r_ad, r_col, r_puan_key in robotlar:
-        with r_col:
-            st.subheader(f"{r_ad} Radarı")
-            # O günün maçlarını o robotun güven puanına göre sırala
-            r_top = sorted(gunun_maclari, key=lambda x: x['res'].get(r_puan_key, 0), reverse=True)[:3]
-            
-            for m in r_top:
-                st.markdown(f"""
-                <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #3fb950; margin-bottom:10px;">
-                    <small>{m['l_ad']}</small><br>
-                    <b>{m['homeTeam']['name']} - {m['awayTeam']['name']}</b><br>
-                    <span style="color:#3fb950;">Öneri: {m['res']['aether']}</span><br>
-                    <small>Güven: %{int(m['res'].get(r_puan_key, 0))}</small>
-                </div>
-                """, unsafe_allow_html=True)
+        for r_ad, r_col, r_puan_key, r_renk in robotlar:
+            with r_col:
+                st.markdown(f"### <span style='color:{r_renk};'>{r_ad}</span>", unsafe_allow_html=True)
+                # O robotun en güvendiği 5 maçı sırala
+                r_top = sorted(gunun_maclari, key=lambda x: x['res'].get(r_puan_key, 0), reverse=True)[:5]
+                
+                for m in r_top:
+                    saat = m['dt_obj'].strftime('%H:%M')
+                    st.markdown(f"""
+                    <div style="background:#1e222d; padding:12px; border-radius:10px; border-left:4px solid {r_renk}; margin-bottom:10px; border:1px solid #30363d;">
+                        <div style="display:flex; justify-content:space-between;">
+                            <small style="color:#8B949E;">{m['l_ad']}</small>
+                            <small style="color:#8B949E;">{saat}</small>
+                        </div>
+                        <div style="margin:5px 0; font-weight:bold; font-size:0.9rem;">
+                            {m['homeTeam']['name']} - {m['awayTeam']['name']}
+                        </div>
+                        <div style="color:{r_renk}; font-weight:bold; font-size:0.85rem;">
+                            Tahmin: {m['res']['aether']}
+                        </div>
+                        <div style="background:#0d1117; height:4px; border-radius:2px; margin-top:8px;">
+                            <div style="background:{r_renk}; width:{int(m['res'].get(r_puan_key, 0))}%; height:4px; border-radius:2px;"></div>
+                        </div>
+                        <small style="color:#8B949E;">Güven Endeksi: %{int(m['res'].get(r_puan_key, 0))}</small>
+                    </div>
+                    """, unsafe_allow_html=True)
     # 3. VERİYİ ÇEK VE ROBOTLARI GÖSTER
     mac_havuzu = robot_tara(s_sec)
 
