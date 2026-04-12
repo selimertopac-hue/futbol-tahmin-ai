@@ -390,7 +390,7 @@ elif mod == "Tahmin Robotu":
                 ustler = sorted(mac_havuzu, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
                 for u in ustler:
                     st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
-                    elif mod == "Global AI":
+elif mod == "Global AI":
     # 1. Sidebar ve Hafta Seçimi
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=site_h_aktif-1, key="global_hafta_unique_key")
