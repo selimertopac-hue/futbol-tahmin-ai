@@ -83,80 +83,60 @@ def analiz_et(ev, dep, matches, h_no):
         def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
-            return {
+            return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
+
+        # --- AI ALGORİTMALARI ---
+        st_ex, st_ax = ex * 1.05, ax * 0.95
+        r_s = sk(st_ex, st_ax)
+
+        sp_ex, sp_ax = ex, ax
+        if e_rec > 1.2 and d_rec > 1.2: sp_ex *= 1.18; sp_ax *= 1.18
+        r_sp = sk(sp_ex, sp_ax)
+
+        nx_ex, nx_ax = ex, ax
+        if e_rec < e_g * 0.9: nx_ex *= 0.88; nx_ax *= 1.12
+        r_nx = sk(nx_ex, nx_ax)
+
+        aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
+        aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
+        r_ae = sk(aether_ex, aether_ax)
+
+        total_xg = ex + ax
+        comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
+        if total_xg > 3.0: comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
+        elif total_xg < 2.0: comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
+
+        # SONUÇ DÖNDÜRME (Burada try bloğu bitiyor)
+        return {
             "std": r_s[0], "s_c": r_s[1], 
             "spec": r_sp[0], "sp_c": r_sp[1], 
             "nexus": r_nx[0], "n_c": r_nx[1], 
             "aether": r_ae[0], "ae_c": r_ae[1], 
             "note": comment, "total_xg": total_xg,
-            "e_y": e_y, "d_y": d_y # <-- BUNLARI EKLEDİK
+            "e_y": e_y, "d_y": d_y
         }
-def hesapla_savunma_puani_v3(m, l_ad):
-        # m içindeki res, analiz_et fonksiyonundan dönen sözlüktür
-        res = m.get('res', {})
-        
-        # Mevcut analiz verilerinden savunma gücü türetme (e_y ve d_y gol yeme oranlarıdır)
-        # Düşük gol yeme oranı = Yüksek savunma gücü
-        e_y = res.get('e_y', 1.0)
-        d_y = res.get('d_y', 1.0)
-        s_puani = 100 - ((e_y + d_y) * 20)
-        
-        # xG (Gol Beklentisi) Cezası
-        xg = res.get('total_xg', 2.5)
-        if xg > 3.0: s_puani -= 25
-        elif xg < 2.0: s_puani += 15
-    
-        # LİG DİNAMİĞİ (Hollanda Şüphesi)
-        if l_ad == "Hollanda":
-            if xg > 2.2: s_puani *= 0.70 # Riskliyse puanı kır
-        elif l_ad in ["İtalya", "Fransa"]:
-            s_puani *= 1.15 # Savunma odaklı liglere bonus
-            
-        return s_puani
-            # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
-            # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
-            st_ex, st_ax = ex, ax
-            
-            # 🏟️ KURAL 1: "Ev Sahibi Kalesi" 
-            # Ev sahibi avantajını ve ligin iç saha galibiyet eğilimini korur
-            st_ex *= 1.05 
-            st_ax *= 0.95
-            
-            # 📈 KURAL 2: "Regresyon (Ortalamaya Dönüş)"
-            # Eğer bir takım normalden çok sapmışsa (aşırı formda veya formsuz), 
-            # Standart AI onu lig ortalamasına doğru biraz 'terbiye' eder.
-            if e_rec > 2.0: st_ex *= 0.90 # Aşırı gaza gelme
-            if d_rec < 0.5: st_ax *= 1.10 # Deplasmanı o kadar da ezme
-            
-            # 🎯 KURAL 3: "Düşük Varyans"
-            # Skor tahminlerinde 4-0, 5-1 gibi uçuk skorlar yerine 
-            # en yüksek olasılıklı (1-0, 2-1, 1-1) skorları tercih eder.
-            r_s = sk(st_ex, st_ax) # Standart'ın nihai rasyonel skoru
-    
-           # --- SPEKTRUM CHAOS & FLOW LOGIC (Gol ve Tempo Motoru) ---
-            # Spektrum'un felsefesi: "Gol golü çeker" veya "Savunma savunmayı kilitler"
-            sp_ex, sp_ax = ex, ax
-            
-            # 🔥 SENARYO 1: "Yüksek Volatilite" (Açık Futbol)
-            # Eğer her iki takım da son 3 maçta hem atıp hem yemişse (Yüksek Tempo)
-            if e_rec > 1.2 and d_rec > 1.2:
-                sp_ex *= 1.18  # Maçın kopma ihtimali çok yüksek
-                sp_ax *= 1.18  # Karşılıklı gol (KG VAR) kokusu
-                
-            # ❄️ SENARYO 2: "Negatif Akış" (Düşük Tempo)
-            # Eğer takımlardan biri 'otobüsü çekiyorsa' (Çok az gol yiyorsa)
-            elif e_rec < 0.8 or d_rec < 0.8:
-                sp_ex *= 0.85  # Pozisyon bulmak samanlıkta iğne aramak gibi olacak
-                sp_ax *= 0.85  # Skor 0-0 veya 1-0'a hapsolur
-                
-            # ⚡ SENARYO 3: "Baskın Karakter" 
-            # Eğer ev sahibi çok formda, deplasman ise çok formsuzsa
-            if e_rec > 1.5 and d_rec < 0.7:
-                sp_ex *= 1.25  # Ev sahibi silindir gibi geçebilir
-                sp_ax *= 0.75  # Deplasman gol atamaz
-                
-            r_sp = sk(sp_ex, sp_ax) # Spektrum'un nihai gol odaklı skoru
+    except:
+        return None
 
+# --- YENİ SAVUNMA FONKSİYONU (Analiz Et'in Tamamen Dışında) ---
+def hesapla_savunma_puani_v3(m, l_ad):
+    res = m.get('res', {})
+    if not res: return 50
+    
+    e_y = res.get('e_y', 1.0)
+    d_y = res.get('d_y', 1.0)
+    s_puani = 100 - ((e_y + d_y) * 20)
+    
+    xg = res.get('total_xg', 2.5)
+    if xg > 3.0: s_puani -= 25
+    elif xg < 2.0: s_puani += 15
+
+    if l_ad == "Hollanda":
+        if xg > 2.2: s_puani *= 0.70
+    elif l_ad in ["İtalya", "Fransa"]:
+        s_puani *= 1.15
+        
+    return s_puani
        # --- NEXUS STRATEGIC LOGIC (Sürpriz Analiz Motoru) ---
         # Nexus'un temeli: Favorinin formsuzluğu + Deplasmanın direnci
         nx_ex, nx_ax = ex, ax
