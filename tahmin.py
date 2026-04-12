@@ -528,90 +528,55 @@ elif mod == "Global AI":
             st.divider()
             st.subheader(f"🎯 {filtre} Uzmanlık Konseyi: Haftalık 5'li Kuponlar")
             
-            # --- BAŞARI KONTROL FONKSİYONU ---
-            def check_hit(liste, tip):
-                hit = 0
-                for m in liste:
-                    if m.get('status') == 'FINISHED':
-                        h_s, a_s = m['score']['fullTime']['home'], m['score']['fullTime']['away']
-                        if h_s is not None:
-                            gw = winner(f"{h_s} - {a_s}")
-                            if tip == "ust" and (h_s + a_s) > 2.5: hit += 1
-                            elif tip == "alt" and (h_s + a_s) < 2.5: hit += 1
-                            elif tip == "banko" or tip == "ideal":
-                                t_skor = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
-                                if winner(t_skor) == gw: hit += 1
-                return hit
-            # --- 1. KUPON SABİTLEME (SNAPSHOT) ---
-if 'sabit_kuponlar' not in st.session_state:
-    # Cuma günü ilk girişte kuponları hafızaya al
-    st.session_state.sabit_kuponlar = {
-        "banko": sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5],
-        "ideal": sorted(g_l, key=lambda x: x['puan'], reverse=True)[5:10],
-        "ust": sorted(g_l, key=lambda x: x['res']['h_p'], reverse=True)[:5],
-        "alt": sorted(g_l, key=lambda x: x['res']['s_p'], reverse=True)[:5]
-    }
-            # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (EFEKTLİ FORMAT) ---
+            # 1. KUPON SABİTLEME (Snapshot Mantığı)
+            snapshot_anahtari = f"kuponlar_{s_sec}"
+            if snapshot_anahtari not in st.session_state:
+                st.session_state[snapshot_anahtari] = {
+                    "banko": sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5],
+                    "ideal": sorted(g_l, key=lambda x: x['puan'], reverse=True)[5:10],
+                    "ust": sorted(g_l, key=lambda x: x['res']['h_p'], reverse=True)[:5],
+                    "alt": sorted(g_l, key=lambda x: x['res']['s_p'], reverse=True)[:5]
+                }
+            
+            s_k = st.session_state[snapshot_anahtari]
+
+            # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ ---
             c1, c2, c3, c4 = st.columns(4) 
 
-            # 1. BANKO KUPON (Robotun En Güvendiği Saf Sonuçlar)
             with c1:
-                bankolar = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5]
-                h_b = check_hit(bankolar, "banko")
-                seal = '<div class="full-hit-seal">🏆 5/5 FULL HIT</div>' if h_b == 5 else ""
+                h_b = check_hit(s_k["banko"], "banko")
+                seal = '<div class="full-hit-seal">🏆 5/5 FULL</div>' if h_b == 5 else ""
                 st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO ({filtre[:3]}) <span class="success-badge">{h_b}/5</span></div>', unsafe_allow_html=True)
-                for b in bankolar:
+                for b in s_k["banko"]:
                     t = b['res']['wickham'] if "WICKHAM" in filtre else b['res']['aether']
-                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 2. İDEAL KUPON (💎 Başarı Efekti Eklendi)
             with c2:
-                idealler = sorted(g_l, key=lambda x: x['puan'], reverse=True)[5:10]
-                if not idealler: idealler = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5]
-                h_i = check_hit(idealler, "ideal")
-                # İDEAL MÜHÜR: Full isabet durumunda Elmas mühür basar
+                h_i = check_hit(s_k["ideal"], "ideal")
                 seal = '<div class="full-hit-seal" style="background:#58A6FF; color:white;">💎 ELMAS SERİ</div>' if h_i == 5 else ""
                 st.markdown(f'<div class="editor-card" style="border-top-color: #58A6FF;">{seal}<div class="coupon-title">💎 İDEAL ({filtre[:3]}) <span class="success-badge">{h_i}/5</span></div>', unsafe_allow_html=True)
-                for i in idealler:
+                for i in s_k["ideal"]:
                     t = i['res']['wickham'] if "WICKHAM" in filtre else i['res']['aether']
-                    st.markdown(f'<div class="coupon-item"><b>{i["homeTeam"]["shortName"]} - {i["awayTeam"]["shortName"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{i["homeTeam"]["shortName"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 3. ÜST KUPON (🔥 Başarı Efekti Eklendi)
             with c3:
-                if "WICKHAM" in filtre:
-                    ustler = sorted(g_l, key=lambda x: x['res']['h_p'], reverse=True)[:5]
-                elif "Spektrum" in filtre:
-                    ustler = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
-                else:
-                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] * x['res']['ae_c']), reverse=True)[:5]
-                
-                h_u = check_hit(ustler, "ust")
-                # ÜST MÜHÜR: Full isabet durumunda Alevli mühür basar
+                h_u = check_hit(s_k["ust"], "ust")
                 seal = '<div class="full-hit-seal" style="background:#d73a49; color:white;">🔥 FIRE STRIKE</div>' if h_u == 5 else ""
                 st.markdown(f'<div class="editor-card" style="border-top-color: #d73a49;">{seal}<div class="coupon-title">⚽ ÜST ({filtre[:3]}) <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
-                for u in ustler:
+                for u in s_k["ust"]:
                     info = f"Güç: %{int(u['res']['h_p'])}" if "WICKHAM" in filtre else f"xG: {u['res']['total_xg']:.2f}"
-                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ÜST</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]}</b><br>{info} | 2.5 ÜST</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT KUPON (🛡️ Başarı Efekti Eklendi)
             with c4:
-                if "WICKHAM" in filtre:
-                    altlar = sorted(g_l, key=lambda x: x['res']['s_p'], reverse=True)[:5]
-                elif "Nexus" in filtre:
-                    altlar = sorted(g_l, key=lambda x: (x['res']['s_p'] + x['res']['n_c']), reverse=True)[:5]
-                else:
-                    altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
-
-                h_a = check_hit(altlar, "alt")
-                # ALT MÜHÜR: Full isabet durumunda Çelik mühür basar
+                h_a = check_hit(s_k["alt"], "alt")
                 seal = '<div class="full-hit-seal" style="background:#0366d6; color:white;">🛡️ IRON WALL</div>' if h_a == 5 else ""
                 st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT ({filtre[:3]}) <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
-                for a in altlar:
+                for a in s_k["alt"]:
                     info = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
-                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             # --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (TÜM ROBOTLAR) ---
 st.divider()
