@@ -85,23 +85,23 @@ def analiz_et(ev, dep, matches, h_no):
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-# --- ROBOT HESAPLAMALARI (Buradaki hatalar düzeltildi) ---
-        st_ex, st_ax = ex * 1.05, ax * 0.95
-        r_s = sk(st_ex, st_ax)
+         # --- ROBOT HESAPLAMALARI (Buradaki hatalar düzeltildi) ---
+         st_ex, st_ax = ex * 1.05, ax * 0.95
+         r_s = sk(st_ex, st_ax)
 
-        sp_ex, sp_ax = ex, ax
-        if e_rec > 1.2 and d_rec > 1.2:
-            sp_ex *= 1.18; sp_ax *= 1.18
-        r_sp = sk(sp_ex, sp_ax)
+         sp_ex, sp_ax = ex, ax
+         if e_rec > 1.2 and d_rec > 1.2:
+             sp_ex *= 1.18; sp_ax *= 1.18
+         r_sp = sk(sp_ex, sp_ax)
 
-        nx_ex, nx_ax = ex, ax
-        if e_rec < e_g * 0.9:
-            nx_ex *= 0.88; nx_ax *= 1.12
-        r_nx = sk(nx_ex, nx_ax)
+         nx_ex, nx_ax = ex, ax
+         if e_rec < e_g * 0.9:
+             nx_ex *= 0.88; nx_ax *= 1.12
+         r_nx = sk(nx_ex, nx_ax)
 
-        aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
-        aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
-        r_ae = sk(aether_ex, aether_ax)
+         aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
+         aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
+         r_ae = sk(aether_ex, aether_ax)
 
         total_xg = ex + ax
         comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
