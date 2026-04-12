@@ -87,32 +87,41 @@ def analiz_et(ev, dep, matches, h_no):
             s = np.unravel_index(np.argmax(m_outer), m_outer.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        # --- BURADAN İTİBAREN HİZALAMA ÇOK KRİTİK ---
+        # --- ALGORİTMA HESAPLAMALARI (HİZALAMA BURADA BAŞLIYOR) ---
+        
+        # 1. STANDART RATIONAL LOGIC
         st_ex, st_ax = ex * 1.05, ax * 0.95
+        if e_rec > 2.0: st_ex *= 0.90
+        if d_rec < 0.5: st_ax *= 1.10
         r_s = sk(st_ex, st_ax)
 
+        # 2. SPEKTRUM CHAOS LOGIC
         sp_ex, sp_ax = ex, ax
         if e_rec > 1.2 and d_rec > 1.2:
-            sp_ex *= 1.18
-            sp_ax *= 1.18
+            sp_ex *= 1.18; sp_ax *= 1.18
+        elif e_rec < 0.8 or d_rec < 0.8:
+            sp_ex *= 0.85; sp_ax *= 0.85
         r_sp = sk(sp_ex, sp_ax)
 
+        # 3. NEXUS STRATEGIC LOGIC
         nx_ex, nx_ax = ex, ax
-        if e_rec < e_g * 0.9:
-            nx_ex *= 0.88
-            nx_ax *= 1.12
+        if e_rec < e_g * 0.9: nx_ex *= 0.88; nx_ax *= 1.12
+        if d_rec < 1.05: nx_ex *= 0.92; nx_ax *= 1.05
+        if abs(ex - ax) < 0.3: nx_ex *= 0.95; nx_ax *= 0.95
         r_nx = sk(nx_ex, nx_ax)
 
+        # 4. AETHER MASTER SYNTHESIS
         aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
         aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
+        if e_rec > e_g: aether_ex *= 1.05
+        if d_rec > d_g: aether_ax *= 1.05
         r_ae = sk(aether_ex, aether_ax)
 
+        # 5. SONUÇLAR
         total_xg = ex + ax
         comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
-        if total_xg > 3.0: 
-            comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
-        elif total_xg < 2.0: 
-            comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
+        if total_xg > 3.0: comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
+        elif total_xg < 2.0: comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
 
         return {
             "std": r_s[0], "s_c": r_s[1], 
@@ -125,18 +134,16 @@ def analiz_et(ev, dep, matches, h_no):
     except Exception as e:
         return None
 
-# --- V3 FONKSİYONLARI (Fonksiyonun Dışında, En Sola Yaslı) ---
+# --- V3 YARDIMCI FONKSİYONLARI ---
 
 def hesapla_savunma_puani_v3(m, l_ad):
     res = m.get('res', {})
     if not res: return 50
     e_y, d_y = res.get('e_y', 1.0), res.get('d_y', 1.0)
     s_puani = 100 - ((e_y + d_y) * 20)
-    
     xg = res.get('total_xg', 2.5)
     if xg > 3.0: s_puani -= 25
     elif xg < 2.0: s_puani += 15
-
     if l_ad == "Hollanda":
         if xg > 2.2: s_puani *= 0.70
     elif l_ad in ["İtalya", "Fransa"]:
@@ -153,6 +160,8 @@ def hesapla_hucum_puani_v3(m, l_ad):
     if e_g > 1.2 and d_g > 1.2: h_puani += 20
     if l_ad in ["Hollanda", "Almanya"]: h_puani *= 1.10
     return h_puani
+
+simdi = datetime.now()
     
         # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
         # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
