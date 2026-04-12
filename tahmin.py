@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 # --- 1. AYARLAR & MİLAT ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
 # --- 1. AYARLAR: HAVUZU GENİŞLETME ---
+# --- 1. AYARLAR: SADECE YEREL LİG HAVUZU ---
 LIGLER = {
     "İngiltere": "PL", 
     "İspanya": "PD", 
@@ -16,10 +17,8 @@ LIGLER = {
     "Almanya": "BL1", 
     "Fransa": "FL1", 
     "Hollanda": "DED",
-    "Portekiz": "PPL",      # Test edilecek
-    "Brezilya": "BSA",      # Test edilecek
-    "Şamp. Ligi": "CL",     # Kupa heyecanı Wickham için harika veridir
-    "Avrupa Ligi": "EL"      # Havuz genişletme
+    "Portekiz": "PPL",  # Portekiz Primeiralira (Havuz Genişletme)
+    "Brezilya": "BSA"   # Brezilya Serie A (Havuz Genişletme)
 }
 SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20) 
 
