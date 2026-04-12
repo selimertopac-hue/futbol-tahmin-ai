@@ -605,6 +605,72 @@ elif mod == "Global AI":
                     info = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
                     st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+# --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (ANLIK AKIŞ) ---
+            st.divider()
+            st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
+            st.info("⚡ **Canlı Veri Akışı:** Buradaki listeler mühürlenmez. Robotlar o saniye ligde gördüğü en taze fırsatları (Top 20) listeler.")
+            
+            # Beş robot için sekmeleri oluşturalım
+            v_tabs = st.tabs(["🧪 WICKHAM", "✨ AETHER", "🛡️ NEXUS", "🤖 STANDART", "🔥 SPEKTRUM"])
+            
+            # Robot konfigürasyonlarını tanımlayalım (Hangi robot, hangi puana ve tahmine bakacak)
+            robot_config = [
+                {"tab": v_tabs[0], "puan_k": "w_c", "tahmin_k": "wickham", "emoji": "🧪", "name": "Wickham"},
+                {"tab": v_tabs[1], "puan_k": "ae_c", "tahmin_k": "aether", "emoji": "✨", "name": "Aether"},
+                {"tab": v_tabs[2], "puan_k": "n_c", "tahmin_k": "nexus", "emoji": "🛡️", "name": "Nexus"},
+                {"tab": v_tabs[3], "puan_k": "s_c", "tahmin_k": "std", "emoji": "🤖", "name": "Standart"},
+                {"tab": v_tabs[4], "puan_k": "sp_c", "tahmin_k": "spec", "emoji": "🔥", "name": "Spektrum"}
+            ]
+
+            for rb in robot_config:
+                with rb['tab']:
+                    st.markdown(f"### {rb['emoji']} {rb['name']} Güncel Fırsat Listesi")
+                    
+                    # DİKKAT: Burada s_k (mühürlü) değil, g_l (canlı) listesini kullanıyoruz!
+                    # O robota ait puan anahtarına göre anlık sıralama yap
+                    top_av = sorted(g_l, key=lambda x: x['res'].get(rb['puan_k'], 0), reverse=True)[:20]
+                    
+                    if not top_av:
+                        st.warning("Bu robot için şu an uygun fırsat saptanmadı.")
+                    else:
+                        for m in top_av:
+                            res = m['res']
+                            ham_tahmin = res.get(rb['tahmin_k'], "---")
+                            
+                            # --- AKILLI TAHMİN FORMATLAMA ---
+                            # Skor formatını (2-1 vb.) MS veya Alt/Üst formatına sadeleştiriyoruz
+                            if "-" in str(ham_tahmin):
+                                try:
+                                    pts = ham_tahmin.split(" - ")
+                                    ev_g, dep_g = int(pts[0]), int(pts[1])
+                                    
+                                    if (ev_g + dep_g) > 2.5: 
+                                        t_display = "2.5 ÜST"
+                                    elif (ev_g + dep_g) < 2.5: 
+                                        t_display = "2.5 ALT"
+                                    else:
+                                        t_display = f"MS {winner(ham_tahmin)}"
+                                except:
+                                    t_display = ham_tahmin
+                            else:
+                                t_display = ham_tahmin
+
+                            # Görsel Liste Satırı
+                            st.markdown(f"""
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.5); border-radius: 8px; margin-bottom: 5px;">
+                                <div style="flex: 2;">
+                                    <b>{m['homeTeam']['shortName']} - {m['awayTeam']['shortName']}</b> 
+                                    <br><small style="color:#8B949E;">📍 {m['l_ad']}</small>
+                                </div>
+                                <div style="flex: 1; text-align: center;">
+                                    <span style="background:#238636; color:white; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight:bold;">{t_display}</span>
+                                </div>
+                                <div style="flex: 1; text-align: right;">
+                                    <span style="color:#58A6FF; font-weight:bold;">%{int(res.get(rb['puan_k'], 0))}</span>
+                                    <br><small style="color:#8B949E;">Güven</small>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
 
             # --- DETAYLI ANALİZ KARTLARI ---
             st.markdown("---")
