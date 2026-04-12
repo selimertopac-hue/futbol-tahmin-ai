@@ -85,59 +85,6 @@ def analiz_et(ev, dep, matches, h_no):
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        # --- AI ALGORİTMALARI ---
-        st_ex, st_ax = ex * 1.05, ax * 0.95
-        r_s = sk(st_ex, st_ax)
-
-        sp_ex, sp_ax = ex, ax
-        if e_rec > 1.2 and d_rec > 1.2: sp_ex *= 1.18; sp_ax *= 1.18
-        r_sp = sk(sp_ex, sp_ax)
-
-        nx_ex, nx_ax = ex, ax
-        if e_rec < e_g * 0.9: nx_ex *= 0.88; nx_ax *= 1.12
-        r_nx = sk(nx_ex, nx_ax)
-
-        aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
-        aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
-        r_ae = sk(aether_ex, aether_ax)
-
-        total_xg = ex + ax
-        comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
-        if total_xg > 3.0: comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
-        elif total_xg < 2.0: comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
-
-        # SONUÇ DÖNDÜRME (Burada try bloğu bitiyor)
-        return {
-            "std": r_s[0], "s_c": r_s[1], 
-            "spec": r_sp[0], "sp_c": r_sp[1], 
-            "nexus": r_nx[0], "n_c": r_nx[1], 
-            "aether": r_ae[0], "ae_c": r_ae[1], 
-            "note": comment, "total_xg": total_xg,
-            "e_y": e_y, "d_y": d_y
-        }
-    except:
-        return None
-
-# --- YENİ SAVUNMA FONKSİYONU (Analiz Et'in Tamamen Dışında) ---
-def hesapla_savunma_puani_v3(m, l_ad):
-    res = m.get('res', {})
-    if not res: return 50
-    
-    e_y = res.get('e_y', 1.0)
-    d_y = res.get('d_y', 1.0)
-    s_puani = 100 - ((e_y + d_y) * 20)
-    
-    xg = res.get('total_xg', 2.5)
-    if xg > 3.0: s_puani -= 25
-    elif xg < 2.0: s_puani += 15
-
-    if l_ad == "Hollanda":
-        if xg > 2.2: s_puani *= 0.70
-    elif l_ad in ["İtalya", "Fransa"]:
-        s_puani *= 1.15
-        
-    return s_puani
-
         # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
         # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
         st_ex, st_ax = ex, ax
