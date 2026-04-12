@@ -153,17 +153,49 @@ def analiz_et(ev, dep, matches, h_no):
             
         r_nx = sk(nx_ex, nx_ax) # Nexus'un nihai sürpriz skoru
 
-        # --- 4. AETHER MASTER SYNTHESIS (Final Sentez) ---
-        # Artık tüm değişkenler (st, sp, nx) yukarıda tanımlandığı için hata vermez
-        aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
-        aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
+        # --- WICKHAM v3: BITIRICILIK & LIG ANALIZ MOTORU ---
+        # Wickham'ın felsefesi: "Ligin karakteri ve takımların bitiriciliği skoru belirler"
+        wx_ex, wx_ax = ex, ax
         
-        # Form trendini Aether'e son dokunuş olarak ekle
-        if e_rec > e_g: aether_ex *= 1.05
-        if d_rec > d_g: aether_ax *= 1.05
+        # 🧪 WICKHAM ADIM 1: "Fire Strike" (Hücum Gücü) Uygulaması
+        # Eğer hücum gücü yüksekse ve lig Hollanda/Almanya gibi 'açık' bir ligse skoru yukarı iter
+        h_p = ((ex + ax) * 25) + (e_rec * 10) # Formülün temeli
+        if l_ad in ["Hollanda", "Almanya"]: 
+            h_p *= 1.10
+            if h_p > 75:
+                wx_ex *= 1.22
+                wx_ax *= 1.22 # Wickham burada 'bol gollü' bir senaryo yazar
+
+        # 🧪 WICKHAM ADIM 2: "Iron Wall" (Savunma Sertliği) Uygulaması
+        # Eğer savunma puanı yüksekse ve lig İtalya/Fransa gibi 'kapalı' bir ligse skoru aşağı çeker
+        s_p = 100 - ((ex + ax) * 15) - (e_y * 10)
+        if l_ad in ["İtalya", "Fransa"]: 
+            s_p *= 1.15
+            if s_p > 75:
+                wx_ex *= 0.78
+                wx_ax *= 0.78 # Wickham burada 'beton' bir senaryo yazar
+
+        # 🧪 WICKHAM ADIM 3: "Bitiricilik Formu" Kontrolü
+        # Eğer ev sahibi son maçlarda xG'sinin çok üstünde atıyorsa (e_rec yüksek), 
+        # Wickham bunu bir 'over-performance' olarak değil, 'momentum' olarak görür.
+        if e_rec > 1.8: wx_ex *= 1.12
+        if d_rec > 1.8: wx_ax *= 1.12
+
+        r_w = sk(wx_ex, wx_ax) # Wickham'ın nihai teknik skoru
+
+        # --- 4. AETHER MASTER SYNTHESIS (Geliştirilmiş 4'lü Sentez) ---
+        # Aether artık 4 farklı robotun vizyonunu birleştiriyor.
+        # Ağırlıklar: Standart(%30), Spektrum(%20), Nexus(%20), Wickham(%30)
+        aether_ex = (st_ex * 0.3) + (sp_ex * 0.2) + (nx_ex * 0.2) + (wx_ex * 0.3)
+        aether_ax = (st_ax * 0.3) + (sp_ax * 0.2) + (nx_ax * 0.2) + (wx_ax * 0.3)
+        
+        # Aether Master Süzgeci: Eğer Wickham 'Beton' (Iron Wall) veya 'Ateş' (Fire Strike) 
+        # uyarısı verdiyse, Aether bu uyarının ağırlığını son kararda %50'ye çıkarır.
+        if h_p > 85 or s_p > 85:
+            aether_ex = (aether_ex * 0.5) + (wx_ex * 0.5)
+            aether_ax = (aether_ax * 0.5) + (wx_ax * 0.5)
         
         r_ae = sk(aether_ex, aether_ax)
-
         # --- 5. SONUÇLARI DÖNDÜR ---
         total_xg = ex + ax
         comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
