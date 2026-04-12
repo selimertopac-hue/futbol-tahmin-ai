@@ -53,7 +53,26 @@ st.markdown("""
 def veri_al(endpoint):
     try: return requests.get(f"https://api.football-data.org/v4/{endpoint}", headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
     except: return {}
-
+def motivasyon_hesapla(ev_ad, dep_ad, l_kodu):
+    # Bu fonksiyon puan durumunu çekip takımların 'Stres/Kaos' katsayısını belirler
+    try:
+        data = veri_al(f"competitions/{l_kodu}/standings")
+        table = data['standings'][0]['table']
+        pos = {t['team']['name']: {'p': t['position'], 'pts': t['points']} for t in table}
+        
+        e_p, d_p = pos[ev_ad]['p'], pos[dep_ad]['p']
+        e_pts, d_pts = pos[ev_ad]['pts'], pos[dep_ad]['pts']
+        
+        kaos = 1.0
+        # SENARYO: Favori şampiyonluk potasında (İlk 3) ve rakibiyle puan farkı çoksa
+        if e_p <= 3 and abs(e_pts - d_pts) > 15:
+            kaos = 1.15 # Şampiyonluk stresi/baskısı (Fire Strike Artar)
+        # SENARYO: Deplasman orta sıralarda (Hedefsiz) ve rahatsa
+        if 7 <= d_p <= 13:
+            kaos *= 1.10 # Kaybedecek bir şeyi yok, daha cesur oynar
+            
+        return kaos
+    except: return 1.0
 def winner(sk):
     try:
         p = sk.split(" - ")
@@ -194,6 +213,21 @@ def analiz_et(ev, dep, matches, h_no):
         if d_rec > 1.8: wx_ax *= 1.12
 
         r_w = sk(wx_ex, wx_ax) # Wickham'ın nihai teknik skoru
+        # --- WICKHAM v3.5: KAOS VE MOTİVASYON FİLTRESİ ---
+        # Az önce yukarıda tanımladığımız fonksiyonu çağırıyoruz
+        # Not: LIGLER sözlüğünden o anki ligin kodunu alıyoruz
+        l_kodu = LIGLER.get(l_ad, "PL") 
+        kaos_faktoru = motivasyon_hesapla(ev, dep, l_kodu)
+        
+        if kaos_faktoru > 1.0:
+            # Wickham burada fısıldıyor: "Sıralama farkı büyük, favori stresli!"
+            wx_ex *= kaos_faktoru 
+            wx_ax *= (kaos_faktoru * 0.9) # Karşılıklı gol ihtimalini de tetikler
+            r_w = sk(wx_ex, wx_ax) # Teknik skoru kaosla güncelliyoruz
+            
+        # Yorumu (comment) güncelleyelim
+        if kaos_faktoru > 1.1:
+            comment = f"⚠️ WICKHAM KAOS UYARISI: {ev} şampiyonluk/hedef baskısı altında! Sıralama farkı Wickham'ın v3.5 algoritmasında 'Fire Strike' etkisini tetikledi."
 
         # --- 4. AETHER MASTER SYNTHESIS (Geliştirilmiş 4'lü Sentez) ---
         # Aether artık 4 farklı robotun vizyonunu birleştiriyor.
