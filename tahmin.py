@@ -85,15 +85,11 @@ def analiz_et(ev, dep, matches, h_no):
             s = np.unravel_index(np.argmax(m_outer), m_outer.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        # --- AI ROBOT MANTIKLARI (HIZALANMIŞ) ---
-        
-        # 1. STANDART RATIONAL LOGIC
         st_ex, st_ax = ex * 1.05, ax * 0.95
         if e_rec > 2.0: st_ex *= 0.90
         if d_rec < 0.5: st_ax *= 1.10
         r_s = sk(st_ex, st_ax)
 
-        # 2. SPEKTRUM CHAOS & FLOW
         sp_ex, sp_ax = ex, ax
         if e_rec > 1.2 and d_rec > 1.2:
             sp_ex *= 1.18; sp_ax *= 1.18
@@ -101,14 +97,12 @@ def analiz_et(ev, dep, matches, h_no):
             sp_ex *= 0.85; sp_ax *= 0.85
         r_sp = sk(sp_ex, sp_ax)
 
-        # 3. NEXUS STRATEGIC
         nx_ex, nx_ax = ex, ax
         if e_rec < e_g * 0.9: nx_ex *= 0.88; nx_ax *= 1.12
         if d_rec < 1.05: nx_ex *= 0.92; nx_ax *= 1.05
         if abs(ex - ax) < 0.3: nx_ex *= 0.95; nx_ax *= 0.95
         r_nx = sk(nx_ex, nx_ax)
 
-        # 4. AETHER MASTER SYNTHESIS
         aether_ex = (st_ex * 0.4) + (sp_ex * 0.3) + (nx_ex * 0.3)
         aether_ax = (st_ax * 0.4) + (sp_ax * 0.3) + (nx_ax * 0.3)
         if e_rec > e_g: aether_ex *= 1.05
@@ -116,9 +110,9 @@ def analiz_et(ev, dep, matches, h_no):
         r_ae = sk(aether_ex, aether_ax)
 
         total_xg = ex + ax
-        comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
-        if total_xg > 3.0: comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
-        elif total_xg < 2.0: comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
+        comment = "Trendler dengeli bir mücadele öngörüyor."
+        if total_xg > 3.0: comment = "Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
+        elif total_xg < 2.0: comment = "Savunmaların ön planda olacağı, kısır bir mücadele."
 
         return {
             "std": r_s[0], "s_c": r_s[1], 
@@ -132,7 +126,6 @@ def analiz_et(ev, dep, matches, h_no):
         return None
 
 # --- V3 YARDIMCI FONKSİYONLARI ---
-
 def hesapla_savunma_puani_v3(m, l_ad):
     res = m.get('res', {})
     if not res: return 50
@@ -158,45 +151,26 @@ def hesapla_hucum_puani_v3(m, l_ad):
     if l_ad in ["Hollanda", "Almanya"]: h_puani *= 1.10
     return h_puani
 
-# --- 4. ZAMAN & HAFTA ---
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 
 # --- 5. ANA MENÜ ---
-mod = st.sidebar.radio("🚀 Menü", ["🏠 Canlı Skorlar","🤖 Tahmin Robotu", "Global AI", "Lig Odaklı","💎 Value Hunter", "🏆 Onur Listesi"])
+mod = st.sidebar.radio("Menü", ["Canlı Skorlar","Tahmin Robotu", "Global AI", "Lig Odaklı","Value Hunter", "Onur Listesi"])
 all_d = {lig: veri_al(f"competitions/{kod}/matches") for lig, kod in LIGLER.items()}
 
-if mod == "🏠 Canlı Skorlar":
-    st.title("⚡ Canlı Maç Merkezi")
+if mod == "Canlı Skorlar":
+    st.title("Canlı Maç Merkezi")
     live_data = veri_al("matches")
     matches = live_data.get('matches', [])
-    
     if not matches:
         st.info("Şu an aktif maç bulunmuyor.")
     else:
         for m in matches:
-            status = m.get('status', '')
-            minute = m.get('minute', 'devam')
-            h_s = m['score']['fullTime']['home']
-            a_s = m['score']['fullTime']['away']
-            st.markdown(f"""
-                <div class="match-card" style="border-left: 5px solid #3fb950;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #8B949E; margin-bottom: 5px;">
-                        <span>📍 {m['competition']['name']}</span>
-                        <span style="color: #3fb950; font-weight: bold;">● LIVE {minute}'</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="text-align: right; width: 40%;"><b>{m['homeTeam']['name']}</b></div>
-                        <div style="width: 20%; text-align: center; background: #30363d; border-radius: 5px; padding: 5px;">
-                            <h3 style="margin: 0; color: #3fb950;">{h_s if h_s is not None else 0} - {a_s if a_s is not None else 0}</h3>
-                        </div>
-                        <div style="text-align: left; width: 40%;"><b>{m['awayTeam']['name']}</b></div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            h_s, a_s = m['score']['fullTime']['home'], m['score']['fullTime']['away']
+            st.markdown(f'<div class="match-card"><b>{m["homeTeam"]["name"]}</b> {h_s if h_s is not None else 0} - {a_s if a_s is not None else 0} <b>{m["awayTeam"]["name"]}</b></div>', unsafe_allow_html=True)
 
 elif mod == "Tahmin Robotu":
-    st.title("🤖 Günlük Tahmin Robotu")
+    st.title("Günlük Tahmin Robotu")
     bugun = datetime.now().date()
     gunun_maclari = []
     for l_ad, l_data in all_d.items():
@@ -207,24 +181,7 @@ elif mod == "Tahmin Robotu":
                 if res:
                     m.update({'res': res, 'l_ad': l_ad})
                     gunun_maclari.append(m)
-
-    c1, c2, c3 = st.columns(3)
-    robotlar = [("AETHER", c1, "ae_c"), ("NEXUS", c2, "n_c"), ("SPEKTRUM", c3, "sp_c")]
-
-    for r_ad, r_col, r_puan_key in robotlar:
-        with r_col:
-            st.subheader(f"{r_ad} Radarı")
-            r_top = sorted(gunun_maclari, key=lambda x: x['res'].get(r_puan_key, 0), reverse=True)[:3]
-            for m in r_top:
-                st.markdown(f"""
-                <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #3fb950; margin-bottom:10px;">
-                    <small>{m['l_ad']}</small><br>
-                    <b>{m['homeTeam']['name']} - {m['awayTeam']['name']}</b><br>
-                    <span style="color:#3fb950;">Öneri: {m['res']['aether']}</span><br>
-                    <small>Güven: %{int(m['res'].get(r_puan_key, 0))}</small>
-                </div>
-                """, unsafe_allow_html=True)
-
+    st.write(f"Bugün analiz edilen maç sayısı: {len(gunun_maclari)}")
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI (Master)", "Standart AI", "Spektrum AI", "Nexus AI"])
     s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", list(range(1, 11)), index=site_h_aktif-1, key="global_hafta_unique_key")
