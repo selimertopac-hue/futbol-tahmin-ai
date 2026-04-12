@@ -83,22 +83,31 @@ def analiz_et(ev, dep, matches, h_no):
         def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
-            return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
+            return {
+            "std": r_s[0], "s_c": r_s[1], 
+            "spec": r_sp[0], "sp_c": r_sp[1], 
+            "nexus": r_nx[0], "n_c": r_nx[1], 
+            "aether": r_ae[0], "ae_c": r_ae[1], 
+            "note": comment, "total_xg": total_xg,
+            "e_y": e_y, "d_y": d_y # Verileri dışarı aktarmayı unutma
+        }
+    except Exception as e:
+        return None
+
 def hesapla_savunma_puani_v3(m, l_ad):
     res = m.get('res', {})
-    # Düşük gol yeme beklentisi = Yüksek Savunma Gücü
+    if not res: return 50
     e_y, d_y = res.get('e_y', 1.0), res.get('d_y', 1.0)
     s_puani = 100 - ((e_y + d_y) * 20)
     
     xg = res.get('total_xg', 2.5)
-    # Lig Filtresi
+    if xg > 3.0: s_puani -= 25
+    elif xg < 2.0: s_puani += 15
+
     if l_ad == "Hollanda":
-        if xg > 2.2: s_puani *= 0.70 # Hollanda'da yüksek xG varsa 'Alt' risklidir
+        if xg > 2.2: s_puani *= 0.70
     elif l_ad in ["İtalya", "Fransa"]:
         s_puani *= 1.15
-    
-    # 0-0 Mantığı: Çok düşük xG ödüllendirilir
-    if xg < 1.8: s_puani += 20
     return s_puani
 
 def hesapla_hucum_puani_v3(m, l_ad):
