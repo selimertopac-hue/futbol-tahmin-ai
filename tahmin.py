@@ -84,54 +84,30 @@ def analiz_et(ev, dep, matches, h_no):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
-        def hesapla_savunma_puani_v3(m, l_ad):
-            # Temel Savunma Gücü (Takımların savunma reytingleri ortalaması)
-            # Eğer bu veriler yoksa varsayılan 50 puan veriyoruz
-            h_def = m.get('res', {}).get('home_def_rating', 50)
-            a_def = m.get('res', {}).get('away_def_rating', 50)
-            s_puani = (h_def + a_def) / 2
-            
-            # xG (Gol Beklentisi) Cezası: Beklenti ne kadar yüksekse puan o kadar düşer
-            xg = m.get('res', {}).get('total_xg', 2.5)
-            if xg > 3.0: s_puani -= 25
-            elif xg < 2.0: s_puani += 15
+
+        # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
+        # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
+        st_ex, st_ax = ex, ax
         
-            # LİG DİNAMİĞİ (Hollanda Örneği: Önyargı yok, Şüphe var)
-            if l_ad == "Eredivisie":
-                # Hollanda'da Alt oynamak için xG'nin mutlaka 2.2'nin altında olması şartı
-                if xg > 2.2: s_puani *= 0.70 # Riskli maç, puanı kır
-            elif l_ad in ["Serie A", "Ligue 1"]:
-                s_puani *= 1.10 # Savunma odaklı liglere %10 bonus
+        # 🏟️ KURAL 1: "Ev Sahibi Kalesi" 
+        # Ev sahibi avantajını ve ligin iç saha galibiyet eğilimini korur
+        st_ex *= 1.05 
+        st_ax *= 0.95
         
-            # ŞUT FİLTRESİ (0-0'ın Mantığı)
-            # Toplam isabetli şut beklentisi düşükse puan ekle
-            avg_shots = m.get('res', {}).get('avg_shots_on_target', 8)
-            if avg_shots < 6: s_puani += 20
-                
-            return s_puani
-            # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
-            # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
-            st_ex, st_ax = ex, ax
-            
-            # 🏟️ KURAL 1: "Ev Sahibi Kalesi" 
-            # Ev sahibi avantajını ve ligin iç saha galibiyet eğilimini korur
-            st_ex *= 1.05 
-            st_ax *= 0.95
-            
-            # 📈 KURAL 2: "Regresyon (Ortalamaya Dönüş)"
-            # Eğer bir takım normalden çok sapmışsa (aşırı formda veya formsuz), 
-            # Standart AI onu lig ortalamasına doğru biraz 'terbiye' eder.
-            if e_rec > 2.0: st_ex *= 0.90 # Aşırı gaza gelme
-            if d_rec < 0.5: st_ax *= 1.10 # Deplasmanı o kadar da ezme
-            
-            # 🎯 KURAL 3: "Düşük Varyans"
-            # Skor tahminlerinde 4-0, 5-1 gibi uçuk skorlar yerine 
-            # en yüksek olasılıklı (1-0, 2-1, 1-1) skorları tercih eder.
-            r_s = sk(st_ex, st_ax) # Standart'ın nihai rasyonel skoru
-    
-           # --- SPEKTRUM CHAOS & FLOW LOGIC (Gol ve Tempo Motoru) ---
-            # Spektrum'un felsefesi: "Gol golü çeker" veya "Savunma savunmayı kilitler"
-            sp_ex, sp_ax = ex, ax
+        # 📈 KURAL 2: "Regresyon (Ortalamaya Dönüş)"
+        # Eğer bir takım normalden çok sapmışsa (aşırı formda veya formsuz), 
+        # Standart AI onu lig ortalamasına doğru biraz 'terbiye' eder.
+        if e_rec > 2.0: st_ex *= 0.90 # Aşırı gaza gelme
+        if d_rec < 0.5: st_ax *= 1.10 # Deplasmanı o kadar da ezme
+        
+        # 🎯 KURAL 3: "Düşük Varyans"
+        # Skor tahminlerinde 4-0, 5-1 gibi uçuk skorlar yerine 
+        # en yüksek olasılıklı (1-0, 2-1, 1-1) skorları tercih eder.
+        r_s = sk(st_ex, st_ax) # Standart'ın nihai rasyonel skoru
+
+       # --- SPEKTRUM CHAOS & FLOW LOGIC (Gol ve Tempo Motoru) ---
+        # Spektrum'un felsefesi: "Gol golü çeker" veya "Savunma savunmayı kilitler"
+        sp_ex, sp_ax = ex, ax
         
         # 🔥 SENARYO 1: "Yüksek Volatilite" (Açık Futbol)
         # Eğer her iki takım da son 3 maçta hem atıp hem yemişse (Yüksek Tempo)
@@ -400,28 +376,26 @@ elif mod == "Global AI":
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
     else:
-       # --- 3. VERİ ÇEKME VE HAVUZ OLUŞTURMA ---
-    g_l = []
-    for l_ad, l_data in all_d.items():
-        m_list = l_data.get('matches', [])
-        for m in m_list:
-            # TARİH KONTROLÜ (Daha esnek hale getirdik)
-            m_t_str = m['utcDate'].split('T')[0]
-            m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
-            
-            # Seçilen haftanın tarih aralığına giren maçları al
-            if h_baslangic.date() <= m_t <= h_bitis.date():
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
-                if res:
-                    # Filtreye göre ana puanı (p) belirle
-                    if "AETHER" in filtre: p = res.get('ae_c', 50)
-                    elif "Standart" in filtre: p = res.get('s_c', 50)
-                    elif "Spektrum" in filtre: p = res.get('sp_c', 50)
-                    else: p = res.get('n_c', 50)
-                    
-                    # Maç verisini güncelle ve havuza ekle
-                    m.update({'res': res, 'l_ad': l_ad, 'puan': p})
-                    g_l.append(m)
+        # 3. VERİ ÇEKME DÖNGÜSÜ (Tarih Bazlı)
+        g_l = []
+        for l_ad, l_data in all_d.items():
+            m_list = l_data.get('matches', [])
+            for m in m_list:
+                m_t_str = m['utcDate'].split('T')[0]
+                m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
+                
+                # Eğer maç seçilen haftanın tarih aralığındaysa analize al
+                if h_baslangic.date() <= m_t < h_bitis.date():
+                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec) # s_sec eklendi!
+                    if res:
+                        # Puanlama sistemini seçilen filtreye göre belirle
+                        if "AETHER" in filtre: p = res['ae_c']
+                        elif "Standart" in filtre: p = res['s_c']
+                        elif "Spektrum" in filtre: p = res['sp_c']
+                        else: p = res['n_c']
+                        
+                        m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': m_list})
+                        g_l.append(m)
 
        # 4. SONUÇLARI VE KUPONLARI GÖSTERME
         if len(g_l) > 0:
@@ -483,34 +457,26 @@ elif mod == "Global AI":
                     st.markdown(f'<div class="coupon-item"><b>{u["l_ad"]}</b><br>{u["homeTeam"]["name"]} - {u["awayTeam"]["name"]}<br>Beklenen xG: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT / SAVUNMA KUPONU (ROBOT BAZLI + YENİ NESİL V3.0)
+            # 4. ALT / SAVUNMA KUPONU (ROBOT BAZLI AKILLI FİLTRE)
             with c4:
-                # Önce her maç için o konuştuğumuz lig/şut/savunma analizini yapalım
-                for m in g_l:
-                    m['v3_skor'] = hesapla_savunma_puani_v3(m, m['l_ad'])
-
-                # --- ROBOT KARAKTERİ İLE SAVUNMA PUANINI BİRLEŞTİR ---
+                # --- ROBOT KARAKTERİNE GÖRE ALT MAÇLARI FİLTRELE ---
                 if "AETHER" in filtre:
-                    # Aether için: Savunma puanı yüksek VE Aether'in güveni yüksek maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['v3_skor'] + x['res']['ae_c']), reverse=True)[:5]
+                    # Aether için: Hem xG düşük hem de güven oranı (ae_c) yüksek maçlar
+                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['ae_c']))[:5]
                 elif "Nexus" in filtre:
-                    # Nexus için: Savunma puanı yüksek VE Sürpriz/Strateji puanı yüksek maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['v3_skor'] + x['res']['n_c']), reverse=True)[:5]
+                    # Nexus için: Sürpriz şekilde az gol beklediği (n_c yüksek) maçlar
+                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['n_c']))[:5]
                 elif "Spektrum" in filtre:
-                    # Spektrum için: Savunma puanı yüksek VE xG'si en düşük maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['v3_skor'] - x['res']['total_xg'] * 10), reverse=True)[:5]
+                    # Spektrum için: En düşük xG'li (Kaosun olmadığı) maçlar
+                    altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
                 else:
-                    # Standart için: Saf savunma puanı en yüksek maçlar
-                    altlar = sorted(g_l, key=lambda x: x['v3_skor'], reverse=True)[:5]
+                    # Standart için: En rasyonel düşük skorlu maçlar
+                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['s_c']))[:5]
 
-                # --- BAŞARI KONTROLÜ (Değişmiyor, aynı kalıyor) ---
                 h_a = 0
                 for m in altlar:
                     if m.get('status') == 'FINISHED':
-                        if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) < 2.5: 
-                            h_a += 1
-                
-                # ... Görselleştirme kodun aynen devam eder ...
+                        if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) < 2.5: h_a += 1
                 
                 seal = '<div class="full-hit-seal" style="background:#0366d6;">🛡️ ÇELİK DUVAR</div>' if h_a == 5 else ""
                 st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT / AZ GOLLÜ <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
