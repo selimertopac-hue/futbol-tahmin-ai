@@ -500,29 +500,41 @@ elif mod == "Global AI":
                     st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ÜST</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT / SAVUNMA KUPONU
+            # 4. ALT / SAVUNMA KUPONU (ROBOT BAZLI AKILLI FİLTRE)
+            with c4:
+                # ÖNEMLİ: Listeyi en başta boş olarak tanımlıyoruz ki NameError almayalım
+                altlar = [] 
+
+                # --- ROBOT KARAKTERİNE GÖRE ALT MAÇLARI FİLTRELE ---
+                if "WICKHAM" in filtre:
+                    # Wickham için: Senin v3 Savunma Puanı (s_p) en yüksek olanlar
+                    altlar = sorted(g_l, key=lambda x: x['res'].get('s_p', 0), reverse=True)[:5]
+                elif "AETHER" in filtre:
+                    # Aether için: Senin s_p puanı ve xG dengesi
+                    altlar = sorted(g_l, key=lambda x: (x['res'].get('s_p', 0) * 0.6 + (100 - x['res'].get('total_xg', 2.5)*10) * 0.4), reverse=True)[:5]
+                elif "Nexus" in filtre:
+                    # Nexus için: Sürpriz ve düşük xG odaklı
+                    altlar = sorted(g_l, key=lambda x: (x['res'].get('total_xg', 2.5) * 100 - x['res'].get('n_c', 0)))[:5]
+                else:
+                    # Diğerleri için: Saf düşük xG
+                    altlar = sorted(g_l, key=lambda x: x['res'].get('total_xg', 2.5))[:5]
+
+                # Kart Başlığı
                 st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;"><div class="coupon-title">🛡️ IRON WALL ({filtre[:7]})</div>', unsafe_allow_html=True)
                 
-                for a in altlar:
-                    # Robot bazlı tahmin belirleme (Güvenli yöntem)
-                    if "AETHER" in filtre:
-                        r_tahmin = a['res']['aether']
-                    elif "WICKHAM" in filtre:
-                        r_tahmin = a['res']['wickham']
-                    elif "Standart" in filtre:
-                        r_tahmin = a['res']['std']
-                    elif "Spektrum" in filtre:
-                        r_tahmin = a['res']['spec']
-                    elif "Nexus" in filtre:
-                        r_tahmin = a['res']['nexus']
-                    else:
-                        r_tahmin = "0-0"
-
-                    # İçerik yazımı
-                    extra = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
-                    st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Tahmin: {r_tahmin} ({extra})</div>', unsafe_allow_html=True)
+                # Liste boş değilse döngüye gir
+                if altlar:
+                    for a in altlar:
+                        # Robot bazlı tahmin belirleme
+                        if "WICKHAM" in filtre:
+                            r_tahmin = a['res'].get('wickham', "0-0")
+                            extra = f"Sertlik: %{int(a['res'].get('s_p', 0))}"
+                        else:
+                            r_tahmin = a['res'].get('aether', "0-0")
+                            extra = f"xG: {a['res'].get('total_xg', 0):.2f}"
+                            
+                        st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["name"]}</b><br>Tahmin: {r_tahmin} ({extra})</div>', unsafe_allow_html=True)
                 
-                # DİKKAT: Bu satır for döngüsünün tam altında ama bir tık solda (with bloğu hizasında) olmalı
                 st.markdown('</div>', unsafe_allow_html=True)
             
             # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
