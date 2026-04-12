@@ -206,10 +206,11 @@ def analiz_et(ev, dep, matches, h_no):
             "std": r_s[0], "s_c": r_s[1], 
             "spec": r_sp[0], "sp_c": r_sp[1], 
             "nexus": r_nx[0], "n_c": r_nx[1], 
+            "wickham": r_w[0], "w_c": r_w[1], # Wickham artık sahnede!
             "aether": r_ae[0], "ae_c": r_ae[1], 
+            "h_p": h_p, "s_p": s_p, # Metrikler kupon filtreleri için hazır
             "note": comment, "total_xg": total_xg
-        } # <--- BU SÜSLÜ PARANTEZ HAYATİ ÖNEMDE!
-
+        }
     except Exception as e:
         return None
 
