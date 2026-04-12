@@ -518,6 +518,7 @@ elif mod == "Global AI":
                     info = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
                     st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+                
                     # O anki robotun tahminini de gösterelim (Örn: 1-0)
                     r_tahmin = a['res']['aether'] if "AETHER" in filtre else a['res'].get(filtre.lower(), "0-0")
                     st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Tahmin: {r_tahmin} (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
