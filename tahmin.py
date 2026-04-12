@@ -81,11 +81,11 @@ def analiz_et(ev, dep, matches, h_no):
         ex, ax = (e_g/l_e)*(d_y/l_e)*l_e, (d_g/l_d)*(e_y/l_d)*l_d
         
         def sk(e, a):
-            m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
-            s = np.unravel_index(np.argmax(m), m.shape)
+            m_outer = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
+            s = np.unravel_index(np.argmax(m_outer), m_outer.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        # --- BURASI KRİTİK: def sk ile AYNI HİZADA OLMALI ---
+        # --- HİZALAMA DÜZELTİLDİ: def sk İLE AYNI DİKEY HİZADALAR ---
         st_ex, st_ax = ex * 1.05, ax * 0.95
         r_s = sk(st_ex, st_ax)
 
@@ -121,7 +121,7 @@ def analiz_et(ev, dep, matches, h_no):
     except Exception as e:
         return None
 
-# --- V3 FONKSİYONLARI (Fonksiyon dışına alındı) ---
+# --- V3 FONKSİYONLARI (Fonksiyonun Dışında, En Sola Yaslı) ---
 
 def hesapla_savunma_puani_v3(m, l_ad):
     res = m.get('res', {})
