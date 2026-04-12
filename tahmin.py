@@ -542,7 +542,15 @@ elif mod == "Global AI":
                                 t_skor = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
                                 if winner(t_skor) == gw: hit += 1
                 return hit
-
+            # --- 1. KUPON SABİTLEME (SNAPSHOT) ---
+if 'sabit_kuponlar' not in st.session_state:
+    # Cuma günü ilk girişte kuponları hafızaya al
+    st.session_state.sabit_kuponlar = {
+        "banko": sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5],
+        "ideal": sorted(g_l, key=lambda x: x['puan'], reverse=True)[5:10],
+        "ust": sorted(g_l, key=lambda x: x['res']['h_p'], reverse=True)[:5],
+        "alt": sorted(g_l, key=lambda x: x['res']['s_p'], reverse=True)[:5]
+    }
             # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (EFEKTLİ FORMAT) ---
             c1, c2, c3, c4 = st.columns(4) 
 
@@ -605,7 +613,71 @@ elif mod == "Global AI":
                     info = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
                     st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+            # --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (TÜM ROBOTLAR) ---
+st.divider()
+st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
+st.info("💡 Bu liste, en taze form verileriyle anlık olarak güncellenir. Kuponlar sabitken burası 'Canlı Av' alanıdır.")
 
+# Beş robot için sekmeleri oluşturalım
+v_tabs = st.tabs([
+    "🧪 WICKHAM", 
+    "✨ AETHER", 
+    "🛡️ NEXUS", 
+    "🤖 STANDART", 
+    "🔥 SPEKTRUM"
+])
+
+# Robot konfigürasyonlarını tanımlayalım (Sıralama anahtarı ve tahmin anahtarı)
+robot_config = [
+    {"name": "Wickham", "tab": v_tabs[0], "puan_k": "w_c", "tahmin_k": "wickham", "emoji": "🧪"},
+    {"name": "Aether", "tab": v_tabs[1], "puan_k": "ae_c", "tahmin_k": "aether", "emoji": "✨"},
+    {"name": "Nexus", "tab": v_tabs[2], "puan_k": "n_c", "tahmin_k": "nexus", "emoji": "🛡️"},
+    {"name": "Standart", "tab": v_tabs[3], "puan_k": "s_c", "tahmin_k": "std", "emoji": "🤖"},
+    {"name": "Spektrum", "tab": v_tabs[4], "puan_k": "sp_c", "tahmin_k": "spec", "emoji": "🔥"}
+]
+
+for rb in robot_config:
+    with rb['tab']:
+        st.markdown(f"### {rb['emoji']} {rb['name']} En İyi 20 Fırsat")
+        
+        # O robota ait puan anahtarına göre anlık sıralama yap
+        # g_l listesi o anki en güncel verileri içerir
+        top_av = sorted(g_l, key=lambda x: x['res'].get(rb['puan_k'], 0), reverse=True)[:20]
+        
+        if not top_av:
+            st.warning("Bu robot için şu an uygun fırsat saptanmadı.")
+        else:
+            for m in top_av:
+                res = m['res']
+                ham_tahmin = res.get(rb['tahmin_k'], "---")
+                
+                # --- AKILLI TAHMİN FORMATLAMA ---
+                # Eğer tahmin skor formatındaysa (Örn: 2-1), MS sonucuna çevir
+                if "-" in ham_tahmin:
+                    try:
+                        pts = ham_tahmin.split(" - ")
+                        ev_g, dep_g = int(pts[0]), int(pts[1])
+                        
+                        # 1-0-2 veya Alt/Üst belirleme
+                        if (ev_g + dep_g) > 2.5: 
+                            t_display = "2.5 ÜST"
+                        elif (ev_g + dep_g) < 2.5: 
+                            t_display = "2.5 ALT"
+                        else:
+                            t_display = f"MS {winner(ham_tahmin)}"
+                    except:
+                        t_display = ham_tahmin
+                else:
+                    t_display = ham_tahmin
+
+                # Görsel Satır Yazımı
+                st.markdown(f"""
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #30363d;">
+                    <div style="flex: 2;"><b>{m['homeTeam']['shortName']} - {m['awayTeam']['shortName']}</b> <small style="color:#8B949E;">({m['l_ad']})</small></div>
+                    <div style="flex: 1; text-align: center;"><span style="background:#238636; color:white; padding:2px 8px; border-radius:5px; font-size:0.85rem;">{t_display}</span></div>
+                    <div style="flex: 1; text-align: right; color:#58A6FF; font-weight:bold;">%{int(res.get(rb['puan_k'], 0))} Güven</div>
+                </div>
+                """, unsafe_allow_html=True)
             # --- DETAYLI ANALİZ KARTLARI ---
             st.markdown("---")
             st.subheader(f"🔥 {filtre}: Haftalık Detaylı Analiz Raporu")
