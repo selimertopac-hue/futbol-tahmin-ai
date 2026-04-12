@@ -153,6 +153,7 @@ def hesapla_hucum_puani_v3(m, l_ad):
     if e_g > 1.2 and d_g > 1.2: h_puani += 20
     if l_ad in ["Hollanda", "Almanya"]: h_puani *= 1.10
     return h_puani
+    
         # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
         # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
         st_ex, st_ax = ex, ax
