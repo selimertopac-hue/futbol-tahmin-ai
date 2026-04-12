@@ -390,6 +390,29 @@ elif mod == "Tahmin Robotu":
                 ustler = sorted(mac_havuzu, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
                 for u in ustler:
                     st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>xG Beklentisi: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
+                    # --- BAŞARI KONTROL FONKSİYONU (check_hit) ---
+def check_hit(liste, tip):
+    hit = 0
+    for m in liste:
+        # Maçın bitip bitmediğini kontrol et
+        if m.get('status') == 'FINISHED' or m.get('status') == 'FT':
+            h_s = m['score']['fullTime'].get('home')
+            a_s = m['score']['fullTime'].get('away')
+            
+            if h_s is not None and a_s is not None:
+                gw = winner(f"{h_s} - {a_s}") # Maçın gerçek sonucu (1, X, 2)
+                
+                if tip == "ust":
+                    if (h_s + a_s) > 2.5: hit += 1
+                elif tip == "alt":
+                    if (h_s + a_s) < 2.5: hit += 1
+                else:
+                    # Banko ve İdeal için Aether tahmininin tutup tutmadığına bak
+                    # Aether tahmininden (Örn: 2 - 1) maç sonucunu (1) çıkarıyoruz
+                    tahmin_skor = m['res'].get('aether', "0 - 0")
+                    if winner(tahmin_skor) == gw:
+                        hit += 1
+    return hit
 elif mod == "Global AI":
     # 1. Sidebar ve Hafta Seçimi (Wickham Eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI Master", "Standart AI", "Spektrum AI", "Nexus AI", "WICKHAM AI v3"])
