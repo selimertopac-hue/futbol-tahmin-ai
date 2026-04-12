@@ -85,7 +85,7 @@ def analiz_et(ev, dep, matches, h_no):
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        # --- ROBOT HESAPLAMALARI (Buradaki hatalar düzeltildi) ---
+# --- ROBOT HESAPLAMALARI (Buradaki hatalar düzeltildi) ---
         st_ex, st_ax = ex * 1.05, ax * 0.95
         r_s = sk(st_ex, st_ax)
 
