@@ -422,13 +422,15 @@ elif mod == "Global AI":
                 if h_baslangic.date() <= m_t < h_bitis.date():
                     res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec) # s_sec eklendi!
                     if res:
-                        # Puanlama sistemini seçilen filtreye göre belirle
+                        # Puanlama sistemini seçilen filtreye göre dinamikleştiriyoruz
                         if "AETHER" in filtre: p = res['ae_c']
                         elif "Standart" in filtre: p = res['s_c']
                         elif "Spektrum" in filtre: p = res['sp_c']
-                        else: p = res['n_c']
+                        elif "Nexus" in filtre: p = res['n_c']
+                        elif "WICKHAM" in filtre: p = res['w_c'] # Wickham Puanı
+                        else: p = res['ae_c']
                         
-                        m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': m_list})
+                        m.update({'res': res, 'l_ad': l_ad, 'puan': p})
                         g_l.append(m)
 
        # 4. SONUÇLARI VE KUPONLARI GÖSTERME
