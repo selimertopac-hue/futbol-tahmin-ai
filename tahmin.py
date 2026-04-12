@@ -637,19 +637,31 @@ elif mod == "Global AI":
                             res = m['res']
                             ham_tahmin = res.get(rb['tahmin_k'], "---")
                             
-                            # --- AKILLI TAHMİN FORMATLAMA ---
-                            # Skor formatını (2-1 vb.) MS veya Alt/Üst formatına sadeleştiriyoruz
+                            # --- AKILLI TAHMİN FORMATLAMA (MS 1-0-2 & ALT/ÜST) ---
                             if "-" in str(ham_tahmin):
                                 try:
                                     pts = ham_tahmin.split(" - ")
                                     ev_g, dep_g = int(pts[0]), int(pts[1])
+                                    toplam_gol = ev_g + dep_g
                                     
-                                    if (ev_g + dep_g) > 2.5: 
+                                    # 1. ÖNCELİK: NET TARAF GALİBİYETİ (MS 1 veya MS 2)
+                                    # Eğer bir takım en az 2 farkla kazanıyorsa direkt taraf ver
+                                    if ev_g - dep_g >= 2:
+                                        t_display = "MS 1"
+                                    elif dep_g - ev_g >= 2:
+                                        t_display = "MS 2"
+                                    
+                                    # 2. ÖNCELİK: GOL BEKLENTİSİ (ALT/ÜST)
+                                    # Eğer skor çok yakınsa (1-0, 0-1, 1-1 gibi), gol tercihine dön
+                                    elif toplam_gol >= 3:
                                         t_display = "2.5 ÜST"
-                                    elif (ev_g + dep_g) < 2.5: 
+                                    elif toplam_gol <= 1:
                                         t_display = "2.5 ALT"
+                                    
+                                    # 3. ÖNCELİK: KRİTİK TARAF (Sıkışık Maçlar)
                                     else:
                                         t_display = f"MS {winner(ham_tahmin)}"
+                                        
                                 except:
                                     t_display = ham_tahmin
                             else:
