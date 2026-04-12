@@ -435,12 +435,12 @@ elif mod == "Global AI":
                         m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': m_list})
                         g_l.append(m)
 
-       # 4. SONUÇLARI VE KUPONLARI GÖSTERME
+       # --- 4. SONUÇLARI VE KUPONLARI GÖSTERME ---
         if len(g_l) > 0:
             st.divider()
             st.subheader("🎯 AI Editörün Otomatik Akıllı Kuponları (Haftalık 5'li)")
             
-            # --- KRİTİK: check_hit FONKSİYONUNU (5 MAÇ UYUMLU) ---
+            # --- KRİTİK: BAŞARI KONTROL FONKSİYONU ---
             def check_hit(liste, tip):
                 hit = 0
                 for m in liste:
@@ -451,11 +451,18 @@ elif mod == "Global AI":
                             gw = winner(f"{h_s} - {a_s}")
                             if tip == "ust":
                                 if (h_s + a_s) > 2.5: hit += 1
+                            elif tip == "alt":
+                                if (h_s + a_s) < 2.5: hit += 1
                             elif winner(m['res'].get('aether', '')) == gw: 
                                 hit += 1
                 return hit
 
-            # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (TAM FORMAT) ---
+            # --- V3.0 ÖNCELİKLİ PUANLAMA HESABI ---
+            for m in g_l:
+                m['v3_savunma'] = hesapla_savunma_puani_v3(m, m['l_ad'])
+                m['v3_hucum'] = hesapla_hucum_puani_v3(m, m['l_ad'])
+
+            # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ ---
             c1, c2, c3, c4 = st.columns(4) 
             
             # 1. BANKO KUPON (5 MAÇ)
@@ -476,52 +483,41 @@ elif mod == "Global AI":
                 seal = '<div class="full-hit-seal">🔥 BOMBA KUPON</div>' if h_s >= 3 else ""
                 st.markdown(f'<div class="editor-card" style="border-top: 4px solid #6f42c1;">{seal}<div class="coupon-title">🕵️ SÜRPRİZ ({filtre[:6]}) <span class="success-badge">{h_s}/5</span></div>', unsafe_allow_html=True)
                 for s in surprizler:
-                    st.markdown(f'<div class="coupon-item"><b>{s["l_ad"]}</b><br>{s["homeTeam"]["name"]} - {s["awayTeam"]["name"]}<br>Tahmin: {s["res"]["aether"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{s["l_ad"]}</b><br>{s["homeTeam"]["name"]} - {s["awayTeam"]["name"]}<br>Tahmin: {s["res"]["nexus"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 3. ÜST / GOL KUPONU (5 MAÇ)
+            # 3. ÜST / ATEŞ HATTI (5 MAÇ - v3.0 Bitiricilik Odaklı)
             with c3:
+                # Robot güveni + v3 Hücum puanı harmanı
                 if "AETHER" in filtre:
-                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] + x['res']['ae_c']/20), reverse=True)[:5]
+                    ustler = sorted(g_l, key=lambda x: (x['v3_hucum'] + x['res']['ae_c']), reverse=True)[:5]
                 elif "Spektrum" in filtre:
-                    ustler = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:5]
+                    ustler = sorted(g_l, key=lambda x: (x['v3_hucum'] + x['res']['sp_c']), reverse=True)[:5]
                 else:
-                    ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] * x['res'].get('s_c', 50)), reverse=True)[:5]
+                    ustler = sorted(g_l, key=lambda x: x['v3_hucum'], reverse=True)[:5]
                 
                 h_u = check_hit(ustler, "ust")
                 seal = '<div class="full-hit-seal">⚽ GOL FESTİVALİ</div>' if h_u == 5 else ""
-                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #d73a49;">{seal}<div class="coupon-title">⚽ ÜST / GOL <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #d73a49;">{seal}<div class="coupon-title">🔥 ATEŞ HATTI (ÜST) <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
                 for u in ustler:
-                    st.markdown(f'<div class="coupon-item"><b>{u["l_ad"]}</b><br>{u["homeTeam"]["name"]} - {u["awayTeam"]["name"]}<br>Beklenen xG: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{u["l_ad"]}</b><br>{u["homeTeam"]["name"]} - {u["awayTeam"]["name"]}<br>Güç: %{int(u["v3_hucum"])} | 2.5 ÜST</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT / SAVUNMA KUPONU (ROBOT BAZLI AKILLI FİLTRE)
+            # 4. ALT / ÇELİK DUVAR (5 MAÇ - v3.0 Savunma Odaklı)
             with c4:
-                # --- ROBOT KARAKTERİNE GÖRE ALT MAÇLARI FİLTRELE ---
+                # Robot güveni + v3 Savunma puanı harmanı
                 if "AETHER" in filtre:
-                    # Aether için: Hem xG düşük hem de güven oranı (ae_c) yüksek maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['ae_c']))[:5]
+                    altlar = sorted(g_l, key=lambda x: (x['v3_savunma'] + x['res']['ae_c']), reverse=True)[:5]
                 elif "Nexus" in filtre:
-                    # Nexus için: Sürpriz şekilde az gol beklediği (n_c yüksek) maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['n_c']))[:5]
-                elif "Spektrum" in filtre:
-                    # Spektrum için: En düşük xG'li (Kaosun olmadığı) maçlar
-                    altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
+                    altlar = sorted(g_l, key=lambda x: (x['v3_savunma'] + x['res']['n_c']), reverse=True)[:5]
                 else:
-                    # Standart için: En rasyonel düşük skorlu maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['s_c']))[:5]
+                    altlar = sorted(g_l, key=lambda x: x['v3_savunma'], reverse=True)[:5]
 
-                h_a = 0
-                for m in altlar:
-                    if m.get('status') == 'FINISHED':
-                        if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) < 2.5: h_a += 1
-                
+                h_a = check_hit(altlar, "alt")
                 seal = '<div class="full-hit-seal" style="background:#0366d6;">🛡️ ÇELİK DUVAR</div>' if h_a == 5 else ""
-                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT / AZ GOLLÜ <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">🛡️ ÇELİK DUVAR (ALT) <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
                 for a in altlar:
-                    # O anki robotun tahminini de gösterelim (Örn: 1-0)
-                    r_tahmin = a['res']['aether'] if "AETHER" in filtre else a['res'].get(filtre.lower(), "0-0")
-                    st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Tahmin: {r_tahmin} (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Savunma: %{int(a["v3_savunma"])} | 2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
