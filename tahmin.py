@@ -84,7 +84,45 @@ def analiz_et(ev, dep, matches, h_no):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
+def hesapla_savunma_puani_v3(m, l_ad):
+    res = m.get('res', {})
+    # Düşük gol yeme beklentisi = Yüksek Savunma Gücü
+    e_y, d_y = res.get('e_y', 1.0), res.get('d_y', 1.0)
+    s_puani = 100 - ((e_y + d_y) * 20)
+    
+    xg = res.get('total_xg', 2.5)
+    # Lig Filtresi
+    if l_ad == "Hollanda":
+        if xg > 2.2: s_puani *= 0.70 # Hollanda'da yüksek xG varsa 'Alt' risklidir
+    elif l_ad in ["İtalya", "Fransa"]:
+        s_puani *= 1.15
+    
+    # 0-0 Mantığı: Çok düşük xG ödüllendirilir
+    if xg < 1.8: s_puani += 20
+    return s_puani
 
+def hesapla_hucum_puani_v3(m, l_ad):
+    res = m.get('res', {})
+    xg = res.get('total_xg', 2.5)
+    
+    # Başlangıç Puanı: Temel xG
+    h_puani = xg * 25 
+    
+    # Dortmund/Leipzig Filtresi (Bitiricilik Sorunu Kontrolü)
+    # Eğer takımların son maçlardaki gol ortalaması xG'nin çok altındaysa puan kır
+    e_g, d_g = res.get('e_g', 1.0), res.get('d_g', 1.0) # Analizden gelen gerçek gol verileri
+    if (e_g + d_g) < (xg * 0.8): 
+        h_puani -= 15 # "Forvetler formsuz" uyarısı
+    
+    # KG VAR Potansiyeli (İki taraf da atıyorsa Üst ihtimali artar)
+    if e_g > 1.2 and d_g > 1.2:
+        h_puani += 20
+        
+    # Lig Bonusu (Hollanda ve Almanya gol ligleridir)
+    if l_ad in ["Hollanda", "Almanya"]:
+        h_puani *= 1.10
+        
+    return h_puani
         # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
         # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
         st_ex, st_ax = ex, ax
