@@ -368,7 +368,34 @@ elif mod == "💎 Value Hunter":
                         found.append(m)
     
     for v in sorted(found, key=lambda x: x['v_gap'], reverse=True):
-        st.markdown(f"""<div class="match-card"><b>{v['homeTeam']['name']} vs {v['awayTeam']['name']}</b><br>Value: +%{int(v['v_gap'])}</div>""", unsafe_allow_html=True)
+        st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #1e222d 0%, #0d1117 100%); 
+                            border-left: 5px solid #d4af37; border-radius: 10px; padding: 20px; 
+                            margin-bottom: 20px; border: 1px solid #30363d; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #d4af37; font-weight: bold; font-size: 1.1rem;">VALUE: +%{int(gap)}</span>
+                        <span style="background: #30363d; padding: 4px 10px; border-radius: 15px; color: #8B949E; font-size: 0.75rem;">{v['l_ad']}</span>
+                    </div>
+                    <div style="margin: 15px 0; font-size: 1.4rem; font-weight: bold; color: #f0f6fc;">
+                        {v['homeTeam']['name']} <span style="color:#8B949E; font-size:0.9rem;">vs</span> {v['awayTeam']['name']}
+                    </div>
+                    <hr style="border: 0; border-top: 1px solid #30363d; margin: 15px 0;">
+                    <div style="display: flex; justify-content: space-around; text-align: center;">
+                        <div>
+                            <div style="color: #8B949E; font-size: 0.8rem;">AI GUVENI</div>
+                            <div style="color: #58A6FF; font-size: 1.2rem; font-weight: bold;">%{int(ai_guven)}</div>
+                        </div>
+                        <div>
+                            <div style="color: #8B949E; font-size: 0.8rem;">PIYASA BEKLENTISI</div>
+                            <div style="color: #d73a49; font-size: 1.2rem; font-weight: bold;">%{int(m_prob)}</div>
+                        </div>
+                        <div>
+                            <div style="color: #8B949E; font-size: 0.8rem;">AI ONERISI</div>
+                            <div style="color: #3fb950; font-size: 1.2rem; font-weight: bold;">{res['aether']}</div>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
