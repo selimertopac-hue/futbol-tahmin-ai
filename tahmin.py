@@ -430,7 +430,7 @@ elif mod == "Global AI":
                     st.markdown(f'<div class="coupon-item"><b>{b["l_ad"]}</b><br>{b["homeTeam"]["name"]} - {b["awayTeam"]["name"]}<br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 2. SÜRPRİZ KUPON (5 MAÇ)
+            # 2. İDEAL KUPON (5 MAÇ)
             with c2:
                 surprizler = sorted([x for x in g_l if winner(x['res']['aether']) != "1"], key=lambda x: x['puan'], reverse=True)[:5]
                 if len(surprizler) < 5: surprizler = sorted(g_l, key=lambda x: x['puan'])[:5]
