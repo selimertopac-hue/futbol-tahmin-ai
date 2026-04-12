@@ -36,8 +36,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. ANALIZ MOTORU VE V3 ALGORITMALARI ---
-
+# --- 3. ANALİZ VE BAŞARI MOTORU ---
 @st.cache_data(ttl=3600)
 def veri_al(endpoint):
     try: return requests.get(f"https://api.football-data.org/v4/{endpoint}", headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
@@ -51,27 +50,16 @@ def winner(sk):
         return "X"
     except: return "?"
 
-def hesapla_savunma_v3(m, l_ad):
-    res = m.get('res', {})
-    if not res: return 50
-    # Iron Wall Mantigi: Dusuk xG + Savunma Sertligi
-    e_y, d_y = res.get('e_y', 1.0), res.get('d_y', 1.0)
-    s_puani = 100 - ((e_y + d_y) * 20)
-    xg = res.get('total_xg', 2.5)
-    if xg < 2.2: s_puani += 15
-    if l_ad in ["Italya", "Fransa"]: s_puani *= 1.12
-    return min(99, max(10, s_puani))
-
-def hesapla_hucum_v3(m, l_ad):
-    res = m.get('res', {})
-    if not res: return 50
-    # Fire Strike Mantigi: Yuksek xG + KG VAR Ihtimali
-    xg = res.get('total_xg', 2.5)
-    h_puani = xg * 25
-    e_g, d_g = res.get('e_g', 1.0), res.get('d_g', 1.0)
-    if e_g > 1.3 and d_g > 1.3: h_puani += 15 # KG VAR Potansiyeli
-    if l_ad in ["Hollanda", "Almanya"]: h_puani *= 1.10
-    return min(99, max(10, h_puani))
+def get_form_dots(team_name, matches):
+    finished = [m for m in matches if m['status'] == 'FINISHED' and (m['homeTeam']['name'] == team_name or m['awayTeam']['name'] == team_name)]
+    finished = sorted(finished, key=lambda x: x['utcDate'], reverse=True)[:5]
+    dots = ""
+    for m in finished:
+        h_s, a_s = m['score']['fullTime']['home'], m['score']['fullTime']['away']
+        if m['homeTeam']['name'] == team_name: res = "W" if h_s > a_s else ("L" if a_s > h_s else "D")
+        else: res = "W" if a_s > h_s else ("L" if h_s > a_s else "D")
+        dots += f'<span class="form-dot form-{res}"></span>'
+    return f'<div style="margin-top:3px;">{dots}</div>'
 
 def analiz_et(ev, dep, matches, h_no):
     try:
@@ -93,24 +81,9 @@ def analiz_et(ev, dep, matches, h_no):
         ex, ax = (e_g/l_e)*(d_y/l_e)*l_e, (d_g/l_d)*(e_y/l_d)*l_d
         
         def sk(e, a):
-            m_p = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
-            s = np.unravel_index(np.argmax(m_p), m_p.shape)
+            m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
+            s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
-
-        # ROBOT HESAPLAMALARI
-        r_s = sk(ex * 1.05, ax * 0.95)
-        r_sp = sk(ex * 1.12, ax * 1.12) if e_rec > 1.2 else sk(ex, ax)
-        r_nx = sk(ex * 0.9, ax * 1.1) if e_rec < e_g else sk(ex, ax)
-        r_ae = sk((ex*0.4 + ex*1.12*0.3 + ex*0.9*0.3), (ax*0.4 + ax*1.12*0.3 + ax*1.1*0.3))
-
-        total_xg = ex + ax
-        return {
-            "std": r_s[0], "s_c": r_s[1], "spec": r_sp[0], "sp_c": r_sp[1],
-            "nexus": r_nx[0], "n_c": r_nx[1], "aether": r_ae[0], "ae_c": r_ae[1],
-            "total_xg": total_xg, "e_y": e_y, "d_y": d_y, "e_g": e_g, "d_g": d_g,
-            "note": "AI Analizi Tamamlandi."
-        }
-    except: return None
 
         # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
         # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
