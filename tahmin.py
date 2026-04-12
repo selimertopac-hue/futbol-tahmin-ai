@@ -8,7 +8,19 @@ from datetime import datetime, timedelta
 
 # --- 1. AYARLAR & MİLAT ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
-LIGLER = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1", "Fransa": "FL1", "Hollanda": "DED"}
+# --- 1. AYARLAR: HAVUZU GENİŞLETME ---
+LIGLER = {
+    "İngiltere": "PL", 
+    "İspanya": "PD", 
+    "İtalya": "SA", 
+    "Almanya": "BL1", 
+    "Fransa": "FL1", 
+    "Hollanda": "DED",
+    "Portekiz": "PPL",      # Test edilecek
+    "Brezilya": "BSA",      # Test edilecek
+    "Şamp. Ligi": "CL",     # Kupa heyecanı Wickham için harika veridir
+    "Avrupa Ligi": "EL"      # Havuz genişletme
+}
 SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20) 
 
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
