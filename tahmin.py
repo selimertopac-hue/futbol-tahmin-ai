@@ -39,8 +39,10 @@ st.markdown("""
 # --- 3. ANALİZ VE BAŞARI MOTORU ---
 @st.cache_data(ttl=3600)
 def veri_al(endpoint):
-    try: return requests.get(f"https://api.football-data.org/v4/{endpoint}", headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
-    except: return {}
+    try: 
+        return requests.get(f"https://api.football-data.org/v4/{endpoint}", headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
+    except: 
+        return {}
 
 def winner(sk):
     try:
@@ -85,7 +87,7 @@ def analiz_et(ev, dep, matches, h_no):
             s = np.unravel_index(np.argmax(m_outer), m_outer.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        # --- HİZALAMA DÜZELTİLDİ: def sk İLE AYNI DİKEY HİZADALAR ---
+        # --- BURADAN İTİBAREN HİZALAMA ÇOK KRİTİK ---
         st_ex, st_ax = ex * 1.05, ax * 0.95
         r_s = sk(st_ex, st_ax)
 
@@ -107,8 +109,10 @@ def analiz_et(ev, dep, matches, h_no):
 
         total_xg = ex + ax
         comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
-        if total_xg > 3.0: comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
-        elif total_xg < 2.0: comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
+        if total_xg > 3.0: 
+            comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
+        elif total_xg < 2.0: 
+            comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
 
         return {
             "std": r_s[0], "s_c": r_s[1], 
