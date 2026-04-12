@@ -53,6 +53,42 @@ st.markdown("""
 def veri_al(endpoint):
     try: return requests.get(f"https://api.football-data.org/v4/{endpoint}", headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
     except: return {}
+def wickham_psikoloji_analizi(ev_ad, dep_ad, matches, l_ad):
+    # Bu fonksiyon takımların ligdeki konumuna göre motivasyon katsayısı üretir
+    try:
+        # Puan durumunu çekiyoruz
+        l_kodu = LIGLER.get(l_ad, "PL")
+        standings = veri_al(f"competitions/{l_kodu}/standings")
+        table = standings['standings'][0]['table']
+        
+        # Takımların verilerini ayıklıyoruz
+        pos = {t['team']['name']: {'rank': t['position'], 'pts': t['points']} for t in table}
+        
+        e = pos.get(ev_ad)
+        d = pos.get(dep_ad)
+        
+        if not e or not d: return 1.0, "Standart Motivasyon"
+
+        # --- WICKHAM'IN PSİKOLOJİK SENARYOLARI ---
+        
+        # Senaryo A: Şampiyonluk Baskısı (Lider veya Takipçi Evindeyse)
+        if e['rank'] <= 3 and abs(e['pts'] - pos[list(pos.keys())[0]]['pts']) < 6:
+            # Şampiyonluğa oynayan takım hata yapamaz, 'Fire Strike' moduna girer
+            return 1.18, "🔥 ŞAMPİYONLUK BASKISI: Ev sahibi mutlak galibiyet için tüm hatlarıyla saldıracak."
+
+        # Senaryo B: Rahat Orta Sıra Deplasmanı (Bournemouth Etkisi)
+        if 8 <= d['rank'] <= 14:
+            # Hedefsiz takım deplasmanda stres yapmaz, kontra atakla tehlikeli olur
+            return 1.10, "🕵️ RAHAT DEPLASMAN: Konuk ekip hedefsiz olmanın verdiği rahatlıkla sürpriz kovalayabilir."
+
+        # Senaryo C: Küme Düşme Hattı Direnişi
+        if d['rank'] >= 17:
+            # Küme düşmemeye oynayan takım 'Iron Wall' moduna bürünür
+            return 0.85, "🛡️ KÜME HATTI DİRENCİ: Deplasman ekibi ligde kalmak için otobüsü kaleye çekecektir."
+
+        return 1.0, "Dengeli Motivasyon"
+    except:
+        return 1.0, "Veri Kısıtı: Psikolojik analiz yapılamadı."
 def motivasyon_hesapla(ev_ad, dep_ad, l_kodu):
     # Bu fonksiyon puan durumunu çekip takımların 'Stres/Kaos' katsayısını belirler
     try:
@@ -213,6 +249,19 @@ def analiz_et(ev, dep, matches, h_no):
         if d_rec > 1.8: wx_ax *= 1.12
 
         r_w = sk(wx_ex, wx_ax) # Wickham'ın nihai teknik skoru
+        # --- WICKHAM v3.5: PUAN DURUMU PSİKOLOJİSİ (KAOS FİLTRESİ) ---
+        kaos_carpan, psikoloji_notu = wickham_psikoloji_analizi(ev, dep, matches, l_ad)
+        
+        # Wickham burada skoru psikolojiye göre yeniden yoğuruyor
+        if kaos_carpan != 1.0:
+            wx_ex *= kaos_carpan
+            # Eğer şampiyonluk baskısı varsa deplasman da kontradan atabilir
+            if kaos_carpan > 1.1: wx_ax *= 1.05 
+            
+            # Wickham'ın nihai teknik skorunu güncelle
+            r_w = sk(wx_ex, wx_ax) 
+            # Konsey notunu psikolojik analizle zenginleştir
+            comment = psikoloji_notu
         # --- WICKHAM v3.5: KAOS VE MOTİVASYON FİLTRESİ ---
         # Az önce yukarıda tanımladığımız fonksiyonu çağırıyoruz
         # Not: LIGLER sözlüğünden o anki ligin kodunu alıyoruz
