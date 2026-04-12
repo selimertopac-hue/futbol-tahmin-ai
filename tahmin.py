@@ -637,53 +637,39 @@ elif mod == "Global AI":
                             res = m['res']
                             ham_tahmin = res.get(rb['tahmin_k'], "---")
                             
-                            # --- AKILLI TAHMİN FORMATLAMA (MS 1-0-2 & ALT/ÜST) ---
+                            # --- AKILLI ÇİFT TAHMİN MEKANİZMASI (MS & GOL) ---
                             if "-" in str(ham_tahmin):
                                 try:
                                     pts = ham_tahmin.split(" - ")
                                     ev_g, dep_g = int(pts[0]), int(pts[1])
-                                    toplam_gol = ev_g + dep_g
                                     
-                                    # 1. ÖNCELİK: NET TARAF GALİBİYETİ (MS 1 veya MS 2)
-                                    # Eğer bir takım en az 2 farkla kazanıyorsa direkt taraf ver
-                                    if ev_g - dep_g >= 2:
-                                        t_display = "MS 1"
-                                    elif dep_g - ev_g >= 2:
-                                        t_display = "MS 2"
+                                    # 1. Taraf Tahmini (MS 1-0-2)
+                                    ms_tahmin = f"MS {winner(ham_tahmin)}"
                                     
-                                    # 2. ÖNCELİK: GOL BEKLENTİSİ (ALT/ÜST)
-                                    # Eğer skor çok yakınsa (1-0, 0-1, 1-1 gibi), gol tercihine dön
-                                    elif toplam_gol >= 3:
-                                        t_display = "2.5 ÜST"
-                                    elif toplam_gol <= 1:
-                                        t_display = "2.5 ALT"
+                                    # 2. Gol Tahmini (2.5 Alt/Üst)
+                                    gol_tahmin = "2.5 ÜST" if (ev_g + dep_g) > 2.5 else "2.5 ALT"
                                     
-                                    # 3. ÖNCELİK: KRİTİK TARAF (Sıkışık Maçlar)
-                                    else:
-                                        t_display = f"MS {winner(ham_tahmin)}"
-                                        
+                                    # Görsel Liste Satırı (Yenilenmiş Çift Kutulu Tasarım)
+                                    st.markdown(f"""
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.5); border-radius: 8px; margin-bottom: 5px;">
+                                        <div style="flex: 2;">
+                                            <b>{m['homeTeam']['shortName']} - {m['awayTeam']['shortName']}</b> 
+                                            <br><small style="color:#8B949E;">📍 {m['l_ad']}</small>
+                                        </div>
+                                        <div style="flex: 1.5; display: flex; gap: 5px; justify-content: center;">
+                                            <span style="background:#238636; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold; min-width:50px; text-align:center;">{ms_tahmin}</span>
+                                            <span style="background:#1f6feb; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold; min-width:60px; text-align:center;">{gol_tahmin}</span>
+                                        </div>
+                                        <div style="flex: 1; text-align: right;">
+                                            <span style="color:#58A6FF; font-weight:bold;">%{int(res.get(rb['puan_k'], 0))}</span>
+                                            <br><small style="color:#8B949E;">Güven</small>
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
                                 except:
-                                    t_display = ham_tahmin
+                                    st.write(f"⚠️ {m['homeTeam']['shortName']} verisi formatlanamadı.")
                             else:
-                                t_display = ham_tahmin
-
-                            # Görsel Liste Satırı
-                            st.markdown(f"""
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.5); border-radius: 8px; margin-bottom: 5px;">
-                                <div style="flex: 2;">
-                                    <b>{m['homeTeam']['shortName']} - {m['awayTeam']['shortName']}</b> 
-                                    <br><small style="color:#8B949E;">📍 {m['l_ad']}</small>
-                                </div>
-                                <div style="flex: 1; text-align: center;">
-                                    <span style="background:#238636; color:white; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight:bold;">{t_display}</span>
-                                </div>
-                                <div style="flex: 1; text-align: right;">
-                                    <span style="color:#58A6FF; font-weight:bold;">%{int(res.get(rb['puan_k'], 0))}</span>
-                                    <br><small style="color:#8B949E;">Güven</small>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-
+                                st.write(f"🔍 {m['homeTeam']['shortName']}: {ham_tahmin}")
             # --- DETAYLI ANALİZ KARTLARI ---
             st.markdown("---")
             st.subheader(f"🔥 {filtre}: Haftalık Detaylı Analiz Raporu")
