@@ -84,31 +84,31 @@ def analiz_et(ev, dep, matches, h_no):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
-        def hesapla_savunma_puani_v3(m, l_ad):
-    # Temel Savunma Gücü (Takımların savunma reytingleri ortalaması)
-    # Eğer bu veriler yoksa varsayılan 50 puan veriyoruz
-    h_def = m.get('res', {}).get('home_def_rating', 50)
-    a_def = m.get('res', {}).get('away_def_rating', 50)
-    s_puani = (h_def + a_def) / 2
-    
-    # xG (Gol Beklentisi) Cezası: Beklenti ne kadar yüksekse puan o kadar düşer
-    xg = m.get('res', {}).get('total_xg', 2.5)
-    if xg > 3.0: s_puani -= 25
-    elif xg < 2.0: s_puani += 15
-
-    # LİG DİNAMİĞİ (Hollanda Örneği: Önyargı yok, Şüphe var)
-    if l_ad == "Eredivisie":
-        # Hollanda'da Alt oynamak için xG'nin mutlaka 2.2'nin altında olması şartı
-        if xg > 2.2: s_puani *= 0.70 # Riskli maç, puanı kır
-    elif l_ad in ["Serie A", "Ligue 1"]:
-        s_puani *= 1.10 # Savunma odaklı liglere %10 bonus
-
-    # ŞUT FİLTRESİ (0-0'ın Mantığı)
-    # Toplam isabetli şut beklentisi düşükse puan ekle
-    avg_shots = m.get('res', {}).get('avg_shots_on_target', 8)
-    if avg_shots < 6: s_puani += 20
+            def hesapla_savunma_puani_v3(m, l_ad):
+        # Temel Savunma Gücü (Takımların savunma reytingleri ortalaması)
+        # Eğer bu veriler yoksa varsayılan 50 puan veriyoruz
+        h_def = m.get('res', {}).get('home_def_rating', 50)
+        a_def = m.get('res', {}).get('away_def_rating', 50)
+        s_puani = (h_def + a_def) / 2
         
-    return s_puani
+        # xG (Gol Beklentisi) Cezası: Beklenti ne kadar yüksekse puan o kadar düşer
+        xg = m.get('res', {}).get('total_xg', 2.5)
+        if xg > 3.0: s_puani -= 25
+        elif xg < 2.0: s_puani += 15
+    
+        # LİG DİNAMİĞİ (Hollanda Örneği: Önyargı yok, Şüphe var)
+        if l_ad == "Eredivisie":
+            # Hollanda'da Alt oynamak için xG'nin mutlaka 2.2'nin altında olması şartı
+            if xg > 2.2: s_puani *= 0.70 # Riskli maç, puanı kır
+        elif l_ad in ["Serie A", "Ligue 1"]:
+            s_puani *= 1.10 # Savunma odaklı liglere %10 bonus
+    
+        # ŞUT FİLTRESİ (0-0'ın Mantığı)
+        # Toplam isabetli şut beklentisi düşükse puan ekle
+        avg_shots = m.get('res', {}).get('avg_shots_on_target', 8)
+        if avg_shots < 6: s_puani += 20
+            
+        return s_puani
         # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
         # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
         st_ex, st_ax = ex, ax
