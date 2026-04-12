@@ -500,28 +500,29 @@ elif mod == "Global AI":
                     st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ÜST</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT KUPON (Robotun Karakterine Göre En İyi Savunma Maçları)
-            with c4:
-                if "WICKHAM" in filtre:
-                    # Wickham v3 Savunma Puanı (s_p) - Iron Wall
-                    altlar = sorted(g_l, key=lambda x: x['res']['s_p'], reverse=True)[:5]
-                elif "Nexus" in filtre:
-                    # Nexus Direnç ve Sürpriz Puanı
-                    altlar = sorted(g_l, key=lambda x: (x['res']['s_p'] + x['res']['n_c']), reverse=True)[:5]
-                else:
-                    # Diğerleri: Düşük xG odaklı
-                    altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
-
-                h_a = check_hit(altlar, "alt")
-                st.markdown(f'<div class="editor-card" style="border-top-color: #0366d6;"><div class="coupon-title">🛡️ ALT ({filtre[:3]}) <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
-                for a in altlar:
-                    info = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
-                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            # 4. ALT / SAVUNMA KUPONU
+                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;"><div class="coupon-title">🛡️ IRON WALL ({filtre[:7]})</div>', unsafe_allow_html=True)
                 
-                    # O anki robotun tahminini de gösterelim (Örn: 1-0)
-                    r_tahmin = a['res']['aether'] if "AETHER" in filtre else a['res'].get(filtre.lower(), "0-0")
-                    st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Tahmin: {r_tahmin} (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
+                for a in altlar:
+                    # Robot bazlı tahmin belirleme (Güvenli yöntem)
+                    if "AETHER" in filtre:
+                        r_tahmin = a['res']['aether']
+                    elif "WICKHAM" in filtre:
+                        r_tahmin = a['res']['wickham']
+                    elif "Standart" in filtre:
+                        r_tahmin = a['res']['std']
+                    elif "Spektrum" in filtre:
+                        r_tahmin = a['res']['spec']
+                    elif "Nexus" in filtre:
+                        r_tahmin = a['res']['nexus']
+                    else:
+                        r_tahmin = "0-0"
+
+                    # İçerik yazımı
+                    extra = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
+                    st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Tahmin: {r_tahmin} ({extra})</div>', unsafe_allow_html=True)
+                
+                # DİKKAT: Bu satır for döngüsünün tam altında ama bir tık solda (with bloğu hizasında) olmalı
                 st.markdown('</div>', unsafe_allow_html=True)
             
             # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
