@@ -400,26 +400,28 @@ elif mod == "Global AI":
     if simdi < hedef_tarih:
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
     else:
-        # 3. VERİ ÇEKME DÖNGÜSÜ (Tarih Bazlı)
-        g_l = []
-        for l_ad, l_data in all_d.items():
-            m_list = l_data.get('matches', [])
-            for m in m_list:
-                m_t_str = m['utcDate'].split('T')[0]
-                m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
-                
-                # Eğer maç seçilen haftanın tarih aralığındaysa analize al
-                if h_baslangic.date() <= m_t < h_bitis.date():
-                    res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec) # s_sec eklendi!
-                    if res:
-                        # Puanlama sistemini seçilen filtreye göre belirle
-                        if "AETHER" in filtre: p = res['ae_c']
-                        elif "Standart" in filtre: p = res['s_c']
-                        elif "Spektrum" in filtre: p = res['sp_c']
-                        else: p = res['n_c']
-                        
-                        m.update({'res': res, 'l_ad': l_ad, 'puan': p, 'l_full': m_list})
-                        g_l.append(m)
+       # --- 3. VERİ ÇEKME VE HAVUZ OLUŞTURMA ---
+    g_l = []
+    for l_ad, l_data in all_d.items():
+        m_list = l_data.get('matches', [])
+        for m in m_list:
+            # TARİH KONTROLÜ (Daha esnek hale getirdik)
+            m_t_str = m['utcDate'].split('T')[0]
+            m_t = datetime.strptime(m_t_str, '%Y-%m-%d').date()
+            
+            # Seçilen haftanın tarih aralığına giren maçları al
+            if h_baslangic.date() <= m_t <= h_bitis.date():
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], m_list, s_sec)
+                if res:
+                    # Filtreye göre ana puanı (p) belirle
+                    if "AETHER" in filtre: p = res.get('ae_c', 50)
+                    elif "Standart" in filtre: p = res.get('s_c', 50)
+                    elif "Spektrum" in filtre: p = res.get('sp_c', 50)
+                    else: p = res.get('n_c', 50)
+                    
+                    # Maç verisini güncelle ve havuza ekle
+                    m.update({'res': res, 'l_ad': l_ad, 'puan': p})
+                    g_l.append(m)
 
        # 4. SONUÇLARI VE KUPONLARI GÖSTERME
         if len(g_l) > 0:
