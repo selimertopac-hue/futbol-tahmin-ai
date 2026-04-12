@@ -449,33 +449,34 @@ elif mod == "Global AI":
                                 if winner(t_skor) == gw: hit += 1
                 return hit
 
-            # --- KUPON SÜTUNLARI ---
+            # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ (EFEKTLİ FORMAT) ---
             c1, c2, c3, c4 = st.columns(4) 
 
-            # 1. BANKO KUPON (Robotun En Güvendiği Sonuçlar)
+            # 1. BANKO KUPON (Robotun En Güvendiği Saf Sonuçlar)
             with c1:
                 bankolar = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5]
                 h_b = check_hit(bankolar, "banko")
-                seal = '<div class="full-hit-seal">🏆 5/5 FULL</div>' if h_b == 5 else ""
+                seal = '<div class="full-hit-seal">🏆 5/5 FULL HIT</div>' if h_b == 5 else ""
                 st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO ({filtre[:3]}) <span class="success-badge">{h_b}/5</span></div>', unsafe_allow_html=True)
                 for b in bankolar:
                     t = b['res']['wickham'] if "WICKHAM" in filtre else b['res']['aether']
-                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["name"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 2. İDEAL KUPON (Karışık & Yüksek Güvenli Maçlar)
+            # 2. İDEAL KUPON (💎 Başarı Efekti Eklendi)
             with c2:
-                # Banko puanına en yakın 5-10 arası yüksek güvenli karışık maçlar
                 idealler = sorted(g_l, key=lambda x: x['puan'], reverse=True)[5:10]
                 if not idealler: idealler = sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5]
                 h_i = check_hit(idealler, "ideal")
-                st.markdown(f'<div class="editor-card" style="border-top-color: #58A6FF;"><div class="coupon-title">💎 İDEAL ({filtre[:3]}) <span class="success-badge">{h_i}/5</span></div>', unsafe_allow_html=True)
+                # İDEAL MÜHÜR: Full isabet durumunda Elmas mühür basar
+                seal = '<div class="full-hit-seal" style="background:#58A6FF; color:white;">💎 ELMAS SERİ</div>' if h_i == 5 else ""
+                st.markdown(f'<div class="editor-card" style="border-top-color: #58A6FF;">{seal}<div class="coupon-title">💎 İDEAL ({filtre[:3]}) <span class="success-badge">{h_i}/5</span></div>', unsafe_allow_html=True)
                 for i in idealler:
                     t = i['res']['wickham'] if "WICKHAM" in filtre else i['res']['aether']
-                    st.markdown(f'<div class="coupon-item"><b>{i["homeTeam"]["name"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{i["homeTeam"]["shortName"]} - {i["awayTeam"]["shortName"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 3. ÜST KUPON (Robotun En Güvendiği Üst Maçlar)
+            # 3. ÜST KUPON (🔥 Başarı Efekti Eklendi)
             with c3:
                 if "WICKHAM" in filtre:
                     ustler = sorted(g_l, key=lambda x: x['res']['h_p'], reverse=True)[:5]
@@ -485,13 +486,15 @@ elif mod == "Global AI":
                     ustler = sorted(g_l, key=lambda x: (x['res']['total_xg'] * x['res']['ae_c']), reverse=True)[:5]
                 
                 h_u = check_hit(ustler, "ust")
-                st.markdown(f'<div class="editor-card" style="border-top-color: #d73a49;"><div class="coupon-title">🔥 ÜST ({filtre[:3]}) <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
+                # ÜST MÜHÜR: Full isabet durumunda Alevli mühür basar
+                seal = '<div class="full-hit-seal" style="background:#d73a49; color:white;">🔥 FIRE STRIKE</div>' if h_u == 5 else ""
+                st.markdown(f'<div class="editor-card" style="border-top-color: #d73a49;">{seal}<div class="coupon-title">⚽ ÜST ({filtre[:3]}) <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
                 for u in ustler:
                     info = f"Güç: %{int(u['res']['h_p'])}" if "WICKHAM" in filtre else f"xG: {u['res']['total_xg']:.2f}"
-                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["name"]}</b><br>{info} | 2.5 ÜST</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ÜST</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT KUPON (Robotun En Güvenilir Alt Maçları)
+            # 4. ALT KUPON (🛡️ Başarı Efekti Eklendi)
             with c4:
                 if "WICKHAM" in filtre:
                     altlar = sorted(g_l, key=lambda x: x['res']['s_p'], reverse=True)[:5]
@@ -501,10 +504,12 @@ elif mod == "Global AI":
                     altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
 
                 h_a = check_hit(altlar, "alt")
-                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;"><div class="coupon-title">🛡️ ALT ({filtre[:3]}) <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
+                # ALT MÜHÜR: Full isabet durumunda Çelik mühür basar
+                seal = '<div class="full-hit-seal" style="background:#0366d6; color:white;">🛡️ IRON WALL</div>' if h_a == 5 else ""
+                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT ({filtre[:3]}) <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
                 for a in altlar:
                     info = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
-                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["name"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
             # --- DETAYLI ANALİZ KARTLARI ---
