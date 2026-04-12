@@ -83,8 +83,36 @@ def analiz_et(ev, dep, matches, h_no):
         def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
-            return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
+            return {
+            "std": r_s[0], "s_c": r_s[1], 
+            "spec": r_sp[0], "sp_c": r_sp[1], 
+            "nexus": r_nx[0], "n_c": r_nx[1], 
+            "aether": r_ae[0], "ae_c": r_ae[1], 
+            "note": comment, "total_xg": total_xg,
+            "e_y": e_y, "d_y": d_y # <-- BUNLARI EKLEDİK
+        }
+def hesapla_savunma_puani_v3(m, l_ad):
+    # m içindeki res, analiz_et fonksiyonundan dönen sözlüktür
+    res = m.get('res', {})
+    
+    # Mevcut analiz verilerinden savunma gücü türetme (e_y ve d_y gol yeme oranlarıdır)
+    # Düşük gol yeme oranı = Yüksek savunma gücü
+    e_y = res.get('e_y', 1.0)
+    d_y = res.get('d_y', 1.0)
+    s_puani = 100 - ((e_y + d_y) * 20)
+    
+    # xG (Gol Beklentisi) Cezası
+    xg = res.get('total_xg', 2.5)
+    if xg > 3.0: s_puani -= 25
+    elif xg < 2.0: s_puani += 15
 
+    # LİG DİNAMİĞİ (Hollanda Şüphesi)
+    if l_ad == "Hollanda":
+        if xg > 2.2: s_puani *= 0.70 # Riskliyse puanı kır
+    elif l_ad in ["İtalya", "Fransa"]:
+        s_puani *= 1.15 # Savunma odaklı liglere bonus
+        
+    return s_puani
         # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
         # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
         st_ex, st_ax = ex, ax
@@ -457,21 +485,22 @@ elif mod == "Global AI":
                     st.markdown(f'<div class="coupon-item"><b>{u["l_ad"]}</b><br>{u["homeTeam"]["name"]} - {u["awayTeam"]["name"]}<br>Beklenen xG: {u["res"]["total_xg"]:.2f}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT / SAVUNMA KUPONU (ROBOT BAZLI AKILLI FİLTRE)
+            # 4. ALT / SAVUNMA KUPONU (ROBOT BAZLI + V3.0 SAVUNMA FİLTRESİ)
             with c4:
-                # --- ROBOT KARAKTERİNE GÖRE ALT MAÇLARI FİLTRELE ---
+                # Önce havuzdaki her maç için V3 savunma skorunu hesapla
+                for m in g_l:
+                    m['v3_skor'] = hesapla_savunma_puani_v3(m, m['l_ad'])
+
+                # Robot karakterine göre Savunma Puanını harmanla
                 if "AETHER" in filtre:
-                    # Aether için: Hem xG düşük hem de güven oranı (ae_c) yüksek maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['ae_c']))[:5]
+                    # Aether için: Savunma kalitesi + Aether Güveni
+                    altlar = sorted(g_l, key=lambda x: (x['v3_skor'] + x['res']['ae_c']), reverse=True)[:5]
                 elif "Nexus" in filtre:
-                    # Nexus için: Sürpriz şekilde az gol beklediği (n_c yüksek) maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['n_c']))[:5]
-                elif "Spektrum" in filtre:
-                    # Spektrum için: En düşük xG'li (Kaosun olmadığı) maçlar
-                    altlar = sorted(g_l, key=lambda x: x['res']['total_xg'])[:5]
+                    # Nexus için: Savunma kalitesi + Stratejik Sürpriz Puanı
+                    altlar = sorted(g_l, key=lambda x: (x['v3_skor'] + x['res']['n_c']), reverse=True)[:5]
                 else:
-                    # Standart için: En rasyonel düşük skorlu maçlar
-                    altlar = sorted(g_l, key=lambda x: (x['res']['total_xg'] * 100 - x['res']['s_c']))[:5]
+                    # Diğerleri için: Saf Savunma Puanı (En sağlam kilitler)
+                    altlar = sorted(g_l, key=lambda x: x['v3_skor'], reverse=True)[:5]
 
                 h_a = 0
                 for m in altlar:
@@ -479,11 +508,9 @@ elif mod == "Global AI":
                         if (m['score']['fullTime']['home'] + m['score']['fullTime']['away']) < 2.5: h_a += 1
                 
                 seal = '<div class="full-hit-seal" style="background:#0366d6;">🛡️ ÇELİK DUVAR</div>' if h_a == 5 else ""
-                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT / AZ GOLLÜ <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT / SAVUNMA <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
                 for a in altlar:
-                    # O anki robotun tahminini de gösterelim (Örn: 1-0)
-                    r_tahmin = a['res']['aether'] if "AETHER" in filtre else a['res'].get(filtre.lower(), "0-0")
-                    st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Tahmin: {r_tahmin} (xG: {a["res"]["total_xg"]:.2f})</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{a["l_ad"]}</b><br>{a["homeTeam"]["name"]} - {a["awayTeam"]["name"]}<br>Savunma Gücü: %{int(a["v3_skor"])}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             # --- B) DETAYLI ANALİZ KARTLARI (TOP 20) ---
