@@ -313,8 +313,44 @@ simdi = datetime.now()
 
 # --- 4. ZAMAN & HAFTA ---
 simdi = datetime.now()
-simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
+
+# --- 🚀 OTONOM ARŞİVLEME MAKİNESİ (BURAYA GELDİ) ---
+def otonom_arsiv_guncelle():
+    if 'otonom_kayitlar' not in st.session_state:
+        st.session_state.otonom_kayitlar = {}
+
+    # Bitmiş haftaları tara (aktif haftadan bir önceki haftaya kadar)
+    for h_no in range(1, site_h_aktif):
+        if h_no not in st.session_state.otonom_kayitlar:
+            # Not: Mühür anahtarı isminin Global AI'daki isimle eşleştiğinden emin ol
+            filtre_anahtar = "AETHER AI Master" 
+            muhur_anahtari = f"muhur_{h_no}_{filtre_anahtar.replace(' ', '_')}"
+            
+            if muhur_anahtari in st.session_state:
+                m_kupon = st.session_state[muhur_anahtari]
+                haftalik_ozet = {}
+                
+                for r_id, r_ad in [("W", "WICKHAM"), ("A", "AETHER"), ("N", "NEXUS"), ("S", "STANDART"), ("SP", "SPEKTRUM")]:
+                    b_skor = check_hit(m_kupon.get("banko", []), "banko")
+                    i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
+                    u_skor = check_hit(m_kupon.get("ust", []), "ust")
+                    a_skor = check_hit(m_kupon.get("alt", []), "alt")
+                    
+                    basari_yuzdesi = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
+                    
+                    haftalik_ozet[r_id] = {
+                        "b": f"✅ {b_skor}/5" if b_skor < 5 else "🏆 5/5",
+                        "i": f"✅ {i_skor}/5" if i_skor < 5 else "💎 5/5",
+                        "u": f"✅ {u_skor}/5" if u_skor < 5 else "🔥 5/5",
+                        "a": f"✅ {a_skor}/5" if a_skor < 5 else "🛡️ 5/5",
+                        "p": basari_yuzdesi,
+                        "t": "Otonom Kayıt ✅"
+                    }
+                st.session_state.otonom_kayitlar[h_no] = haftalik_ozet
+
+# Fonksiyonu burada çalıştırıyoruz
+otonom_arsiv_guncelle()
 
 # --- 5. ANA MENÜ ---
 mod = st.sidebar.radio("🚀 Menü", ["🏠 Canlı Skorlar","🤖 Tahmin Robotu", "Global AI", "Lig Odaklı","💎 Value Hunter", "🏆 Onur Listesi"])
