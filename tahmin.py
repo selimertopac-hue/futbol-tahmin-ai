@@ -850,12 +850,48 @@ elif mod == "🏆 Onur Listesi":
 
     st.divider()
 
-    # --- 4. SEÇİLEN HAFTANIN "FULL HIT" KUPONLARI ---
-    st.subheader(f"🏆 {secilen_h}. Haftanın Efsane Tahminleri")
-    
-    # Buraya o hafta 5/5 yapan kuponları manuel veya otomatik listeleyebilirsin
-    if h_verisi["W"] >= 85:
-        st.success(f"🌟 {secilen_h}. Hafta Özel: WICKHAM AI 'Kaos Avcısı' Rozetini Kazandı!")
+    # --- 4. SEÇİLEN HAFTANIN "MÜHÜRLÜ" KUPON SONUÇLARI ---
+    st.subheader(f"🏆 {secilen_h}. Haftanın Tahmin Karnesi")
+    st.info(f"Aşağıda {secilen_h}. hafta cuma günü mühürlenen kuponların resmi sonuçları yer almaktadır.")
+
+    # Örnek Veri Yapısı (Gerçek verilerle burayı doldurabilirsin)
+    # Her hafta için hangi robotun hangi kuponu tuttu/yattı bilgisi
+    kupon_sonuclari = {
+        1: {
+            "W": {"banko": "✅ 4/5", "ideal": "✅ 3/5", "ust": "❌ 2/5", "alt": "✅ 5/5"},
+            "A": {"banko": "✅ 5/5", "ideal": "✅ 4/5", "ust": "✅ 4/5", "alt": "✅ 3/5"}
+        },
+        2: {
+            "W": {"banko": "✅ 5/5", "ideal": "✅ 4/5", "ust": "✅ 5/5", "alt": "❌ 1/5"},
+            "A": {"banko": "✅ 4/5", "ideal": "❌ 2/5", "ust": "✅ 3/5", "alt": "✅ 4/5"}
+        },
+        3: { # Senin beklediğin Wickham Atağı haftası örneği
+            "W": {"banko": "🏆 5/5 FULL", "ideal": "✅ 4/5", "ust": "🔥 5/5 FULL", "alt": "✅ 4/5"},
+            "A": {"banko": "✅ 4/5", "ideal": "✅ 3/5", "ust": "✅ 4/5", "alt": "✅ 3/5"},
+            "N": {"banko": "✅ 3/5", "ideal": "✅ 4/5", "ust": "❌ 2/5", "alt": "🛡️ 5/5 FULL"}
+        }
+    }
+
+    # Seçilen haftanın detaylarını çek
+    h_detay = kupon_sonuclari.get(secilen_h, {})
+
+    if not h_detay:
+        st.warning(f"⚠️ {secilen_h}. hafta verileri henüz sisteme işlenmedi.")
+    else:
+        # Robotlar bazında kupon sergileme
+        for r_id, r_ad in [("W", "🧪 WICKHAM"), ("A", "✨ AETHER"), ("N", "🛡️ NEXUS")]:
+            if r_id in h_detay:
+                with st.expander(f"{r_ad} - {secilen_h}. Hafta Detaylı Karne", expanded=(r_id=="W")):
+                    c1, c2, c3, c4 = st.columns(4)
+                    res = h_detay[r_id]
+                    
+                    # Kart tasarımı ile sonuçları göster
+                    with c1: st.metric("⭐ Banko", res["banko"])
+                    with c2: st.metric("💎 İdeal", res["ideal"])
+                    with c3: st.metric("⚽ Üst", res["ust"])
+                    with c4: st.metric("📉 Alt", res["alt"])
+
+    st.divider()
 
     # --- 3. TARİHSEL VERİ AKIŞI (Arşiv Tablosu) ---
     st.subheader("📂 Haftalık Arşiv & Robot Karnesi")
