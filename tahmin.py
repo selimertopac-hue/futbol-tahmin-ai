@@ -813,27 +813,44 @@ elif mod == "🏆 Onur Listesi":
 
     st.markdown(f"### 📊 {secilen_h}. Hafta Performans Raporu")
 
-    # --- 2. HAFTALIK VERİ TABANI (TÜM ROBOTLAR) ---
-    # Not: Buradaki rakamları her hafta sonunda güncelleyebilirsin.
-    kupon_sonuclari = {
-        1: {
-            "W": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "❌ 2/5", "a": "✅ 5/5", "p": 75, "t": "Başlangıç"},
-            "A": {"b": "✅ 5/5", "i": "✅ 4/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 88, "t": "Stabil"},
-            "N": {"b": "✅ 3/5", "i": "✅ 4/5", "u": "❌ 2/5", "a": "🛡️ 5/5", "p": 82, "t": "Defansif"},
-            "S": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 80, "t": "Dengeli"},
-            "SP": {"b": "✅ 2/5", "i": "✅ 3/5", "u": "🔥 5/5", "a": "❌ 2/5", "p": 70, "t": "Ofansif"}
-        },
-        # Örnek 3. Hafta (Wickham Atağı)
-        3: {
-            "W": {"b": "🏆 5/5", "i": "✅ 4/5", "u": "🔥 5/5", "a": "✅ 4/5", "p": 94, "t": "DOMİNASYON 🔥"},
-            "A": {"b": "✅ 4/5", "i": "✅ 4/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 85, "t": "Stabil"},
-            "N": {"b": "✅ 3/5", "i": "✅ 4/5", "u": "❌ 2/5", "a": "🛡️ 5/5", "p": 88, "t": "Duvar"},
-            "S": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 4/5", "p": 82, "t": "Rutin"},
-            "SP": {"b": "✅ 3/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 78, "t": "Durgun"}
-        }
-    }
+    # --- 4. SEÇİLEN HAFTANIN "SAVAŞ TABLOSU" (TÜM KUPONLAR) ---
+    st.subheader(f"⚔️ {secilen_h}. Hafta Kupon Karnesi")
+    
+    if not h_detay:
+        st.warning(f"⚠️ {secilen_h}. hafta verileri henüz işlenmedi.")
+    else:
+        # Görsel Tablo Başlığı
+        st.markdown("""
+            <div style="display: flex; background: #21262d; padding: 10px; border-radius: 8px 8px 0 0; border-bottom: 2px solid #30363d; font-weight: bold; text-align: center;">
+                <div style="flex: 1.5; text-align: left;">🤖 ALGORİTMA</div>
+                <div style="flex: 1;">⭐ BANKO</div>
+                <div style="flex: 1;">💎 İDEAL</div>
+                <div style="flex: 1;">⚽ ÜST</div>
+                <div style="flex: 1;">📉 ALT</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    h_detay = kupon_sonuclari.get(secilen_h, {})
+        # Robot Satırları
+        for rb in r_config:
+            res = h_detay.get(rb["id"], {"b": "-", "i": "-", "u": "-", "a": "-"})
+            
+            # 5/5 olanlara altın rengi efekti verelim
+            def gold_check(val):
+                return "color: #f1e05a; font-weight: bold;" if "5/5" in val or "🏆" in val else "color: white;"
+
+            st.markdown(f"""
+                <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.4); text-align: center;">
+                    <div style="flex: 1.5; text-align: left; font-weight: bold; color: {rb['c']};">
+                        {rb['e']} {rb['n']}
+                    </div>
+                    <div style="flex: 1; {gold_check(res['b'])}">{res['b']}</div>
+                    <div style="flex: 1; {gold_check(res['i'])}">{res['i']}</div>
+                    <div style="flex: 1; {gold_check(res['u'])}">{res['u']}</div>
+                    <div style="flex: 1; {gold_check(res['a'])}">{res['a']}</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.caption("🏆 '5/5' ve 'FULL' yazan tahminler Altın Sarısı ile işaretlenmiştir.")
 
     # --- 3. GÜVEN ENDEKSİ KARTLARI (5 ROBOT) ---
     # Robotların o haftaki genel başarı puanına göre kartlar
