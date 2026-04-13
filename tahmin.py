@@ -840,16 +840,9 @@ elif mod == "💎 Value Hunter":
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
     
-    # --- 1. HAFTA SEÇİCİ (Zaman Makinesi) ---
-    secilen_h = st.select_slider(
-        "🔎 İncelemek İstediğiniz Haftayı Seçin",
-        options=list(range(1, site_h_aktif + 1)),
-        value=max(1, site_h_aktif - 1)
-    )
-
-    # --- 2. VERİ MERKEZİ (Tüm Haftalık Veriler) ---
-    # Not: Yeni hafta bittikçe buraya ekleme yapabilirsin
-    kupon_sonuclari = {
+    # --- 1. VERİ BİRLEŞTİRME MERKEZİ ---
+    # Senin manuel girdiğin geçmiş veriler
+    manuel_veriler = {
         1: {
             "W": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "❌ 2/5", "a": "✅ 5/5", "p": 75, "t": "Başlangıç"},
             "A": {"b": "✅ 5/5", "i": "✅ 4/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 88, "t": "Stabil"},
@@ -857,7 +850,7 @@ elif mod == "🏆 Onur Listesi":
             "S": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 80, "t": "Dengeli"},
             "SP": {"b": "✅ 2/5", "i": "✅ 3/5", "u": "🔥 5/5", "a": "❌ 2/5", "p": 70, "t": "Ofansif"}
         },
-        3: { # Senin beklediğin Wickham Atağı örneği
+        3: {
             "W": {"b": "🏆 5/5", "i": "✅ 4/5", "u": "🔥 5/5", "a": "✅ 4/5", "p": 94, "t": "DOMİNASYON 🔥"},
             "A": {"b": "✅ 4/5", "i": "✅ 4/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 85, "t": "Stabil"},
             "N": {"b": "✅ 3/5", "i": "✅ 4/5", "u": "❌ 2/5", "a": "🛡️ 5/5", "p": 88, "t": "Duvar"},
@@ -866,10 +859,22 @@ elif mod == "🏆 Onur Listesi":
         }
     }
 
-    # KRİTİK: Veriyi sözlükten çekip değişkene atıyoruz
+    # DAHİYANE DOKUNUŞ: Manuel ve Otonom verileri harmanlıyoruz
+    # Not: Eğer aynı hafta numarası ikisinde de varsa, otonom olan (güncel) olanı tercih eder.
+    otonom_gelenler = st.session_state.get('otonom_kayitlar', {})
+    kupon_sonuclari = {**manuel_veriler, **otonom_gelenler}
+
+    # --- 2. HAFTA SEÇİCİ (Zaman Makinesi) ---
+    secilen_h = st.select_slider(
+        "🔎 İncelemek İstediğiniz Haftayı Seçin",
+        options=list(range(1, site_h_aktif + 1)),
+        value=max(1, site_h_aktif - 1)
+    )
+
+    # Seçilen haftanın verisini çekiyoruz
     h_detay = kupon_sonuclari.get(secilen_h, {})
 
-    # KRİTİK: Robot konfigürasyonunu (r_config) kartlardan ve tablodan önce tanımlıyoruz
+    # Robot konfigürasyonu
     r_config = [
         {"id": "W", "n": "WICKHAM", "u": "Kaos Avcısı", "c": "#d73a49", "e": "🧪"},
         {"id": "A", "n": "AETHER", "u": "Matematik Prof.", "c": "#58A6FF", "e": "✨"},
@@ -880,10 +885,10 @@ elif mod == "🏆 Onur Listesi":
 
     st.markdown(f"### 📊 {secilen_h}. Hafta Performans Raporu")
 
-    # --- 3. GÜVEN ENDEKSİ KARTLARI (ÜSTTE) ---
+    # --- 3. GÜVEN ENDEKSİ KARTLARI ---
     cols = st.columns(5)
     for i, rb in enumerate(r_config):
-        data = h_detay.get(rb["id"], {"p": 0, "t": "Veri Yok"})
+        data = h_detay.get(rb["id"], {"p": 0, "t": "Veri Bekleniyor ⏳"})
         with cols[i]:
             st.markdown(f"""
             <div style="background: rgba(22, 27, 34, 0.6); padding: 10px; border-radius: 10px; border-top: 4px solid {rb['c']}; text-align: center; height: 150px;">
@@ -896,13 +901,12 @@ elif mod == "🏆 Onur Listesi":
 
     st.divider()
 
-    # --- 4. SAVAŞ TABLOSU (ALTTA) ---
+    # --- 4. SAVAŞ TABLOSU ---
     st.subheader(f"⚔️ {secilen_h}. Hafta Kupon Karnesi")
     
     if not h_detay:
-        st.warning(f"⚠️ {secilen_h}. hafta verileri henüz işlenmedi.")
+        st.warning(f"⚠️ {secilen_h}. hafta verileri henüz mühürlenmedi veya maçlar tamamlanmadı.")
     else:
-        # Tablo Başlığı
         st.markdown("""
             <div style="display: flex; background: #21262d; padding: 10px; border-radius: 8px 8px 0 0; border-bottom: 2px solid #30363d; font-weight: bold; text-align: center;">
                 <div style="flex: 1.5; text-align: left;">🤖 ALGORİTMA</div>
@@ -913,12 +917,11 @@ elif mod == "🏆 Onur Listesi":
             </div>
         """, unsafe_allow_html=True)
 
-        # Tablo Satırları
         for rb in r_config:
             res = h_detay.get(rb["id"], {"b": "-", "i": "-", "u": "-", "a": "-"})
             
             def gold_check(val):
-                return "color: #f1e05a; font-weight: bold;" if "5/5" in val or "🏆" in val else "color: white;"
+                return "color: #f1e05a; font-weight: bold;" if "5/5" in str(val) or "🏆" in str(val) else "color: white;"
 
             st.markdown(f"""
                 <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.4); text-align: center;">
@@ -936,41 +939,38 @@ elif mod == "🏆 Onur Listesi":
     
     st.divider()
 
-    # --- 4. DETAYLI KUPON KARNESİ (5 ROBOT) ---
-    st.subheader(f"🏆 {secilen_h}. Haftanın Mühürlü Tahmin Karnesi")
-    
-    for rb in r_config:
-        if rb["id"] in h_detay:
-            with st.expander(f"{rb['e']} {rb['n']} - Detaylı Sonuçlar", expanded=(rb["id"]=="W")):
+    # --- 5. DETAYLI KUPON KARNESİ ---
+    with st.expander(f"🧐 {secilen_h}. Haftanın Tüm Robot Detaylarını Gör", expanded=False):
+        for rb in r_config:
+            if rb["id"] in h_detay:
+                st.markdown(f"#### {rb['e']} {rb['n']} Performansı")
                 res = h_detay[rb["id"]]
                 c1, c2, c3, c4 = st.columns(4)
                 with c1: st.metric("⭐ Banko", res["b"])
                 with c2: st.metric("💎 İdeal", res["i"])
                 with c3: st.metric("⚽ Üst", res["u"])
                 with c4: st.metric("📉 Alt", res["a"])
+                st.write("---")
 
-    # --- 3. TARİHSEL VERİ AKIŞI (Arşiv Tablosu) ---
-    st.subheader("📂 Haftalık Arşiv & Robot Karnesi")
-    
-    toplam_hafta_sayisi = site_h_aktif
+    # --- 6. TARİHSEL VERİ AKIŞI (Statik Arşiv) ---
+    st.subheader("📂 Genel Başarı Arşivi")
     arsiv_listesi = []
-    for h in range(1, toplam_hafta_sayisi + 1):
+    for h in range(1, site_h_aktif + 1):
         h_bas = SİTE_DOGUM_TARİHİ + timedelta(weeks=h-1)
         h_bit = h_bas + timedelta(days=7)
-        tarih_etiketi = f"{h_bas.strftime('%d.%m')} - {h_bit.strftime('%d.%m')}"
         durum = "✅ Tamamlandı" if h < site_h_aktif else "⏳ Analiz Sürüyor"
+        
+        # Arşiv tablosu için ortalama başarıları otonom verilerden çekmeye çalışalım
+        # Eğer veri yoksa senin manuel belirlediğin aralıkları gösterir
+        h_ozet = kupon_sonuclari.get(h, {})
+        w_p = f"%{h_ozet.get('W', {}).get('p', '85-90')}"
+        a_p = f"%{h_ozet.get('A', {}).get('p', '88-92')}"
         
         arsiv_listesi.append({
             "Hafta": f"{h}. Hafta",
-            "Tarih Aralığı": tarih_etiketi,
-            "🧪 WICKHAM": "%85-90",
-            "✨ AETHER": "%88-92",
-            "🔥 SPEKTRUM": "%80-88",
-            "🛡️ NEXUS": "%75-82",
-            "Sonuç": durum
+            "Tarih": f"{h_bas.strftime('%d.%m')} - {h_bit.strftime('%d.%m')}",
+            "🧪 WICK": w_p, "✨ AETH": a_p, "Durum": durum
         })
 
-    df_history = pd.DataFrame(arsiv_listesi).set_index("Hafta")
-    st.table(df_history)
-
-    st.info(f"💡 **Not:** Onur Listesi, Milat tarihinden ({SİTE_DOGUM_TARİHİ.strftime('%d.%m.%Y')}) itibaren tüm robotların performansını süzmektedir.")
+    st.table(pd.DataFrame(arsiv_listesi).set_index("Hafta"))
+    st.info(f"💡 **Not:** Onur Listesi, Milat tarihinden ({SİTE_DOGUM_TARİHİ.strftime('%d.%m.%Y')}) itibaren otonom olarak güncellenmektedir.")
