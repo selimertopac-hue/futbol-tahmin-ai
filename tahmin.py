@@ -805,93 +805,73 @@ elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
     
     # --- 1. HAFTA SEÇİCİ (Zaman Makinesi) ---
-    # Kullanıcı hangi haftanın onur listesini görmek istiyor?
     secilen_h = st.select_slider(
         "🔎 İncelemek İstediğiniz Haftayı Seçin",
         options=list(range(1, site_h_aktif + 1)),
-        value=max(1, site_h_aktif - 1) # Varsayılan olarak son tamamlanan haftayı göster
+        value=max(1, site_h_aktif - 1)
     )
 
     st.markdown(f"### 📊 {secilen_h}. Hafta Performans Raporu")
-    st.caption(f"{(SİTE_DOGUM_TARİHİ + timedelta(weeks=secilen_h-1)).strftime('%d.%m.%Y')} tarihindeki veriler baz alınmıştır.")
 
-    # --- 2. HAFTALIK VERİ TABANI (SİMÜLASYON) ---
-    # Bu veri yapısı ileride gerçek sonuçlarla (JSON/DB) beslenebilir.
-    # Her hafta için robotların o haftaki başarısını tanımlıyoruz.
-    haftalik_arsiv = {
-        1: {"W": 70, "A": 85, "N": 75, "S": 80, "T": "Sistem Başlangıcı 🚀"},
-        2: {"W": 75, "A": 88, "N": 80, "S": 82, "T": "Yükseliş Dönemi ✅"},
-        3: {"W": 85, "A": 90, "N": 78, "S": 87, "T": "Wickham Atakta 🔥"},
-        # site_h_aktif arttıkça burası genişleyecek
-    }
-    
-    # Seçilen haftanın verilerini çek (Eğer veri yoksa varsayılan değer ver)
-    h_verisi = haftalik_arsiv.get(secilen_h, {"W": 75, "A": 80, "N": 70, "S": 75, "T": "Analiz Sürüyor ⏳"})
-
-    # --- 3. DİNAMİK ROBOT KARTLARI ---
-    robot_stats = {
-        "WICKHAM": {"unvan": "Kaos Avcısı", "isabet": h_verisi["W"], "renk": "#d73a49", "emoji": "🧪"},
-        "AETHER": {"unvan": "Matematik Prof.", "isabet": h_verisi["A"], "renk": "#58A6FF", "emoji": "✨"},
-        "NEXUS": {"unvan": "Çelik Duvar", "isabet": h_verisi["N"], "renk": "#0366d6", "emoji": "🛡️"},
-        "SPEKTRUM": {"unvan": "Gol Makinesi", "isabet": h_verisi["S"], "renk": "#f1e05a", "emoji": "🔥"}
-    }
-
-    cols = st.columns(len(robot_stats))
-    for i, (r_name, r_data) in enumerate(robot_stats.items()):
-        with cols[i]:
-            st.markdown(f"""
-            <div style="background: rgba(22, 27, 34, 0.6); padding: 15px; border-radius: 12px; border: 1px solid {r_data['renk']}; border-top: 5px solid {r_data['renk']}; text-align: center; height: 160px;">
-                <h3 style="margin:0; color:{r_data['renk']}; font-size: 1rem;">{r_data['emoji']} {r_name}</h3>
-                <h2 style="margin:10px 0; color: white;">%{r_data['isabet']}</h2>
-                <div style="font-size: 0.75rem; color:{r_data['renk']}; font-weight: bold;">{h_verisi['T']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.progress(r_data['isabet'] / 100)
-
-    st.divider()
-
-    # --- 4. SEÇİLEN HAFTANIN "MÜHÜRLÜ" KUPON SONUÇLARI ---
-    st.subheader(f"🏆 {secilen_h}. Haftanın Tahmin Karnesi")
-    st.info(f"Aşağıda {secilen_h}. hafta cuma günü mühürlenen kuponların resmi sonuçları yer almaktadır.")
-
-    # Örnek Veri Yapısı (Gerçek verilerle burayı doldurabilirsin)
-    # Her hafta için hangi robotun hangi kuponu tuttu/yattı bilgisi
+    # --- 2. HAFTALIK VERİ TABANI (TÜM ROBOTLAR) ---
+    # Not: Buradaki rakamları her hafta sonunda güncelleyebilirsin.
     kupon_sonuclari = {
         1: {
-            "W": {"banko": "✅ 4/5", "ideal": "✅ 3/5", "ust": "❌ 2/5", "alt": "✅ 5/5"},
-            "A": {"banko": "✅ 5/5", "ideal": "✅ 4/5", "ust": "✅ 4/5", "alt": "✅ 3/5"}
+            "W": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "❌ 2/5", "a": "✅ 5/5", "p": 75, "t": "Başlangıç"},
+            "A": {"b": "✅ 5/5", "i": "✅ 4/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 88, "t": "Stabil"},
+            "N": {"b": "✅ 3/5", "i": "✅ 4/5", "u": "❌ 2/5", "a": "🛡️ 5/5", "p": 82, "t": "Defansif"},
+            "S": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 80, "t": "Dengeli"},
+            "SP": {"b": "✅ 2/5", "i": "✅ 3/5", "u": "🔥 5/5", "a": "❌ 2/5", "p": 70, "t": "Ofansif"}
         },
-        2: {
-            "W": {"banko": "✅ 5/5", "ideal": "✅ 4/5", "ust": "✅ 5/5", "alt": "❌ 1/5"},
-            "A": {"banko": "✅ 4/5", "ideal": "❌ 2/5", "ust": "✅ 3/5", "alt": "✅ 4/5"}
-        },
-        3: { # Senin beklediğin Wickham Atağı haftası örneği
-            "W": {"banko": "🏆 5/5 FULL", "ideal": "✅ 4/5", "ust": "🔥 5/5 FULL", "alt": "✅ 4/5"},
-            "A": {"banko": "✅ 4/5", "ideal": "✅ 3/5", "ust": "✅ 4/5", "alt": "✅ 3/5"},
-            "N": {"banko": "✅ 3/5", "ideal": "✅ 4/5", "ust": "❌ 2/5", "alt": "🛡️ 5/5 FULL"}
+        # Örnek 3. Hafta (Wickham Atağı)
+        3: {
+            "W": {"b": "🏆 5/5", "i": "✅ 4/5", "u": "🔥 5/5", "a": "✅ 4/5", "p": 94, "t": "DOMİNASYON 🔥"},
+            "A": {"b": "✅ 4/5", "i": "✅ 4/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 85, "t": "Stabil"},
+            "N": {"b": "✅ 3/5", "i": "✅ 4/5", "u": "❌ 2/5", "a": "🛡️ 5/5", "p": 88, "t": "Duvar"},
+            "S": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 4/5", "p": 82, "t": "Rutin"},
+            "SP": {"b": "✅ 3/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 78, "t": "Durgun"}
         }
     }
 
-    # Seçilen haftanın detaylarını çek
     h_detay = kupon_sonuclari.get(secilen_h, {})
 
-    if not h_detay:
-        st.warning(f"⚠️ {secilen_h}. hafta verileri henüz sisteme işlenmedi.")
-    else:
-        # Robotlar bazında kupon sergileme
-        for r_id, r_ad in [("W", "🧪 WICKHAM"), ("A", "✨ AETHER"), ("N", "🛡️ NEXUS")]:
-            if r_id in h_detay:
-                with st.expander(f"{r_ad} - {secilen_h}. Hafta Detaylı Karne", expanded=(r_id=="W")):
-                    c1, c2, c3, c4 = st.columns(4)
-                    res = h_detay[r_id]
-                    
-                    # Kart tasarımı ile sonuçları göster
-                    with c1: st.metric("⭐ Banko", res["banko"])
-                    with c2: st.metric("💎 İdeal", res["ideal"])
-                    with c3: st.metric("⚽ Üst", res["ust"])
-                    with c4: st.metric("📉 Alt", res["alt"])
+    # --- 3. GÜVEN ENDEKSİ KARTLARI (5 ROBOT) ---
+    # Robotların o haftaki genel başarı puanına göre kartlar
+    r_config = [
+        {"id": "W", "n": "WICKHAM", "u": "Kaos Avcısı", "c": "#d73a49", "e": "🧪"},
+        {"id": "A", "n": "AETHER", "u": "Matematik Prof.", "c": "#58A6FF", "e": "✨"},
+        {"id": "N", "n": "NEXUS", "u": "Çelik Duvar", "c": "#3fb950", "e": "🛡️"},
+        {"id": "S", "n": "STANDART", "u": "İstikrar", "c": "#8b949e", "e": "🤖"},
+        {"id": "SP", "n": "SPEKTRUM", "u": "Gol Makinesi", "c": "#f1e05a", "e": "🔥"}
+    ]
+
+    cols = st.columns(5)
+    for i, rb in enumerate(r_config):
+        data = h_detay.get(rb["id"], {"p": 0, "t": "Veri Yok"})
+        with cols[i]:
+            st.markdown(f"""
+            <div style="background: rgba(22, 27, 34, 0.6); padding: 10px; border-radius: 10px; border-top: 4px solid {rb['c']}; text-align: center; height: 150px;">
+                <h3 style="margin:0; color:{rb['c']}; font-size: 0.9rem;">{rb['e']} {rb['n']}</h3>
+                <h2 style="margin:5px 0; color: white; font-size: 1.5rem;">%{data['p']}</h2>
+                <div style="font-size: 0.7rem; color:{rb['c']}; font-weight: bold;">{data['t']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.progress(data['p'] / 100)
 
     st.divider()
+
+    # --- 4. DETAYLI KUPON KARNESİ (5 ROBOT) ---
+    st.subheader(f"🏆 {secilen_h}. Haftanın Mühürlü Tahmin Karnesi")
+    
+    for rb in r_config:
+        if rb["id"] in h_detay:
+            with st.expander(f"{rb['e']} {rb['n']} - Detaylı Sonuçlar", expanded=(rb["id"]=="W")):
+                res = h_detay[rb["id"]]
+                c1, c2, c3, c4 = st.columns(4)
+                with c1: st.metric("⭐ Banko", res["b"])
+                with c2: st.metric("💎 İdeal", res["i"])
+                with c3: st.metric("⚽ Üst", res["u"])
+                with c4: st.metric("📉 Alt", res["a"])
 
     # --- 3. TARİHSEL VERİ AKIŞI (Arşiv Tablosu) ---
     st.subheader("📂 Haftalık Arşiv & Robot Karnesi")
