@@ -803,56 +803,59 @@ elif mod == "💎 Value Hunter":
             """, unsafe_allow_html=True)
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
-    st.markdown("Algoritmalarımızın milat tarihinden itibaren sergilediği profesyonel başarı karnesi ve güven endeksi.")
+    
+    # --- 1. HAFTA SEÇİCİ (Zaman Makinesi) ---
+    # Kullanıcı hangi haftanın onur listesini görmek istiyor?
+    secilen_h = st.select_slider(
+        "🔎 İncelemek İstediğiniz Haftayı Seçin",
+        options=list(range(1, site_h_aktif + 1)),
+        value=max(1, site_h_aktif - 1) # Varsayılan olarak son tamamlanan haftayı göster
+    )
 
-    # --- 1. VERİ CANAVARI: ROBOT KARTLARI & GÜVEN ENDEKSİ ---
-    # Burası robotların anlık form durumunu ve karakteristiklerini gösterir
+    st.markdown(f"### 📊 {secilen_h}. Hafta Performans Raporu")
+    st.caption(f"{(SİTE_DOGUM_TARİHİ + timedelta(weeks=secilen_h-1)).strftime('%d.%m.%Y')} tarihindeki veriler baz alınmıştır.")
+
+    # --- 2. HAFTALIK VERİ TABANI (SİMÜLASYON) ---
+    # Bu veri yapısı ileride gerçek sonuçlarla (JSON/DB) beslenebilir.
+    # Her hafta için robotların o haftaki başarısını tanımlıyoruz.
+    haftalik_arsiv = {
+        1: {"W": 70, "A": 85, "N": 75, "S": 80, "T": "Sistem Başlangıcı 🚀"},
+        2: {"W": 75, "A": 88, "N": 80, "S": 82, "T": "Yükseliş Dönemi ✅"},
+        3: {"W": 85, "A": 90, "N": 78, "S": 87, "T": "Wickham Atakta 🔥"},
+        # site_h_aktif arttıkça burası genişleyecek
+    }
+    
+    # Seçilen haftanın verilerini çek (Eğer veri yoksa varsayılan değer ver)
+    h_verisi = haftalik_arsiv.get(secilen_h, {"W": 75, "A": 80, "N": 70, "S": 75, "T": "Analiz Sürüyor ⏳"})
+
+    # --- 3. DİNAMİK ROBOT KARTLARI ---
     robot_stats = {
-        "WICKHAM": {"unvan": "Kaos Avcısı", "isabet": 85, "trend": "Yükselişte 🔥", "renk": "#d73a49", "emoji": "🧪"},
-        "AETHER": {"unvan": "Matematik Prof.", "isabet": 91, "trend": "Stabil ✅", "renk": "#58A6FF", "emoji": "✨"},
-        "NEXUS": {"unvan": "Çelik Duvar", "isabet": 79, "trend": "Analizde 🛡️", "renk": "#0366d6", "emoji": "🛡️"},
-        "SPEKTRUM": {"unvan": "Gol Makinesi", "isabet": 87, "trend": "Atakta ⚡", "renk": "#f1e05a", "emoji": "🔥"}
+        "WICKHAM": {"unvan": "Kaos Avcısı", "isabet": h_verisi["W"], "renk": "#d73a49", "emoji": "🧪"},
+        "AETHER": {"unvan": "Matematik Prof.", "isabet": h_verisi["A"], "renk": "#58A6FF", "emoji": "✨"},
+        "NEXUS": {"unvan": "Çelik Duvar", "isabet": h_verisi["N"], "renk": "#0366d6", "emoji": "🛡️"},
+        "SPEKTRUM": {"unvan": "Gol Makinesi", "isabet": h_verisi["S"], "renk": "#f1e05a", "emoji": "🔥"}
     }
 
-    st.subheader("📊 Algoritma Güven Endeksi & Anlık Performans")
     cols = st.columns(len(robot_stats))
-    
     for i, (r_name, r_data) in enumerate(robot_stats.items()):
         with cols[i]:
-            # Robot Kartı Tasarımı
             st.markdown(f"""
-            <div style="background: rgba(22, 27, 34, 0.6); padding: 15px; border-radius: 12px; border: 1px solid {r_data['renk']}; border-top: 5px solid {r_data['renk']}; text-align: center; height: 180px;">
-                <h3 style="margin:0; color:{r_data['renk']}; font-size: 1.1rem;">{r_data['emoji']} {r_name}</h3>
-                <small style="color:#8B949E; font-size: 0.8rem;">{r_data['unvan']}</small>
+            <div style="background: rgba(22, 27, 34, 0.6); padding: 15px; border-radius: 12px; border: 1px solid {r_data['renk']}; border-top: 5px solid {r_data['renk']}; text-align: center; height: 160px;">
+                <h3 style="margin:0; color:{r_data['renk']}; font-size: 1rem;">{r_data['emoji']} {r_name}</h3>
                 <h2 style="margin:10px 0; color: white;">%{r_data['isabet']}</h2>
-                <div style="font-size: 0.75rem; color:{r_data['renk']}; font-weight: bold;">{r_data['trend']}</div>
+                <div style="font-size: 0.75rem; color:{r_data['renk']}; font-weight: bold;">{h_verisi['T']}</div>
             </div>
             """, unsafe_allow_html=True)
-            
-            # Dinamik İlerleme Çubuğu
             st.progress(r_data['isabet'] / 100)
-            
-            # Güven Etiketi
-            if r_data['isabet'] >= 88: st.caption("🟢 ZİRVE GÜVEN")
-            elif r_data['isabet'] >= 80: st.caption("🟢 YÜKSEK GÜVEN")
-            else: st.caption("🟡 OPTİMİZE EDİLİYOR")
 
     st.divider()
 
-    # --- 2. KÜRESEL İSABET ÖZETİ (Görsel Vurgu) ---
-    gecen_hafta = max(1, site_h_aktif - 1)
-    st.subheader(f"📅 Son Tamamlanan Hafta Özeti ({gecen_hafta}. Hafta)")
+    # --- 4. SEÇİLEN HAFTANIN "FULL HIT" KUPONLARI ---
+    st.subheader(f"🏆 {secilen_h}. Haftanın Efsane Tahminleri")
     
-    st.markdown(f"""
-        <div style="background: linear-gradient(90deg, #161b22, #0d1117); border: 1px solid #3fb950; border-radius: 12px; padding: 20px; text-align: center;">
-            <span style="color: #8B949E; letter-spacing: 2px; font-size: 0.8rem;">KÜRESEL İSABET ORANI</span><br>
-            <span style="font-size: 2.5rem;">🚀</span>
-            <b style="font-size: 2.2rem; color: #3fb950; margin-left: 10px;">18 / 20</b>
-            <span style="color: #58A6FF; font-size: 1.2rem; margin-left: 15px;">(%90 Success)</span>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.divider()
+    # Buraya o hafta 5/5 yapan kuponları manuel veya otomatik listeleyebilirsin
+    if h_verisi["W"] >= 85:
+        st.success(f"🌟 {secilen_h}. Hafta Özel: WICKHAM AI 'Kaos Avcısı' Rozetini Kazandı!")
 
     # --- 3. TARİHSEL VERİ AKIŞI (Arşiv Tablosu) ---
     st.subheader("📂 Haftalık Arşiv & Robot Karnesi")
