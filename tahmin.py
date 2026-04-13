@@ -811,15 +811,62 @@ elif mod == "🏆 Onur Listesi":
         value=max(1, site_h_aktif - 1)
     )
 
+    # --- 2. VERİ MERKEZİ (Tüm Haftalık Veriler) ---
+    # Not: Yeni hafta bittikçe buraya ekleme yapabilirsin
+    kupon_sonuclari = {
+        1: {
+            "W": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "❌ 2/5", "a": "✅ 5/5", "p": 75, "t": "Başlangıç"},
+            "A": {"b": "✅ 5/5", "i": "✅ 4/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 88, "t": "Stabil"},
+            "N": {"b": "✅ 3/5", "i": "✅ 4/5", "u": "❌ 2/5", "a": "🛡️ 5/5", "p": 82, "t": "Defansif"},
+            "S": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 80, "t": "Dengeli"},
+            "SP": {"b": "✅ 2/5", "i": "✅ 3/5", "u": "🔥 5/5", "a": "❌ 2/5", "p": 70, "t": "Ofansif"}
+        },
+        3: { # Senin beklediğin Wickham Atağı örneği
+            "W": {"b": "🏆 5/5", "i": "✅ 4/5", "u": "🔥 5/5", "a": "✅ 4/5", "p": 94, "t": "DOMİNASYON 🔥"},
+            "A": {"b": "✅ 4/5", "i": "✅ 4/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 85, "t": "Stabil"},
+            "N": {"b": "✅ 3/5", "i": "✅ 4/5", "u": "❌ 2/5", "a": "🛡️ 5/5", "p": 88, "t": "Duvar"},
+            "S": {"b": "✅ 4/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 4/5", "p": 82, "t": "Rutin"},
+            "SP": {"b": "✅ 3/5", "i": "✅ 3/5", "u": "✅ 4/5", "a": "✅ 3/5", "p": 78, "t": "Durgun"}
+        }
+    }
+
+    # KRİTİK: Veriyi sözlükten çekip değişkene atıyoruz
+    h_detay = kupon_sonuclari.get(secilen_h, {})
+
+    # KRİTİK: Robot konfigürasyonunu (r_config) kartlardan ve tablodan önce tanımlıyoruz
+    r_config = [
+        {"id": "W", "n": "WICKHAM", "u": "Kaos Avcısı", "c": "#d73a49", "e": "🧪"},
+        {"id": "A", "n": "AETHER", "u": "Matematik Prof.", "c": "#58A6FF", "e": "✨"},
+        {"id": "N", "n": "NEXUS", "u": "Çelik Duvar", "c": "#3fb950", "e": "🛡️"},
+        {"id": "S", "n": "STANDART", "u": "İstikrar", "c": "#8b949e", "e": "🤖"},
+        {"id": "SP", "n": "SPEKTRUM", "u": "Gol Makinesi", "c": "#f1e05a", "e": "🔥"}
+    ]
+
     st.markdown(f"### 📊 {secilen_h}. Hafta Performans Raporu")
 
-    # --- 4. SEÇİLEN HAFTANIN "SAVAŞ TABLOSU" (TÜM KUPONLAR) ---
+    # --- 3. GÜVEN ENDEKSİ KARTLARI (ÜSTTE) ---
+    cols = st.columns(5)
+    for i, rb in enumerate(r_config):
+        data = h_detay.get(rb["id"], {"p": 0, "t": "Veri Yok"})
+        with cols[i]:
+            st.markdown(f"""
+            <div style="background: rgba(22, 27, 34, 0.6); padding: 10px; border-radius: 10px; border-top: 4px solid {rb['c']}; text-align: center; height: 150px;">
+                <h3 style="margin:0; color:{rb['c']}; font-size: 0.9rem;">{rb['e']} {rb['n']}</h3>
+                <h2 style="margin:5px 0; color: white; font-size: 1.5rem;">%{data['p']}</h2>
+                <div style="font-size: 0.7rem; color:{rb['c']}; font-weight: bold;">{data['t']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.progress(data['p'] / 100)
+
+    st.divider()
+
+    # --- 4. SAVAŞ TABLOSU (ALTTA) ---
     st.subheader(f"⚔️ {secilen_h}. Hafta Kupon Karnesi")
     
     if not h_detay:
         st.warning(f"⚠️ {secilen_h}. hafta verileri henüz işlenmedi.")
     else:
-        # Görsel Tablo Başlığı
+        # Tablo Başlığı
         st.markdown("""
             <div style="display: flex; background: #21262d; padding: 10px; border-radius: 8px 8px 0 0; border-bottom: 2px solid #30363d; font-weight: bold; text-align: center;">
                 <div style="flex: 1.5; text-align: left;">🤖 ALGORİTMA</div>
@@ -830,11 +877,10 @@ elif mod == "🏆 Onur Listesi":
             </div>
         """, unsafe_allow_html=True)
 
-        # Robot Satırları
+        # Tablo Satırları
         for rb in r_config:
             res = h_detay.get(rb["id"], {"b": "-", "i": "-", "u": "-", "a": "-"})
             
-            # 5/5 olanlara altın rengi efekti verelim
             def gold_check(val):
                 return "color: #f1e05a; font-weight: bold;" if "5/5" in val or "🏆" in val else "color: white;"
 
@@ -851,30 +897,7 @@ elif mod == "🏆 Onur Listesi":
             """, unsafe_allow_html=True)
 
         st.caption("🏆 '5/5' ve 'FULL' yazan tahminler Altın Sarısı ile işaretlenmiştir.")
-
-    # --- 3. GÜVEN ENDEKSİ KARTLARI (5 ROBOT) ---
-    # Robotların o haftaki genel başarı puanına göre kartlar
-    r_config = [
-        {"id": "W", "n": "WICKHAM", "u": "Kaos Avcısı", "c": "#d73a49", "e": "🧪"},
-        {"id": "A", "n": "AETHER", "u": "Matematik Prof.", "c": "#58A6FF", "e": "✨"},
-        {"id": "N", "n": "NEXUS", "u": "Çelik Duvar", "c": "#3fb950", "e": "🛡️"},
-        {"id": "S", "n": "STANDART", "u": "İstikrar", "c": "#8b949e", "e": "🤖"},
-        {"id": "SP", "n": "SPEKTRUM", "u": "Gol Makinesi", "c": "#f1e05a", "e": "🔥"}
-    ]
-
-    cols = st.columns(5)
-    for i, rb in enumerate(r_config):
-        data = h_detay.get(rb["id"], {"p": 0, "t": "Veri Yok"})
-        with cols[i]:
-            st.markdown(f"""
-            <div style="background: rgba(22, 27, 34, 0.6); padding: 10px; border-radius: 10px; border-top: 4px solid {rb['c']}; text-align: center; height: 150px;">
-                <h3 style="margin:0; color:{rb['c']}; font-size: 0.9rem;">{rb['e']} {rb['n']}</h3>
-                <h2 style="margin:5px 0; color: white; font-size: 1.5rem;">%{data['p']}</h2>
-                <div style="font-size: 0.7rem; color:{rb['c']}; font-weight: bold;">{data['t']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.progress(data['p'] / 100)
-
+    
     st.divider()
 
     # --- 4. DETAYLI KUPON KARNESİ (5 ROBOT) ---
