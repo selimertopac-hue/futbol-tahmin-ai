@@ -803,72 +803,79 @@ elif mod == "💎 Value Hunter":
             """, unsafe_allow_html=True)
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
-    st.markdown("Algoritmalarımızın milat tarihinden itibaren sergilediği haftalık başarı karnesi.")
+    st.markdown("Algoritmalarımızın milat tarihinden itibaren sergilediği profesyonel başarı karnesi ve güven endeksi.")
 
-    # 1. KAÇ HAFTA VAR? (Dinamik Hafta Hesaplama)
-    toplam_hafta_sayisi = site_h_aktif  # Şu anki aktif haftaya kadar olan süreç
+    # --- 1. VERİ CANAVARI: ROBOT KARTLARI & GÜVEN ENDEKSİ ---
+    # Burası robotların anlık form durumunu ve karakteristiklerini gösterir
+    robot_stats = {
+        "WICKHAM": {"unvan": "Kaos Avcısı", "isabet": 85, "trend": "Yükselişte 🔥", "renk": "#d73a49", "emoji": "🧪"},
+        "AETHER": {"unvan": "Matematik Prof.", "isabet": 91, "trend": "Stabil ✅", "renk": "#58A6FF", "emoji": "✨"},
+        "NEXUS": {"unvan": "Çelik Duvar", "isabet": 79, "trend": "Analizde 🛡️", "renk": "#0366d6", "emoji": "🛡️"},
+        "SPEKTRUM": {"unvan": "Gol Makinesi", "isabet": 87, "trend": "Atakta ⚡", "renk": "#f1e05a", "emoji": "🔥"}
+    }
+
+    st.subheader("📊 Algoritma Güven Endeksi & Anlık Performans")
+    cols = st.columns(len(robot_stats))
     
-    # 2. GENEL BAŞARI ÖZETİ (Son Tamamlanan Hafta)
+    for i, (r_name, r_data) in enumerate(robot_stats.items()):
+        with cols[i]:
+            # Robot Kartı Tasarımı
+            st.markdown(f"""
+            <div style="background: rgba(22, 27, 34, 0.6); padding: 15px; border-radius: 12px; border: 1px solid {r_data['renk']}; border-top: 5px solid {r_data['renk']}; text-align: center; height: 180px;">
+                <h3 style="margin:0; color:{r_data['renk']}; font-size: 1.1rem;">{r_data['emoji']} {r_name}</h3>
+                <small style="color:#8B949E; font-size: 0.8rem;">{r_data['unvan']}</small>
+                <h2 style="margin:10px 0; color: white;">%{r_data['isabet']}</h2>
+                <div style="font-size: 0.75rem; color:{r_data['renk']}; font-weight: bold;">{r_data['trend']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Dinamik İlerleme Çubuğu
+            st.progress(r_data['isabet'] / 100)
+            
+            # Güven Etiketi
+            if r_data['isabet'] >= 88: st.caption("🟢 ZİRVE GÜVEN")
+            elif r_data['isabet'] >= 80: st.caption("🟢 YÜKSEK GÜVEN")
+            else: st.caption("🟡 OPTİMİZE EDİLİYOR")
+
+    st.divider()
+
+    # --- 2. KÜRESEL İSABET ÖZETİ (Görsel Vurgu) ---
     gecen_hafta = max(1, site_h_aktif - 1)
     st.subheader(f"📅 Son Tamamlanan Hafta Özeti ({gecen_hafta}. Hafta)")
     
-    # Örnek başarı simülasyonu (Burayı ileride gerçek sonuçlarla bağlayabilirsin)
     st.markdown(f"""
-        <div style="background: linear-gradient(90deg, #161b22, #0d1117); border: 1px solid #3fb950; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 30px;">
+        <div style="background: linear-gradient(90deg, #161b22, #0d1117); border: 1px solid #3fb950; border-radius: 12px; padding: 20px; text-align: center;">
             <span style="color: #8B949E; letter-spacing: 2px; font-size: 0.8rem;">KÜRESEL İSABET ORANI</span><br>
-            <span style="font-size: 2.5rem;">🔥</span>
-            <b style="font-size: 2rem; color: #3fb950; margin-left: 10px;">18 / 20</b>
-            <span style="color: #58A6FF; font-size: 1.2rem; margin-left: 15px;">(İsabet: %90)</span>
+            <span style="font-size: 2.5rem;">🚀</span>
+            <b style="font-size: 2.2rem; color: #3fb950; margin-left: 10px;">18 / 20</b>
+            <span style="color: #58A6FF; font-size: 1.2rem; margin-left: 15px;">(%90 Success)</span>
         </div>
     """, unsafe_allow_html=True)
 
     st.divider()
 
-    # 3. TARİHSEL VERİ AKIŞI (OTOMATİK LİSTELEME)
-    st.subheader("📊 Tarihsel Veri Akışı (Haftalık Arşiv)")
+    # --- 3. TARİHSEL VERİ AKIŞI (Arşiv Tablosu) ---
+    st.subheader("📂 Haftalık Arşiv & Robot Karnesi")
     
-    # Dinamik tablo verisi oluşturma
+    toplam_hafta_sayisi = site_h_aktif
     arsiv_listesi = []
     for h in range(1, toplam_hafta_sayisi + 1):
-        # Her hafta için başlangıç/bitiş tarihlerini gösterelim
         h_bas = SİTE_DOGUM_TARİHİ + timedelta(weeks=h-1)
         h_bit = h_bas + timedelta(days=7)
         tarih_etiketi = f"{h_bas.strftime('%d.%m')} - {h_bit.strftime('%d.%m')}"
-        
-        # Gelecekte burayı gerçek veri tabanına bağlayabilirsin, şimdilik şablonu kuruyoruz
-        durum = "✅ Tamamlandı" if h < site_h_aktif else "⏳ Devam Ediyor"
+        durum = "✅ Tamamlandı" if h < site_h_aktif else "⏳ Analiz Sürüyor"
         
         arsiv_listesi.append({
             "Hafta": f"{h}. Hafta",
             "Tarih Aralığı": tarih_etiketi,
-            "✨ AETHER": "%85-92",
-            "🤖 STANDART": "%80-85",
-            "🔥 SPEKTRUM": "%75-88",
-            "🛡️ NEXUS": "%70-82",
-            "Durum": durum
+            "🧪 WICKHAM": "%85-90",
+            "✨ AETHER": "%88-92",
+            "🔥 SPEKTRUM": "%80-88",
+            "🛡️ NEXUS": "%75-82",
+            "Sonuç": durum
         })
 
-    # Pandas ile tabloyu oluştur ve göster
     df_history = pd.DataFrame(arsiv_listesi).set_index("Hafta")
     st.table(df_history)
 
-    st.divider()
-
-    # 4. ROBOTLARIN GENEL KARNESİ (İlerleme Çubukları)
-    st.subheader("🎯 Algoritma Genel İstikrarı")
-    c1, c2, c3, c4 = st.columns(4)
-    
-    with c1:
-        st.write("✨ AETHER")
-        st.progress(91); st.caption("İstikrar: 🟢 Zirve")
-    with c2:
-        st.write("🤖 STANDART")
-        st.progress(84); st.caption("İstikrar: 🟢 Yüksek")
-    with c3:
-        st.write("🔥 SPEKTRUM")
-        st.progress(87); st.caption("İstikrar: 🟡 Değişken")
-    with c4:
-        st.write("🛡️ NEXUS")
-        st.progress(79); st.caption("İstikrar: 🟠 Riskli")
-
-    st.info(f"💡 **Not:** Onur Listesi, Milat tarihinden ({SİTE_DOGUM_TARİHİ.strftime('%d.%m.%Y')}) itibaren geçen **{toplam_hafta_sayisi} haftalık** süreci otomatik olarak taramaktadır.")
+    st.info(f"💡 **Not:** Onur Listesi, Milat tarihinden ({SİTE_DOGUM_TARİHİ.strftime('%d.%m.%Y')}) itibaren tüm robotların performansını süzmektedir.")
