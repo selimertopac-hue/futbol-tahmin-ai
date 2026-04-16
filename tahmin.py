@@ -56,17 +56,22 @@ def kara_kutu_yaz(veri):
         json.dump(veri, f, ensure_ascii=False, indent=4)
 
 def otomatik_muhur_tetikleyici():
-    """Cuma 12:00 geldiğinde mevcut bülteni otomatik olarak mühürler."""
     simdi = datetime.now()
-    # Cuma günü (4) ve saat 12:00'den sonrası
     if simdi.weekday() == 4 and simdi.hour >= 12:
         filtre_anahtar = "AETHER_AI_Master"
         muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
         
         if muhur_anahtari not in st.session_state:
-            # NOT: Buraya mühürlemek istediğin kupon oluşturma mantığını bağlayabilirsin.
-            # Şimdilik manuel mühürleme ile tetiklenmesi için bekliyor.
-            pass
+            # --- PROFESYONEL DOKUNUŞ BURADA ---
+            # Sistem burada butona basılmış gibi davranır:
+            st.session_state[muhur_anahtari] = {
+                "banko": st.session_state.get('son_bankolar', []),
+                "ideal": st.session_state.get('son_idealler', []),
+                "ust": st.session_state.get('son_ustler', []),
+                "alt": st.session_state.get('son_altlar', [])
+            }
+            # Kullanıcıya bir bilgi mesajı (isteğe bağlı)
+            st.toast("🎯 Cuma 12:00: Haftalık bülten otomatik olarak mühürlendi ve arşive işlendi.")
 
 def otonom_arsiv_guncelle():
     # 1. Önce Kara Kutu'daki (dosyadaki) verileri çek
