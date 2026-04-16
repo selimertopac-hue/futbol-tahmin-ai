@@ -33,61 +33,91 @@ def check_hit(liste, tip):
     # ... senin mevcut kodların ...
     return skor
 
-# --- 3. OTONOM ARŞİVLEME MAKİNESİ ---
+# --- 3. OTONOM ARŞİVLEME & KARA KUTU MOTORU ---
+
+import json
+import os
+
+ARSIV_DOSYASI = "ai_arsiv.json"
+
+def kara_kutu_oku():
+    """JSON dosyasından geçmiş başarıları yükler."""
+    if os.path.exists(ARSIV_DOSYASI):
+        with open(ARSIV_DOSYASI, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except:
+                return {}
+    return {}
+
+def kara_kutu_yaz(veri):
+    """Verileri JSON dosyasına kalıcı olarak mühürler."""
+    with open(ARSIV_DOSYASI, "w", encoding="utf-8") as f:
+        json.dump(veri, f, ensure_ascii=False, indent=4)
 
 def otomatik_muhur_tetikleyici():
     """Cuma 12:00 geldiğinde mevcut bülteni otomatik olarak mühürler."""
     simdi = datetime.now()
-    # weekday() == 4 (Cuma demektir)
+    # Cuma günü (4) ve saat 12:00'den sonrası
     if simdi.weekday() == 4 and simdi.hour >= 12:
         filtre_anahtar = "AETHER_AI_Master"
         muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
         
-        # Eğer bu hafta henüz mühürlenmemişse otomatik olarak dondur
         if muhur_anahtari not in st.session_state:
-            # BURADA: Robotların o an ürettiği kuponları çekiyoruz
-            # Not: Senin 'Global AI' kısmında kuponları oluşturan değişkenlerini buraya bağlamalısın
-            # Örnek (Global AI içindeki mantığına göre düzenle):
-            # st.session_state[muhur_anahtari] = { "banko": [...], "ideal": [...], "ust": [...], "alt": [...] }
+            # NOT: Buraya mühürlemek istediğin kupon oluşturma mantığını bağlayabilirsin.
+            # Şimdilik manuel mühürleme ile tetiklenmesi için bekliyor.
             pass
-def otonom_arsiv_guncelle():
-    if 'otonom_kayitlar' not in st.session_state:
-        st.session_state.otonom_kayitlar = {}
 
-    # Bitmiş haftaları tara
+def otonom_arsiv_guncelle():
+    # 1. Önce Kara Kutu'daki (dosyadaki) verileri çek
+    arsiv = kara_kutu_oku()
+    
+    # 2. Bitmiş haftaları tara
+    guncelleme_var_mi = False
     for h_no in range(1, site_h_aktif):
-        if h_no not in st.session_state.otonom_kayitlar:
+        h_key = str(h_no) # JSON anahtarları string olmalı
+        
+        if h_key not in arsiv:
             filtre_anahtar = "AETHER_AI_Master" 
             muhur_anahtari = f"muhur_{h_no}_{filtre_anahtar}"
             
+            # Eğer o haftanın mühürü hafızadaysa, hesapla ve Kara Kutu'ya işle
             if muhur_anahtari in st.session_state:
                 m_kupon = st.session_state[muhur_anahtari]
                 haftalik_ozet = {}
                 
                 for r_id, r_ad in [("W", "WICKHAM"), ("A", "AETHER"), ("N", "NEXUS"), ("S", "STANDART"), ("SP", "SPEKTRUM")]:
-                    # check_hit yukarıda olduğu için artık güvenle çağırıyoruz
                     b_skor = check_hit(m_kupon.get("banko", []), "banko")
                     i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
                     u_skor = check_hit(m_kupon.get("ust", []), "ust")
                     a_skor = check_hit(m_kupon.get("alt", []), "alt")
                     
-                    basari_yuzdesi = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
+                    p = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
                     
                     haftalik_ozet[r_id] = {
                         "b": f"✅ {b_skor}/5" if b_skor < 5 else "🏆 5/5",
                         "i": f"✅ {i_skor}/5" if i_skor < 5 else "💎 5/5",
                         "u": f"✅ {u_skor}/5" if u_skor < 5 else "🔥 5/5",
                         "a": f"✅ {a_skor}/5" if a_skor < 5 else "🛡️ 5/5",
-                        "p": basari_yuzdesi,
-                        "t": "Otonom Kayıt ✅"
+                        "p": p,
+                        "t": "Kara Kutu Kaydı ✅"
                     }
-                st.session_state.otonom_kayitlar[h_no] = haftalik_ozet
+                
+                arsiv[h_key] = haftalik_ozet
+                guncelleme_var_mi = True
 
-# Hafta hesaplaması fonksiyonun dışında olmalı (Çünkü fonksiyon h_no döngüsü için site_h_aktif'i kullanıyor)
+    # 3. Eğer yeni bir hafta işlendiyse Kara Kutu'yu kilitle
+    if guncelleme_var_mi:
+        kara_kutu_yaz(arsiv)
+    
+    # 4. Onur Listesi'nin okuması için session_state'e aktar
+    st.session_state.otonom_kayitlar = arsiv
+
+# --- ÇALIŞTIRMA SIRALAMASI ---
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 
-# VE FİNAL: Makineyi burada çalıştırıyoruz
+otomatik_muhur_tetikleyici()
 otonom_arsiv_guncelle()
 
 # --- 2. GÖRSEL STİL ---
