@@ -1,4 +1,6 @@
 import streamlit as st
+import json
+import os # Dosya kontrolü için şart
 import pandas as pd
 import random
 import numpy as np
