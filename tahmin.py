@@ -32,6 +32,22 @@ def check_hit(liste, tip):
     return skor
 
 # --- 3. OTONOM ARŞİVLEME MAKİNESİ ---
+
+def otomatik_muhur_tetikleyici():
+    """Cuma 12:00 geldiğinde mevcut bülteni otomatik olarak mühürler."""
+    simdi = datetime.now()
+    # weekday() == 4 (Cuma demektir)
+    if simdi.weekday() == 4 and simdi.hour >= 12:
+        filtre_anahtar = "AETHER_AI_Master"
+        muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
+        
+        # Eğer bu hafta henüz mühürlenmemişse otomatik olarak dondur
+        if muhur_anahtari not in st.session_state:
+            # BURADA: Robotların o an ürettiği kuponları çekiyoruz
+            # Not: Senin 'Global AI' kısmında kuponları oluşturan değişkenlerini buraya bağlamalısın
+            # Örnek (Global AI içindeki mantığına göre düzenle):
+            # st.session_state[muhur_anahtari] = { "banko": [...], "ideal": [...], "ust": [...], "alt": [...] }
+            pass
 def otonom_arsiv_guncelle():
     if 'otonom_kayitlar' not in st.session_state:
         st.session_state.otonom_kayitlar = {}
