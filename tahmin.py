@@ -955,12 +955,14 @@ elif mod == "🏆 Onur Listesi":
         }
     }
 
-    # DAHİYANE DOKUNUŞ: Manuel ve Otonom verileri harmanlıyoruz
-    # Not: Eğer aynı hafta numarası ikisinde de varsa, otonom olan (güncel) olanı tercih eder.
-    otonom_gelenler = st.session_state.get('otonom_kayitlar', {})
+    # 🛠️ DAHİYANE DOKUNUŞ: Kara Kutu (JSON) verilerini sayısal anahtara çevirip harmanlıyoruz
+    # JSON'dan gelen "1" değerini 1'e çevirerek manuel verilerle çakışmadan birleşmesini sağlar.
+    otonom_gelenler = {int(k): v for k, v in st.session_state.get('otonom_kayitlar', {}).items()}
+    
+    # İki veri setini birleştir (Aynı hafta varsa otonom olan güncel kabul edilir)
     kupon_sonuclari = {**manuel_veriler, **otonom_gelenler}
-
-    # --- 2. HAFTA SEÇİCİ (Zaman Makinesi) ---
+    
+    # --- 2. HAFTA SEÇİCİ ---
     secilen_h = st.select_slider(
         "🔎 İncelemek İstediğiniz Haftayı Seçin",
         options=list(range(1, site_h_aktif + 1)),
