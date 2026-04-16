@@ -8,8 +8,6 @@ from datetime import datetime, timedelta
 
 # --- 1. AYARLAR & MİLAT ---
 FOOTBALL_DATA_KEY = "b900863038174d07855ace7f33c69c9b"
-# --- 1. AYARLAR: HAVUZU GENİŞLETME ---
-# --- 1. AYARLAR: SADECE YEREL LİG HAVUZU ---
 LIGLER = {
     "İngiltere": "PL", 
     "İspanya": "PD", 
@@ -17,12 +15,62 @@ LIGLER = {
     "Almanya": "BL1", 
     "Fransa": "FL1", 
     "Hollanda": "DED",
-    "Portekiz": "PPL",  # Portekiz Primeiralira (Havuz Genişletme)
-    "Brezilya": "BSA"   # Brezilya Serie A (Havuz Genişletme)
+    "Portekiz": "PPL",
+    "Brezilya": "BSA"
 }
 SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20) 
 
+# Sayfa konfigürasyonu her zaman fonksiyonlardan önce veya hemen sonra gelmeli (Burada olması iyi)
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
+
+# --- 2. TEMEL HESAP MAKİNESİ (check_hit) ---
+def check_hit(liste, tip):
+    # BURAYA: Daha önce yazdığımız maç sonuçlarını kontrol eden 
+    # o uzun döngüleri ve "skor += 1" mantığını yapıştır.
+    skor = 0
+    # ... senin mevcut kodların ...
+    return skor
+
+# --- 3. OTONOM ARŞİVLEME MAKİNESİ ---
+def otonom_arsiv_guncelle():
+    if 'otonom_kayitlar' not in st.session_state:
+        st.session_state.otonom_kayitlar = {}
+
+    # Bitmiş haftaları tara
+    for h_no in range(1, site_h_aktif):
+        if h_no not in st.session_state.otonom_kayitlar:
+            filtre_anahtar = "AETHER_AI_Master" 
+            muhur_anahtari = f"muhur_{h_no}_{filtre_anahtar}"
+            
+            if muhur_anahtari in st.session_state:
+                m_kupon = st.session_state[muhur_anahtari]
+                haftalik_ozet = {}
+                
+                for r_id, r_ad in [("W", "WICKHAM"), ("A", "AETHER"), ("N", "NEXUS"), ("S", "STANDART"), ("SP", "SPEKTRUM")]:
+                    # check_hit yukarıda olduğu için artık güvenle çağırıyoruz
+                    b_skor = check_hit(m_kupon.get("banko", []), "banko")
+                    i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
+                    u_skor = check_hit(m_kupon.get("ust", []), "ust")
+                    a_skor = check_hit(m_kupon.get("alt", []), "alt")
+                    
+                    basari_yuzdesi = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
+                    
+                    haftalik_ozet[r_id] = {
+                        "b": f"✅ {b_skor}/5" if b_skor < 5 else "🏆 5/5",
+                        "i": f"✅ {i_skor}/5" if i_skor < 5 else "💎 5/5",
+                        "u": f"✅ {u_skor}/5" if u_skor < 5 else "🔥 5/5",
+                        "a": f"✅ {a_skor}/5" if a_skor < 5 else "🛡️ 5/5",
+                        "p": basari_yuzdesi,
+                        "t": "Otonom Kayıt ✅"
+                    }
+                st.session_state.otonom_kayitlar[h_no] = haftalik_ozet
+
+# Hafta hesaplaması fonksiyonun dışında olmalı (Çünkü fonksiyon h_no döngüsü için site_h_aktif'i kullanıyor)
+simdi = datetime.now()
+site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
+
+# VE FİNAL: Makineyi burada çalıştırıyoruz
+otonom_arsiv_guncelle()
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
