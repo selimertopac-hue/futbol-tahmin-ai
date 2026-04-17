@@ -25,6 +25,20 @@ SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 # Sayfa konfigürasyonu her zaman fonksiyonlardan önce veya hemen sonra gelmeli (Burada olması iyi)
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
 
+# --- YENİ DÜNYA RADARI (DOĞRUDAN API-FOOTBALL) ---
+WORLD_API_KEY = "bf2b9fd214d1e86ae7968bbb3ea23f85"
+WORLD_API_URL = "https://v3.football.api-sports.io/"
+
+def world_veri_al(endpoint, params={}):
+    headers = {
+        'x-apisports-key': WORLD_API_KEY
+    }
+    try:
+        # requests kütüphanesini en üstte import ettiğinden emin ol
+        response = requests.get(f"{WORLD_API_URL}{endpoint}", headers=headers, params=params)
+        return response.json()
+    except:
+        return {}
 # --- 2. TEMEL HESAP MAKİNESİ (check_hit) ---
 def check_hit(liste, tip):
     # BURAYA: Daha önce yazdığımız maç sonuçlarını kontrol eden 
