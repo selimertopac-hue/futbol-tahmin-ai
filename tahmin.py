@@ -56,22 +56,28 @@ def kara_kutu_yaz(veri):
         json.dump(veri, f, ensure_ascii=False, indent=4)
 
 def otomatik_muhur_tetikleyici():
+    """Cuma 12:00 geldiğinde mevcut bülteni otomatik olarak mühürler."""
     simdi = datetime.now()
+    # Cuma günü ve saat 12:00 sonrası
     if simdi.weekday() == 4 and simdi.hour >= 12:
         filtre_anahtar = "AETHER_AI_Master"
         muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
         
-        if muhur_anahtari not in st.session_state:
-            # --- PROFESYONEL DOKUNUŞ BURADA ---
-            # Sistem burada butona basılmış gibi davranır:
-            st.session_state[muhur_anahtari] = {
-                "banko": st.session_state.get('son_bankolar', []),
-                "ideal": st.session_state.get('son_idealler', []),
-                "ust": st.session_state.get('son_ustler', []),
-                "alt": st.session_state.get('son_altlar', [])
-            }
-            # Kullanıcıya bir bilgi mesajı (isteğe bağlı)
-            st.toast("🎯 Cuma 12:00: Haftalık bülten otomatik olarak mühürlendi ve arşive işlendi.")
+        # KRİTİK: Eğer mühür yoksa VEYA mühür var ama içi boşsa (banko yoksa) tekrar dene
+        if muhur_anahtari not in st.session_state or not st.session_state[muhur_anahtari].get("banko"):
+            
+            # Hafızadaki en taze verileri çekmeye çalışıyoruz
+            guncel_banko = st.session_state.get('son_bankolar', [])
+            
+            # SADECE VERİ VARSA MÜHÜR BAS (Boş mühürlenmeyi engeller)
+            if guncel_banko:
+                st.session_state[muhur_anahtari] = {
+                    "banko": guncel_banko,
+                    "ideal": st.session_state.get('son_idealler', []),
+                    "ust": st.session_state.get('son_ustler', []),
+                    "alt": st.session_state.get('son_altlar', [])
+                }
+                st.toast(f"🎯 {site_h_aktif}. Hafta Başarıyla Mühürlendi!")
 
 def otonom_arsiv_guncelle():
     # 1. Önce Kara Kutu'daki (dosyadaki) verileri çek
@@ -80,18 +86,23 @@ def otonom_arsiv_guncelle():
     # 2. Bitmiş haftaları tara
     guncelleme_var_mi = False
     for h_no in range(1, site_h_aktif):
-        h_key = str(h_no) # JSON anahtarları string olmalı
+        h_key = str(h_no)
         
         if h_key not in arsiv:
             filtre_anahtar = "AETHER_AI_Master" 
             muhur_anahtari = f"muhur_{h_no}_{filtre_anahtar}"
             
-            # Eğer o haftanın mühürü hafızadaysa, hesapla ve Kara Kutu'ya işle
+            # Eğer mühür hafızadaysa VE içi doluysa arşive işle
             if muhur_anahtari in st.session_state:
                 m_kupon = st.session_state[muhur_anahtari]
-                haftalik_ozet = {}
                 
+                # Eğer mühürün içi boşsa bu haftayı atla (Kara Kutuya çöp veri yazma)
+                if not m_kupon.get("banko"):
+                    continue
+
+                haftalik_ozet = {}
                 for r_id, r_ad in [("W", "WICKHAM"), ("A", "AETHER"), ("N", "NEXUS"), ("S", "STANDART"), ("SP", "SPEKTRUM")]:
+                    # check_hit fonksiyonuna mühürlü kuponu gönderiyoruz
                     b_skor = check_hit(m_kupon.get("banko", []), "banko")
                     i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
                     u_skor = check_hit(m_kupon.get("ust", []), "ust")
@@ -105,17 +116,17 @@ def otonom_arsiv_guncelle():
                         "u": f"✅ {u_skor}/5" if u_skor < 5 else "🔥 5/5",
                         "a": f"✅ {a_skor}/5" if a_skor < 5 else "🛡️ 5/5",
                         "p": p,
-                        "t": "Kara Kutu Kaydı ✅"
+                        "t": "Kara Kutu ✅"
                     }
                 
                 arsiv[h_key] = haftalik_ozet
                 guncelleme_var_mi = True
 
-    # 3. Eğer yeni bir hafta işlendiyse Kara Kutu'yu kilitle
+    # 3. Yeni veri işlendiyse dosyayı güncelle
     if guncelleme_var_mi:
         kara_kutu_yaz(arsiv)
     
-    # 4. Onur Listesi'nin okuması için session_state'e aktar
+    # 4. Global erişim için session_state'e aktar
     st.session_state.otonom_kayitlar = arsiv
 
 # --- ÇALIŞTIRMA SIRALAMASI ---
