@@ -25,20 +25,21 @@ SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 # Sayfa konfigürasyonu her zaman fonksiyonlardan önce veya hemen sonra gelmeli (Burada olması iyi)
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
 
-# --- YENİ DÜNYA RADARI (DOĞRUDAN API-FOOTBALL) ---
-WORLD_API_KEY = "bf2b9fd214d1e86ae7968bbb3ea23f85"
-WORLD_API_URL = "https://v3.football.api-sports.io/"
+# --- YENİ DÜNYA RADARI (RAPID-API VERSION) ---
+RAPID_API_KEY = "b6e78e72damsh3b35bfef609b11bp1e701bjsn01310ac6d49e"
+RAPID_API_HOST = "api-football-v1.p.rapidapi.com"
 
 def world_veri_al(endpoint, params={}):
+    url = f"https://{RAPID_API_HOST}/v3/{endpoint}"
     headers = {
-        'x-apisports-key': WORLD_API_KEY
+        "X-RapidAPI-Key": RAPID_API_KEY,
+        "X-RapidAPI-Host": RAPID_API_HOST
     }
     try:
-        # requests kütüphanesini en üstte import ettiğinden emin ol
-        response = requests.get(f"{WORLD_API_URL}{endpoint}", headers=headers, params=params)
+        response = requests.get(url, headers=headers, params=params, timeout=10)
         return response.json()
-    except:
-        return {}
+    except Exception as e:
+        return {"errors": str(e)}
 def takim_gecmisi_al(team_id):
     """Robotun analiz yapabilmesi için takımın son 5 maçını çeker."""
     params = {'team': team_id, 'last': 5}
