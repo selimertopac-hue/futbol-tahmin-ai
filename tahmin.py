@@ -550,74 +550,63 @@ if mod == "🏠 Canlı Skorlar":
             """, unsafe_allow_html=True)
 
 elif mod == "🤖 Tahmin Robotu":
-    st.title("🌍 Sınırsız Dünya Tahmin Radarı")
-    st.info("⚡ Bu bölüm, dünya üzerindeki tüm aktif ligleri anlık tarayarak robotların en güvendiği maçları listeler.")
+    st.title("🌍 Küresel Tahmin Radarı (Gelişmiş)")
+    st.info("⚡ Robotlar şu an tüm dünya liglerini tarıyor ve takımların geçmiş performanslarını analiz ediyor.")
 
     bugun_str = datetime.now().strftime('%Y-%m-%d')
     
-    with st.spinner("🔭 Galaksiler arası veri taraması yapılıyor..."):
-        # Bugünün tüm dünya maçlarını çekiyoruz
-        params = {'date': bugun_str}
-        raw_data = world_veri_al("fixtures", params=params)
+    with st.spinner("🔭 Robotlar tüm dünyayı tarıyor, bu biraz sürebilir..."):
+        # Bugünün maçlarını çek
+        raw_data = world_veri_al("fixtures", params={'date': bugun_str})
         fixtures = raw_data.get('response', [])
 
     if not fixtures:
-        st.warning("⚠️ Şu an bültende analiz edilecek aktif maç bulunamadı.")
+        st.warning("⚠️ Bugün için bültende maç bulunamadı.")
     else:
         gunun_analizleri = []
-        
-        # Tüm maçları döngüye alıyoruz (Sınır yok!)
-        for f in fixtures:
-            lig_adi = f['league']['name']
-            ulke = f['league']['country']
+        # İlk 20 maçı analiz et (API limitini korumak için, istersen artırabilirsin)
+        for f in fixtures[:20]:
+            ev_id = f['teams']['home']['id']
+            dep_id = f['teams']['away']['id']
             ev_ad = f['teams']['home']['name']
             dep_ad = f['teams']['away']['name']
             
-            # Robot analizini tetikle (Geçmiş veri kısıtı varsa analiz_et fonksiyonundan ayarlanmalı)
-            res = analiz_et(ev_ad, dep_ad, [], site_h_aktif) 
+            # --- KRİTİK NOKTA: Robotlara Hafıza Veriyoruz ---
+            ev_gecmis = takim_gecmisi_al(ev_id)
+            
+            # Robotun anlayacağı formata çeviriyoruz
+            temp_matches = []
+            for m in ev_gecmis:
+                temp_matches.append({
+                    'homeTeam': {'name': m['teams']['home']['name']},
+                    'awayTeam': {'name': m['teams']['away']['name']},
+                    'status': 'FINISHED',
+                    'score': {'fullTime': {'home': m['goals']['home'], 'away': m['goals']['away']}},
+                    'matchday': 0 # Geçici değer
+                })
+            
+            # Analizi çalıştır (Artık temp_matches dolu olduğu için robot 'None' dönmeyecek)
+            res = analiz_et(ev_ad, dep_ad, temp_matches, site_h_aktif)
             
             if res:
-                # Maç bilgilerini robot sonuçlarıyla birleştir
-                f.update({
-                    'res': res, 
-                    'l_ad': f"{ulke} - {lig_adi}"
-                })
+                f.update({'res': res, 'l_ad': f"{f['league']['country']} - {f['league']['name']}"})
                 gunun_analizleri.append(f)
 
-        # Robot Kartlarını Hazırlayalım
+        # Robot Kartlarını Göster (Aether, Nexus, Wickham)
         c1, c2, c3 = st.columns(3)
-        robot_ayarlar = [
-            ("✨ AETHER", c1, "ae_c", "aether"),
-            ("🛡️ NEXUS", c2, "n_c", "nexus"),
-            ("🧪 WICKHAM", c3, "w_c", "wickham")
-        ]
-
-        for r_ad, r_col, r_puan, r_tahmin in robot_ayarlar:
+        for r_ad, r_col, r_p, r_t in [("✨ AETHER", c1, "ae_c", "aether"), ("🛡️ NEXUS", c2, "n_c", "nexus"), ("🧪 WICKHAM", c3, "w_c", "wickham")]:
             with r_col:
-                st.subheader(f"{r_ad} Radarı")
-                # Bu robotun en yüksek güven duyduğu ilk 10 maçı göster (Sınırı artırdım)
-                top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(r_puan, 0), reverse=True)[:10]
-                
-                if not top_matches:
-                    st.write("Düşük veri yoğunluğu.")
-                
-                for m in top_matches:
-                    # Güven puanı %60 altındaysa çok dikkat çekmesin (Filtreleme opsiyonel)
-                    puan = int(m['res'].get(r_puan, 0))
-                    
+                st.subheader(r_ad)
+                top = sorted(gunun_analizleri, key=lambda x: x['res'].get(r_p, 0), reverse=True)[:5]
+                for m in top:
                     st.markdown(f"""
-                    <div style="background:#1e222d; padding:12px; border-radius:10px; border-left:4px solid #58A6FF; margin-bottom:10px;">
-                        <small style="color:#8B949E;">🏳️ {m['l_ad']}</small><br>
-                        <b style="font-size:0.9rem;">{m['teams']['home']['name']} - {m['teams']['away']['name']}</b><br>
-                        <div style="margin-top:5px;">
-                            <span style="color:#3fb950; font-weight:bold;">{m['res'][r_tahmin]}</span>
-                            <span style="float:right; color:#D29922;">%{puan}</span>
-                        </div>
+                    <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #58A6FF; margin-bottom:10px;">
+                        <small>{m['l_ad']}</small><br>
+                        <b>{m['teams']['home']['name']} - {m['teams']['away']['name']}</b><br>
+                        <span style="color:#3fb950;">{m['res'][r_t]}</span>
+                        <span style="float:right;">%{int(m['res'][r_p])}</span>
                     </div>
                     """, unsafe_allow_html=True)
-
-    st.divider()
-    st.caption("🤖 Robotlar şu an dünya üzerindeki tüm ligleri tarıyor. Güven puanı hesaplamaları mevcut algoritmaya göre anlık yapılmaktadır.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
