@@ -551,17 +551,18 @@ if mod == "🏠 Canlı Skorlar":
 
 elif mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı (Gelişmiş)")
-    st.info("⚡ Robotlar şu an tüm dünya liglerini tarıyor ve takımların geçmiş performanslarını analiz ediyor.")
-
-    bugun_str = datetime.now().strftime('%Y-%m-%d')
     
-    with st.spinner("🔭 Robotlar tüm dünyayı tarıyor, bu biraz sürebilir..."):
-        # Bugünün maçlarını çek
-        raw_data = world_veri_al("fixtures", params={'date': bugun_str})
+    # --- TARİH SEÇİCİ EKLEYELİM ---
+    secilen_tarih = st.sidebar.date_input("Bülten Tarihi", datetime.now())
+    tarih_str = secilen_tarih.strftime('%Y-%m-%d')
+
+    with st.spinner(f"🔭 {tarih_str} bülteni taranıyor..."):
+        # API'den seçilen tarihin maçlarını çek
+        raw_data = world_veri_al("fixtures", params={'date': tarih_str})
         fixtures = raw_data.get('response', [])
 
     if not fixtures:
-        st.warning("⚠️ Bugün için bültende maç bulunamadı.")
+        st.warning(f"⚠️ {tarih_str} tarihinde bültende maç bulunamadı. Lütfen yarını seçerek büyük bülteni kontrol et!")
     else:
         gunun_analizleri = []
         # İlk 20 maçı analiz et (API limitini korumak için, istersen artırabilirsin)
