@@ -544,69 +544,74 @@ if mod == "🏠 Canlı Skorlar":
             """, unsafe_allow_html=True)
 
 elif mod == "🤖 Tahmin Robotu":
-    st.title("🤖 Küresel Tahmin Radarı")
-    st.info("🌍 Bu bölüm, API-Football üzerinden tüm dünya liglerini anlık tarar. Elit lig sınırlaması yoktur!")
+    st.title("🌍 Sınırsız Dünya Tahmin Radarı")
+    st.info("⚡ Bu bölüm, dünya üzerindeki tüm aktif ligleri anlık tarayarak robotların en güvendiği maçları listeler.")
 
-    # 1. API DEĞİŞİM NOKTASI (Buraya yeni API-Football anahtarını ve endpoint'ini bağlayacağız)
-    # Şimdilik mevcut yapını tüm dünyayı kapsayacak şekilde simüle eden profesyonel arayüz:
+    bugun_str = datetime.now().strftime('%Y-%m-%d')
     
-    col_filter, col_date = st.columns([2, 1])
-    with col_filter:
-        secilen_robot = st.selectbox("👾 Analiz Yapacak Robotu Seçin", 
-                                    ["🧪 WICKHAM v3.5 (Kaos)", "✨ AETHER (Sentez)", "🛡️ NEXUS (Savunma)", "🔥 SPEKTRUM (Gol)"])
-    with col_date:
-        tarih_filtresi = st.date_input("📅 Bülten Tarihi", datetime.now())
+    with st.spinner("🔭 Galaksiler arası veri taraması yapılıyor..."):
+        # Bugünün tüm dünya maçlarını çekiyoruz
+        params = {'date': bugun_str}
+        raw_data = world_veri_al("fixtures", params=params)
+        fixtures = raw_data.get('response', [])
 
-    # 2. TÜM DÜNYA LİGLERİNDEN VERİ ÇEKME (Simülasyon / Taslak)
-    # Burada 'matches' endpoint'i yerine yeni API'nin 'fixtures' kısmını kullanacağız
+    if not fixtures:
+        st.warning("⚠️ Şu an bültende analiz edilecek aktif maç bulunamadı.")
+    else:
+        gunun_analizleri = []
+        
+        # Tüm maçları döngüye alıyoruz (Sınır yok!)
+        for f in fixtures:
+            lig_adi = f['league']['name']
+            ulke = f['league']['country']
+            ev_ad = f['teams']['home']['name']
+            dep_ad = f['teams']['away']['name']
+            
+            # Robot analizini tetikle (Geçmiş veri kısıtı varsa analiz_et fonksiyonundan ayarlanmalı)
+            res = analiz_et(ev_ad, dep_ad, [], site_h_aktif) 
+            
+            if res:
+                # Maç bilgilerini robot sonuçlarıyla birleştir
+                f.update({
+                    'res': res, 
+                    'l_ad': f"{ulke} - {lig_adi}"
+                })
+                gunun_analizleri.append(f)
+
+        # Robot Kartlarını Hazırlayalım
+        c1, c2, c3 = st.columns(3)
+        robot_ayarlar = [
+            ("✨ AETHER", c1, "ae_c", "aether"),
+            ("🛡️ NEXUS", c2, "n_c", "nexus"),
+            ("🧪 WICKHAM", c3, "w_c", "wickham")
+        ]
+
+        for r_ad, r_col, r_puan, r_tahmin in robot_ayarlar:
+            with r_col:
+                st.subheader(f"{r_ad} Radarı")
+                # Bu robotun en yüksek güven duyduğu ilk 10 maçı göster (Sınırı artırdım)
+                top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(r_puan, 0), reverse=True)[:10]
+                
+                if not top_matches:
+                    st.write("Düşük veri yoğunluğu.")
+                
+                for m in top_matches:
+                    # Güven puanı %60 altındaysa çok dikkat çekmesin (Filtreleme opsiyonel)
+                    puan = int(m['res'].get(r_puan, 0))
+                    
+                    st.markdown(f"""
+                    <div style="background:#1e222d; padding:12px; border-radius:10px; border-left:4px solid #58A6FF; margin-bottom:10px;">
+                        <small style="color:#8B949E;">🏳️ {m['l_ad']}</small><br>
+                        <b style="font-size:0.9rem;">{m['teams']['home']['name']} - {m['teams']['away']['name']}</b><br>
+                        <div style="margin-top:5px;">
+                            <span style="color:#3fb950; font-weight:bold;">{m['res'][r_tahmin]}</span>
+                            <span style="float:right; color:#D29922;">%{puan}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
     st.divider()
-
-    # --- ROBOTLARA ÖZEL 4'LÜ KUPON DÜZENİ (Global AI Tarzında) ---
-    st.subheader(f"📊 {secilen_robot} - Günlük Fırsat Karnesi")
-    
-    c1, c2, c3, c4 = st.columns(4)
-
-    # Robot konfigürasyonlarını robot seçimine göre eşleştiriyoruz
-    r_map = {
-        "🧪 WICKHAM v3.5 (Kaos)": {"id": "W", "color": "#d73a49", "emoji": "🧪", "tag": "FIRE STRIKE"},
-        "✨ AETHER (Sentez)": {"id": "A", "color": "#58A6FF", "emoji": "✨", "tag": "MASTER SENTEZ"},
-        "🛡️ NEXUS (Savunma)": {"id": "N", "color": "#3fb950", "emoji": "🛡️", "tag": "IRON WALL"},
-        "🔥 SPEKTRUM (Gol)": {"id": "SP", "color": "#f1e05a", "emoji": "🔥", "tag": "HYPER GOAL"}
-    }
-    active_r = r_map[secilen_robot]
-
-    # Taslak Veri (Buraya API'den gelen canlı dünya maçları akacak)
-    with c1:
-        st.markdown(f"""<div class="editor-card" style="border-top-color: {active_r['color']};">
-            <div class="coupon-title">⭐ GÜNÜN BANKOLARI</div>""", unsafe_allow_html=True)
-        # Buraya API-Football'dan gelen en yüksek güvenli 5 maç döngüsü girecek
-        st.markdown('<div class="coupon-item">🇹🇷 FB - Rizespor<br>Tahmin: MS 1</div>', unsafe_allow_html=True)
-        st.markdown('<div class="coupon-item">🏴󠁧󠁢󠁥󠁮󠁧󠁿 City - Arsenal<br>Tahmin: MS 1</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with c2:
-        st.markdown(f"""<div class="editor-card" style="border-top-color: {active_r['color']};">
-            <div class="coupon-title">💎 GÜNÜN İDEALLERİ</div>""", unsafe_allow_html=True)
-        st.markdown('<div class="coupon-item">🇹🇷 Antalya - Konya<br>Tahmin: KG VAR</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with c3:
-        st.markdown(f"""<div class="editor-card" style="border-top-color: #d73a49;">
-            <div class="coupon-title">🔥 GÜNÜN ÜSTLERİ</div>""", unsafe_allow_html=True)
-        st.markdown('<div class="coupon-item">🇳🇱 Ajax - PSV<br>Tahmin: 2.5 ÜST</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with c4:
-        st.markdown(f"""<div class="editor-card" style="border-top-color: #0366d6;">
-            <div class="coupon-title">🛡️ GÜNÜN ALTLARI</div>""", unsafe_allow_html=True)
-        st.markdown('<div class="coupon-item">🇮🇹 Juventus - Roma<br>Tahmin: 2.5 ALT</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- DÜNYA LİGİNDEN ANLIK AKIŞ (DETAYLAR) ---
-    st.divider()
-    st.subheader("🌐 Tüm Dünya Ligleri Analiz Akışı")
-    # Burada devasa bir liste akacak:
-    # [LİG BAYRAĞI] [EV] - [DEP] [ROBOT TAHMİNİ] [% GÜVEN]
+    st.caption("🤖 Robotlar şu an dünya üzerindeki tüm ligleri tarıyor. Güven puanı hesaplamaları mevcut algoritmaya göre anlık yapılmaktadır.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
