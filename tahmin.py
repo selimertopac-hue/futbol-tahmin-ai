@@ -562,16 +562,15 @@ elif mod == "🤖 Tahmin Robotu":
     st.info(f"📅 {h_bas.strftime('%d.%m')} - {h_bit.strftime('%d.%m')} tarihleri arasındaki tüm Dünya bülteni analiz ediliyor.")
 
     with st.spinner(f"🔭 Bülten taranıyor..."):
-    params = {'from': '2026-04-17', 'to': '2026-04-24'} # Haftalık aralık
-    raw_data = world_veri_al("fixtures", params=params)
-    
-    # --- HATA DEDEKTİFİ ---
-    if raw_data.get('errors'):
-        st.error(f"❌ API Hatası: {raw_data['errors']}")
-    # ----------------------
-    
-    fixtures = raw_data.get('response', [])
-
+        # Buradaki her satır 'with'in altında bir TAB içeride olmalı!
+        params = {'from': h_bas.strftime('%Y-%m-%d'), 'to': h_bit.strftime('%Y-%m-%d')} 
+        raw_data = world_veri_al("fixtures", params=params)
+        
+        # --- HATA DEDEKTİFİ ---
+        if raw_data.get('errors'):
+            st.error(f"❌ API Hatası: {raw_data['errors']}")
+        
+        fixtures = raw_data.get('response', [])
     if not fixtures:
         st.warning("⚠️ Bu tarih aralığında maç bulunamadı. API anahtarını veya tarihleri kontrol et.")
     else:
