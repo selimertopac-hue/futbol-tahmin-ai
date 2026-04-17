@@ -39,6 +39,12 @@ def world_veri_al(endpoint, params={}):
         return response.json()
     except:
         return {}
+def takim_gecmisi_al(team_id):
+    """Robotun analiz yapabilmesi için takımın son 5 maçını çeker."""
+    params = {'team': team_id, 'last': 5}
+    res = world_veri_al("fixtures", params=params)
+    return res.get('response', [])   
+    
 # --- 2. TEMEL HESAP MAKİNESİ (check_hit) ---
 def check_hit(liste, tip):
     # BURAYA: Daha önce yazdığımız maç sonuçlarını kontrol eden 
