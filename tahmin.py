@@ -550,64 +550,73 @@ if mod == "🏠 Canlı Skorlar":
             """, unsafe_allow_html=True)
 
 elif mod == "🤖 Tahmin Robotu":
-    st.title("🌍 Küresel Tahmin Radarı (Gelişmiş)")
+    st.title("🌍 Küresel Tahmin Radarı: Haftalık Havuz")
     
-    # --- TARİH SEÇİCİ EKLEYELİM ---
-    secilen_tarih = st.sidebar.date_input("Bülten Tarihi", datetime.now())
-    tarih_str = secilen_tarih.strftime('%Y-%m-%d')
+    # 1. HAFTA SEÇİCİ (Global AI ile Senkronize)
+    s_sec = st.sidebar.selectbox("📅 Analiz Haftası", list(range(1, 11)), index=site_h_aktif-1)
+    
+    # Seçilen haftanın tarih sınırlarını belirle
+    h_bas = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
+    h_bit = h_bas + timedelta(days=7)
+    
+    st.info(f"📅 {h_bas.strftime('%d.%m')} - {h_bit.strftime('%d.%m')} tarihleri arasındaki tüm Dünya bülteni analiz ediliyor.")
 
-    with st.spinner(f"🔭 {tarih_str} bülteni taranıyor..."):
-        # API'den seçilen tarihin maçlarını çek
-        raw_data = world_veri_al("fixtures", params={'date': tarih_str})
-        fixtures = raw_data.get('response', [])
+    with st.spinner(f"🔭 Bülten taranıyor..."):
+    params = {'from': '2026-04-17', 'to': '2026-04-24'} # Haftalık aralık
+    raw_data = world_veri_al("fixtures", params=params)
+    
+    # --- HATA DEDEKTİFİ ---
+    if raw_data.get('errors'):
+        st.error(f"❌ API Hatası: {raw_data['errors']}")
+    # ----------------------
+    
+    fixtures = raw_data.get('response', [])
 
     if not fixtures:
-        st.warning(f"⚠️ {tarih_str} tarihinde bültende maç bulunamadı. Lütfen yarını seçerek büyük bülteni kontrol et!")
+        st.warning("⚠️ Bu tarih aralığında maç bulunamadı. API anahtarını veya tarihleri kontrol et.")
     else:
+        # --- ROBOTLARI TETİKLEME (Global AI Mantığıyla 4'lü Kupon) ---
         gunun_analizleri = []
-        # İlk 20 maçı analiz et (API limitini korumak için, istersen artırabilirsin)
-        for f in fixtures[:20]:
-            ev_id = f['teams']['home']['id']
-            dep_id = f['teams']['away']['id']
+        
+        # Filtreleme: Önce maçları analiz et (Hız için ilk 30 maçı alalım)
+        for f in fixtures[:30]:
             ev_ad = f['teams']['home']['name']
             dep_ad = f['teams']['away']['name']
             
-            # --- KRİTİK NOKTA: Robotlara Hafıza Veriyoruz ---
-            ev_gecmis = takim_gecmisi_al(ev_id)
-            
-            # Robotun anlayacağı formata çeviriyoruz
-            temp_matches = []
-            for m in ev_gecmis:
-                temp_matches.append({
-                    'homeTeam': {'name': m['teams']['home']['name']},
-                    'awayTeam': {'name': m['teams']['away']['name']},
-                    'status': 'FINISHED',
-                    'score': {'fullTime': {'home': m['goals']['home'], 'away': m['goals']['away']}},
-                    'matchday': 0 # Geçici değer
-                })
-            
-            # Analizi çalıştır (Artık temp_matches dolu olduğu için robot 'None' dönmeyecek)
-            res = analiz_et(ev_ad, dep_ad, temp_matches, site_h_aktif)
+            # Robotlara geçmişi çekmeden temel analiz yaptırıyoruz (Hız için)
+            res = analiz_et(ev_ad, dep_ad, [], site_h_aktif)
             
             if res:
                 f.update({'res': res, 'l_ad': f"{f['league']['country']} - {f['league']['name']}"})
                 gunun_analizleri.append(f)
 
-        # Robot Kartlarını Göster (Aether, Nexus, Wickham)
-        c1, c2, c3 = st.columns(3)
-        for r_ad, r_col, r_p, r_t in [("✨ AETHER", c1, "ae_c", "aether"), ("🛡️ NEXUS", c2, "n_c", "nexus"), ("🧪 WICKHAM", c3, "w_c", "wickham")]:
-            with r_col:
-                st.subheader(r_ad)
-                top = sorted(gunun_analizleri, key=lambda x: x['res'].get(r_p, 0), reverse=True)[:5]
-                for m in top:
+        # 4'LÜ KUPON TASARIMI (Tıpkı Global AI gibi!)
+        c1, c2, c3, c4 = st.columns(4)
+        
+        kuponlar = [
+            ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
+            ("💎 İDEAL", c2, "ae_c", "aether", "#58A6FF"), # İdeal için farklı bir sıralama eklenebilir
+            ("🔥 ÜST", c3, "total_xg", "spec", "#d73a49"),
+            ("🛡️ ALT", c4, "s_p", "nexus", "#0366d6")
+        ]
+
+        for title, col, sort_key, t_key, color in kuponlar:
+            with col:
+                st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
+                
+                # Sıralama mantığı
+                top_5 = sorted(gunun_analizleri, key=lambda x: x['res'].get(sort_key, 0), reverse=True)[:5]
+                
+                for m in top_5:
+                    tahmin = m['res'].get(t_key, "Analiz Yok")
                     st.markdown(f"""
-                    <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #58A6FF; margin-bottom:10px;">
-                        <small>{m['l_ad']}</small><br>
+                    <div class="coupon-item">
                         <b>{m['teams']['home']['name']} - {m['teams']['away']['name']}</b><br>
-                        <span style="color:#3fb950;">{m['res'][r_t]}</span>
-                        <span style="float:right;">%{int(m['res'][r_p])}</span>
+                        <small>{m['l_ad']}</small><br>
+                        <span style="color:#3fb950;">{tahmin}</span>
                     </div>
                     """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
