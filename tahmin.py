@@ -759,70 +759,48 @@ if mod == "🏠 Canlı Skorlar":
 elif mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı & Avrupa Havuzu")
     
-    # --- 1. ÜST PANEL: HAFTA VE ROBOT SEÇİMİ ---
+    # --- 1. ÜST PANEL: AYARLAR ---
     c_h, c_r = st.columns(2)
     with c_h:
-        # Global AI ile senkronize hafta seçimi
         s_sec = st.selectbox("📅 Analiz Haftası", list(range(1, 11)), index=site_h_aktif-1, key="tr_hafta")
     with c_r:
-        # Robot Filtresi
         robot_secim = st.selectbox("🤖 Uzman Robot Filtresi", ["AETHER (Denge)", "WICKHAM (Hücum)", "NEXUS (Savunma)", "SPEKTRUM (Sürpriz)"], key="tr_robot")
 
-    # Robot anahtarlarını eşleştirelim
+    # Robot Map'lemeleri
     r_key_map = {"AETHER (Denge)": "ae_c", "WICKHAM (Hücum)": "w_c", "NEXUS (Savunma)": "n_c", "SPEKTRUM (Sürpriz)": "sp_c"}
     r_val_map = {"AETHER (Denge)": "aether", "WICKHAM (Hücum)": "wickham", "NEXUS (Savunma)": "nexus", "SPEKTRUM (Sürpriz)": "spec"}
     aktif_r_puan = r_key_map[robot_secim]
     aktif_r_tahmin = r_val_map[robot_secim]
 
-    # --- 2. VERİ KAYNAĞI SEÇİMİ ---
-    tab1, tab2 = st.tabs(["🏛️ Lig Bazlı Tarama", "🚀 Tüm Avrupa'yı Güncelle"])
-
-    with tab1:
-        lig_secenekleri = {
-            "🇹🇷 Süper Lig": "4339", "🇹🇷 TFF 1. Lig": "4491",
-            "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier Lig": "4328", "🇪🇸 La Liga": "4335",
-            "🇩🇪 Bundesliga": "4331", "🇮🇹 Serie A": "4332", "🇫🇷 Ligue 1": "4334"
-        }
-        secilen_lig_ad = st.selectbox("🎯 Hedef Lig", list(lig_secenekleri.keys()))
-        secilen_lig_id = lig_secenekleri[secilen_lig_ad]
-
-        if st.button(f"🔍 {secilen_lig_ad} Analizini Başlat"):
-            with st.spinner("Veriler işleniyor..."):
-                f_raw = world_veri_al(f"eventsnextleague.php?id={secilen_lig_id}").get('events', [])
-                p_raw = world_veri_al(f"eventspastleague.php?id={secilen_lig_id}").get('events', [])
-                
-                # Hafıza formatına çevir
-                hafiza = []
-                for m in p_raw:
-                    hafiza.append({'homeTeam':{'name':m['strHomeTeam']}, 'awayTeam':{'name':m['strAwayTeam']}, 'status':'FINISHED', 
-                                   'score':{'fullTime':{'home':int(m['intHomeScore'] or 0), 'away':int(m['intAwayScore'] or 0)}}, 'matchday':1})
-                
-                st.session_state.tr_fikstur = f_raw
-                st.session_state.tr_hafiza = list(hafiza) # list() ile kopyalıyoruz
-
-    with tab2:
-        st.write("Avrupa'nın 20'den fazla ligini (Alt ligler dahil) tek tıkla tarayın.")
-        if st.button("🔄 Avrupa Havuzunu Güncelle (Dev Tarama)"):
+    # --- 2. ANA TETİKLEYİCİ BUTON ---
+    if st.button("🚀 TÜM AVRUPA VE ALT LİGLERİ ŞİMDİ TARA", use_container_width=True):
+        with st.spinner("🌍 20+ Lig ve Binlerce Maç Taranıyor... Bu işlem 30-40 saniye sürebilir."):
             fikstur, hafiza = tum_ligleri_tara()
+            # Verileri hafızaya mühürle
             st.session_state.tr_fikstur = fikstur
             st.session_state.tr_hafiza = hafiza
+            st.session_state.analiz_yapildi = True # Analizin bittiğine dair bayrak
+            st.rerun() # Sayfayı yenileyerek kuponları göster
 
-    # --- 3. ANALİZ VE GÖRÜNTÜLEME ---
+    # --- 3. ANALİZ MOTORU VE GÖRÜNTÜLEME ---
+    # Eğer veri hafızadaysa, lig seçimi BEKLEMEDEN kuponları oluştur
     if 'tr_fikstur' in st.session_state and st.session_state.tr_fikstur:
         fixtures = st.session_state.tr_fikstur
         hafiza = st.session_state.tr_hafiza
         
-        with st.spinner("🤖 Robotlar maçları süzgeçten geçiriyor..."):
+        with st.spinner("🤖 Robotlar tüm havuzdan en iyi maçları seçiyor..."):
             gunun_analizleri = []
-            # Performans için ilk 50 maçı analiz et
-            for f in fixtures[:50]:
+            # Tüm havuzu tara (Hız için ilk 100 maça bakabiliriz, veya hepsine)
+            for f in fixtures:
                 res = analiz_et(f['strHomeTeam'], f['strAwayTeam'], hafiza, s_sec)
                 if res:
                     f.update({'res': res})
                     gunun_analizleri.append(f)
 
         if gunun_analizleri:
+            st.success(f"✅ Toplam {len(fixtures)} maç içinden en iyi analizler çıkarıldı.")
             st.divider()
+            
             # --- 4'LÜ KUPON TASARIMI ---
             c1, c2, c3, c4 = st.columns(4)
             kupon_config = [
@@ -832,29 +810,27 @@ elif mod == "🤖 Tahmin Robotu":
                 ("🛡️ ALT", c4, "s_p", "nexus", "#0366d6")
             ]
 
-            # Eğer kullanıcı özel bir robot seçtiyse, kuponları o robota göre önceliklendir
             for title, col, sort_key, t_key, color in kupon_config:
-                # Kullanıcının seçtiği robotun güven puanını sıralama kriteri olarak kullan
+                # Robot seçimine göre dinamik önceliklendirme
                 final_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
                 final_tahmin = aktif_r_tahmin if title in ["⭐ BANKO", "💎 İDEAL"] else t_key
 
                 with col:
                     st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
+                    # Tüm havuzdaki en iyi 5 maçı seçiyoruz (Lig ayrımı yapmadan!)
                     top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(final_sort, 0), reverse=True)[:5]
                     
                     for m in top_matches:
                         st.markdown(f"""
                         <div class="coupon-item">
-                            <small style="color:#8b949e;">{m.get('lig_etiket', 'Lig')}</small><br>
+                            <small style="color:#8b949e;">{m.get('lig_etiket', 'Avrupa')}</small><br>
                             <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
                             <span style="color:#3fb950;">{m['res'][final_tahmin]}</span>
                             <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'][final_sort])}</span>
                         </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.warning("Seçilen kriterlere göre analiz üretilemedi.")
     else:
-        st.info("💡 Analizleri görmek için bir lig seçin veya Avrupa havuzunu güncelleyin.")
+        st.info("💡 Yukarıdaki butona basarak tüm Avrupa ve Alt Lig bültenini radarımıza alabilirsiniz.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
