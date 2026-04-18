@@ -142,10 +142,15 @@ def otonom_arsiv_guncelle():
     
     st.session_state.otonom_kayitlar = arsiv
 
-# --- 🚀 ÇALIŞTIRMA ---
+# --- 🚀 ÇALIŞTIRMA SIRALAMASI (BURASI ÇOK KRİTİK) ---
+
+# 1. Önce değişkeni hesapla (Her şeyden önce bu gelmeli!)
+simdi = datetime.now()
+site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
+
+# 2. Sonra bu değişkeni kullanan fonksiyonları çağır
 otomatik_muhur_tetikleyici()
 otonom_arsiv_guncelle()
-
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
     <style>
