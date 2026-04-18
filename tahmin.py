@@ -110,8 +110,8 @@ def otomatik_muhur_tetikleyici():
 
 # --- 🏆 OTONOM BAŞARI ARŞİVLEME ---
 def otonom_arsiv_guncelle():
+    global site_h_aktif  # Bu satırı fonksiyonun en başına ekleyebilirsin
     arsiv = kara_kutu_oku()
-    guncelleme_var_mi = False
     
     # Bitmiş haftaların sonuçlarını hesapla (1. haftadan mevcut haftaya kadar)
     for h_no in range(1, site_h_aktif + 1):
