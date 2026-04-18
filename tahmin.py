@@ -550,44 +550,59 @@ if mod == "🏠 Canlı Skorlar":
 elif mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı (TSDB Hafıza Motoru)")
     
-    lig_secenekleri = {"🇹🇷 Süper Lig": "4339", "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier Lig": "4328", "🇪🇸 La Liga": "4335"}
+    # Lig ID'lerini tanımlıyoruz (TSDB Kodları)
+    lig_secenekleri = {
+        "🇹🇷 Süper Lig": "4339", 
+        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier Lig": "4328", 
+        "🇪🇸 La Liga": "4335",
+        "🇩🇪 Bundesliga": "4331"
+    }
     secilen_lig_ad = st.sidebar.selectbox("🎯 Hedef Lig", list(lig_secenekleri.keys()))
     secilen_lig_id = lig_secenekleri[secilen_lig_ad]
 
-    with st.spinner(f"🔭 {secilen_lig_ad} verileri derinlemesine taranıyor..."):
-        # 1. Gelecek maçları çek
-        fixtures = world_veri_al(f"eventsnextleague.php?id={secilen_lig_id}").get('events', [])
+    with st.spinner(f"🔭 {secilen_lig_ad} hafıza kayıtları yükleniyor..."):
+        # 1. ADIM: Gelecek maçları (fikstür) çekiyoruz
+        fixtures_raw = world_veri_al(f"eventsnextleague.php?id={secilen_lig_id}")
+        fixtures = fixtures_raw.get('events', [])
         
-        # 2. Analiz için ligin son maçlarını (genel form) çek
-        last_matches_raw = world_veri_al(f"eventspastleague.php?id={secilen_lig_id}").get('events', [])
+        # 2. ADIM: Robotun analiz yapabilmesi için ligin son 15 maçını çekiyoruz
+        # Bu maçlar, robotun xG ve form durumunu hesaplaması için 'matches' listesi olacak
+        last_matches_raw = world_veri_al(f"eventspastleague.php?id={secilen_lig_id}")
+        last_events = last_matches_raw.get('events', [])
         
-        # TSDB verisini robotun anlayacağı (analiz_et'in beklediği) dile çeviriyoruz
-        past_matches = []
-        for m in last_matches_raw:
-            past_matches.append({
-                'homeTeam': {'name': m['strHomeTeam']},
-                'awayTeam': {'name': m['strAwayTeam']},
-                'status': 'FINISHED',
-                'score': {'fullTime': {'home': int(m['intHomeScore'] or 0), 'away': int(m['intAwayScore'] or 0)}},
-                'matchday': 0
-            })
+        # TSDB verisini robotun 'analiz_et' fonksiyonunun beklediği formata çeviriyoruz
+        hafiza_listesi = []
+        if last_events:
+            for m in last_events:
+                hafiza_listesi.append({
+                    'homeTeam': {'name': m['strHomeTeam']},
+                    'awayTeam': {'name': m['strAwayTeam']},
+                    'status': 'FINISHED',
+                    'score': {
+                        'fullTime': {
+                            'home': int(m['intHomeScore'] or 0), 
+                            'away': int(m['intAwayScore'] or 0)
+                        }
+                    },
+                    'matchday': int(m.get('intRound', 0))
+                })
 
     if not fixtures:
-        st.warning("Yakın zamanda maç görünmüyor.")
+        st.warning(f"⚠️ {secilen_lig_ad} için yakında oynanacak maç bulunamadı.")
     else:
         gunun_analizleri = []
         for f in fixtures:
-            # Robotun analiz motorunu besliyoruz
-            res = analiz_et(f['strHomeTeam'], f['strAwayTeam'], past_matches, site_h_aktif)
+            # KRİTİK NOKTA: Robot artık 'hafiza_listesi' sayesinde geçmişi biliyor!
+            res = analiz_et(f['strHomeTeam'], f['strAwayTeam'], hafiza_listesi, site_h_aktif)
             
             if res:
                 f.update({'res': res})
                 gunun_analizleri.append(f)
 
         if not gunun_analizleri:
-            st.error("🤖 Robotlar hala veriyi işleyemedi. 'analiz_et' içindeki kısıtlamayı kaldırın.")
+            st.error("🤖 Robotlar geçmiş veriye rağmen analiz üretemedi. 'analiz_et' içindeki filtreleri (if len < 5) kontrol edin.")
         else:
-            # 4'LÜ KUPON TASARIMI
+            # --- 4'LÜ KUPON TASARIMI ---
             c1, c2, c3, c4 = st.columns(4)
             kupon_config = [
                 ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
@@ -599,14 +614,12 @@ elif mod == "🤖 Tahmin Robotu":
             for title, col, sort_key, t_key, color in kupon_config:
                 with col:
                     st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
-                    # Robotun güven puanına göre sırala
                     top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(sort_key, 0), reverse=True)[:5]
                     for m in top_matches:
-                        tahmin = m['res'].get(t_key, "---")
                         st.markdown(f"""
                         <div class="coupon-item">
                             <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
-                            <span style="color:#3fb950;">{tahmin}</span>
+                            <span style="color:#3fb950;">{m['res'][t_key]}</span>
                         </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 elif mod == "Global AI":
