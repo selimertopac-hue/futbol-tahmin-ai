@@ -548,52 +548,44 @@ if mod == "🏠 Canlı Skorlar":
             """, unsafe_allow_html=True)
 
 elif mod == "🤖 Tahmin Robotu":
-    st.title("🌍 Küresel Tahmin Radarı (TSDB Motoru)")
+    st.title("🌍 Küresel Tahmin Radarı (TSDB Hafıza Motoru)")
     
-    # 1. Lig Seçimi (TheSportsDB'de lig bazlı gitmek daha sağlıklıdır)
-    lig_secenekleri = {
-        "🇹🇷 Süper Lig": "4339",
-        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier Lig": "4328",
-        "🇪🇸 La Liga": "4335",
-        "🇩🇪 Bundesliga": "4331",
-        "🇮🇹 Serie A": "4332",
-        "🇫🇷 Ligue 1": "4334"
-    }
+    lig_secenekleri = {"🇹🇷 Süper Lig": "4339", "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier Lig": "4328", "🇪🇸 La Liga": "4335"}
     secilen_lig_ad = st.sidebar.selectbox("🎯 Hedef Lig", list(lig_secenekleri.keys()))
     secilen_lig_id = lig_secenekleri[secilen_lig_ad]
 
-    st.info(f"📊 {secilen_lig_ad} için yaklaşan maçlar analiz ediliyor...")
-
-    with st.spinner("🔭 Veri havuzu taranıyor..."):
-        # TheSportsDB 'eventsnextleague.php' endpoint'i ile gelecek maçları çeker
-        raw_data = world_veri_al(f"eventsnextleague.php?id={secilen_lig_id}")
-        fixtures = raw_data.get('events', [])
+    with st.spinner(f"🔭 {secilen_lig_ad} verileri derinlemesine taranıyor..."):
+        # 1. Gelecek maçları çek
+        fixtures = world_veri_al(f"eventsnextleague.php?id={secilen_lig_id}").get('events', [])
+        
+        # 2. Analiz için ligin son maçlarını (genel form) çek
+        last_matches_raw = world_veri_al(f"eventspastleague.php?id={secilen_lig_id}").get('events', [])
+        
+        # TSDB verisini robotun anlayacağı (analiz_et'in beklediği) dile çeviriyoruz
+        past_matches = []
+        for m in last_matches_raw:
+            past_matches.append({
+                'homeTeam': {'name': m['strHomeTeam']},
+                'awayTeam': {'name': m['strAwayTeam']},
+                'status': 'FINISHED',
+                'score': {'fullTime': {'home': int(m['intHomeScore'] or 0), 'away': int(m['intAwayScore'] or 0)}},
+                'matchday': 0
+            })
 
     if not fixtures:
-        st.warning(f"⚠️ {secilen_lig_ad} için yakında oynanacak (veya API'de tanımlı) maç bulunamadı.")
-        # Alternatif: Son oynanan maçları gösterelim mi?
-        if st.button("Son Oynanan Maçları Getir"):
-            raw_data = world_veri_al(f"eventspastleague.php?id={secilen_lig_id}")
-            fixtures = raw_data.get('events', [])
-            st.rerun()
+        st.warning("Yakın zamanda maç görünmüyor.")
     else:
         gunun_analizleri = []
         for f in fixtures:
-            ev_ad = f.get('strHomeTeam')
-            dep_ad = f.get('strAwayTeam')
-            
-            # --- ROBOT ANALİZİ ---
-            # Not: TSDB'den geçmiş maçları çekip analiz_et'e göndermediğimiz için 
-            # analiz_et fonksiyonunun içindeki 'if len(df_raw) < 5: return None' 
-            # satırını geçici olarak devre dışı bırakman gerekebilir!
-            res = analiz_et(ev_ad, dep_ad, [], site_h_aktif)
+            # Robotun analiz motorunu besliyoruz
+            res = analiz_et(f['strHomeTeam'], f['strAwayTeam'], past_matches, site_h_aktif)
             
             if res:
                 f.update({'res': res})
                 gunun_analizleri.append(f)
 
         if not gunun_analizleri:
-            st.error("🤖 Robotlar veri yetersizliği nedeniyle analiz üretemedi. (analiz_et fonksiyonunu kontrol edin)")
+            st.error("🤖 Robotlar hala veriyi işleyemedi. 'analiz_et' içindeki kısıtlamayı kaldırın.")
         else:
             # 4'LÜ KUPON TASARIMI
             c1, c2, c3, c4 = st.columns(4)
