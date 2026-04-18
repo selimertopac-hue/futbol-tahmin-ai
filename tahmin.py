@@ -58,22 +58,20 @@ def tum_ligleri_tara():
     islem_kutusu = st.empty()
     
     for l_ad, l_id in ligler.items():
-        islem_kutusu.info(f"📡 {l_ad} taranıyor...")
+        # DÖNGÜ BAŞINDA LİG İSMİNİ SABİTLE
+        aktif_lig = str(l_ad) 
+        islem_kutusu.info(f"📡 {aktif_lig} taranıyor...")
         
-        # GELECEK MAÇLAR
         f_data = world_veri_al(f"eventsnextleague.php?id={l_id}")
         if f_data and isinstance(f_data.get('events'), list):
             for f in f_data['events']:
-                # 🔥 BURASI ÇOK KRİTİK: Maçı yeni bir sözlük olarak oluşturuyoruz
-                # f.copy() yerine direkt anahtarları atıyoruz ki lig ismi karışmasın!
-                mac = {
-                    'strHomeTeam': f.get('strHomeTeam'),
-                    'strAwayTeam': f.get('strAwayTeam'),
-                    'lig_etiket': str(l_ad) # Lig ismini o anki değerle mühürledik
-                }
-                tum_fikstur.append(mac)
+                # REFERANSI KOPARARAK YENİ OBJE OLUŞTUR
+                tum_fikstur.append({
+                    'home': f.get('strHomeTeam'),
+                    'away': f.get('strAwayTeam'),
+                    'lig': aktif_lig # Lig ismini buraya çiviledik
+                })
         
-        # GEÇMİŞ MAÇLAR (Hafıza)
         h_data = world_veri_al(f"eventspastleague.php?id={l_id}")
         if h_data and isinstance(h_data.get('events'), list):
             for m in h_data['events']:
@@ -81,12 +79,7 @@ def tum_ligleri_tara():
                     'homeTeam': {'name': m['strHomeTeam']},
                     'awayTeam': {'name': m['strAwayTeam']},
                     'status': 'FINISHED',
-                    'score': {
-                        'fullTime': {
-                            'home': int(m['intHomeScore'] or 0), 
-                            'away': int(m['intAwayScore'] or 0)
-                        }
-                    },
+                    'score': {'fullTime': {'home': int(m['intHomeScore'] or 0), 'away': int(m['intAwayScore'] or 0)}},
                     'matchday': int(m.get('intRound', 1))
                 })
 
