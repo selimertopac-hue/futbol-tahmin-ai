@@ -26,7 +26,7 @@ SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
 
 # --- YENİ DÜNYA RADARI (THESPORTSDB VERSION) ---
-TSDB_API_KEY = "3" # Ücretsiz test anahtarı genelde 3'tür, kendi anahtarını aldıysan onu yaz
+TSDB_API_KEY = "3" 
 TSDB_BASE_URL = f"https://www.thesportsdb.com/api/v1/json/{TSDB_API_KEY}/"
 
 def world_veri_al(endpoint, params={}):
@@ -37,6 +37,56 @@ def world_veri_al(endpoint, params={}):
         return response.json()
     except Exception as e:
         return {"errors": str(e)}
+def tum_ligleri_tara():
+    ligler = {
+        "Türkiye Süper Lig": "4339", "Türkiye 1. Lig": "4491",
+        "Hollanda Eredivisie": "4337", "Hollanda Eerste Divisie": "4403",
+        "Belçika Pro League": "4333", "Belçika Challenger Pro": "4525",
+        "İskoçya Premiership": "4330", "İskoçya Championship": "4395",
+        "İngiltere Premier": "4328", "İngiltere Championship": "4329",
+        "İspanya La Liga": "4335", "İspanya Segunda": "4400",
+        "Almanya Bundesliga": "4331", "Almanya 2. Bundesliga": "4338",
+        "İtalya Serie A": "4332", "İtalya Serie B": "4401",
+        "Fransa Ligue 1": "4334", "Fransa Ligue 2": "4402",
+        "İsveç Allsvenskan": "4340", "İsviçre Super League": "4344",
+        "Rusya Premier": "4351", "Hırvatistan HNL": "4415",
+        "Bosna Premier": "4410"
+    }
+    
+    tum_fikstur = []
+    tum_hafiza = []
+    
+    islem_kutusu = st.empty()
+    
+    for lig_ad, lig_id in ligler.items():
+        islem_kutusu.info(f"📡 {lig_ad} verileri radarımıza giriyor...")
+        
+        # Gelecek Maçlar
+        f_data = world_veri_al(f"eventsnextleague.php?id={lig_id}")
+        if f_data and f_data.get('events'):
+            events = f_data['events']
+            for f in events: f['lig_etiket'] = lig_ad
+            tum_fikstur.extend(events)
+        
+        # Geçmiş Maçlar (Robotların Hafızası)
+        h_data = world_veri_al(f"eventspastleague.php?id={lig_id}")
+        if h_data and h_data.get('events'):
+            for m in h_data['events']:
+                tum_hafiza.append({
+                    'homeTeam': {'name': m['strHomeTeam']},
+                    'awayTeam': {'name': m['strAwayTeam']},
+                    'status': 'FINISHED',
+                    'score': {
+                        'fullTime': {
+                            'home': int(m['intHomeScore'] or 0), 
+                            'away': int(m['intAwayScore'] or 0)
+                        }
+                    },
+                    'matchday': int(m.get('intRound', 1))
+                })
+
+    islem_kutusu.success("🌍 Tüm Avrupa ve Alt Ligler başarıyla analiz edildi!")
+    return tum_fikstur, tum_hafiza        
 def takim_gecmisi_al(team_id):
     """Robotun analiz yapabilmesi için takımın son 5 maçını çeker."""
     params = {'team': team_id, 'last': 5}
