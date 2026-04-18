@@ -804,12 +804,10 @@ if mod == "🏠 Canlı Skorlar":
 elif mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı & Avrupa Havuzu")
     
-    # 1. HAFIZA TEMİZLİĞİ (Sidebar'a ekliyoruz, mutlaka bas!)
-    if st.sidebar.button("🗑️ Tüm Analizleri ve Cache'i Sıfırla"):
+    # Cache temizleme butonu
+    if st.sidebar.button("🗑️ Cache Temizle"):
         st.cache_data.clear()
-        for k in list(st.session_state.keys()):
-            if k.startswith("tr_") or k == "analiz_yapildi":
-                del st.session_state[k]
+        st.session_state.clear()
         st.rerun()
 
     c_h, c_r = st.columns(2)
@@ -831,28 +829,23 @@ elif mod == "🤖 Tahmin Robotu":
             st.rerun()
 
     if 'tr_fikstur' in st.session_state:
-        # --- ANALİZ DÖNGÜSÜ (EN KRİTİK YER) ---
         with st.spinner("🤖 Robotlar dürüstlük filtresinden geçiriliyor..."):
-            # Analizleri yerel bir listede topla, session_state'den bağımsız çalış
             ham_liste = []
             for f in st.session_state.tr_fikstur:
-                # Robotu çalıştır
-                res = analiz_et(f['strHomeTeam'], f['strAwayTeam'], st.session_state.tr_hafiza, s_sec)
+                # ANALİZ ET
+                res = analiz_et(f['home'], f['away'], st.session_state.tr_hafiza, s_sec)
                 
-                # 🛑 ÇELİK FİLTRE: Notu "Analiz Tamamlandı" olmayan veya puanı 0 olanı ÇÖPE AT
+                # 🔥 KRİTİK FİLTRE: "✅ Analiz Tamamlandı" NOTU OLMAYANI ASLA ALMA
                 if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get(aktif_r_puan, 0) > 0:
-                    # Yeni bir obje oluştur ki referanslar karışmasın
-                    analizli_mac = {
-                        'ev': f['strHomeTeam'],
-                        'dep': f['strAwayTeam'],
-                        'lig': f.get('lig_etiket', 'Avrupa'),
+                    ham_liste.append({
+                        'ev': f['home'],
+                        'dep': f['away'],
+                        'lig': f['lig'],
                         'res': res
-                    }
-                    ham_liste.append(analizli_mac)
+                    })
 
         if ham_liste:
             st.success(f"✅ Filtrelerden geçen {len(ham_liste)} gerçek maç bulundu.")
-            
             c1, c2, c3, c4 = st.columns(4)
             kupon_config = [
                 ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
@@ -864,11 +857,10 @@ elif mod == "🤖 Tahmin Robotu":
             for title, col, sort_key, t_key, color in kupon_config:
                 with col:
                     st.markdown(f'<div class="editor-card" style="border-top-color:{color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
-                    
-                    # Sıralama: Seçilen robota göre veya xG/Savunmaya göre
                     f_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
                     f_tahmin = aktif_r_tahmin if title in ["⭐ BANKO", "💎 İDEAL"] else t_key
                     
+                    # Sıralama ve ilk 5
                     top_5 = sorted(ham_liste, key=lambda x: x['res'].get(f_sort, 0), reverse=True)[:5]
                     
                     for m in top_5:
@@ -876,12 +868,12 @@ elif mod == "🤖 Tahmin Robotu":
                         <div class="coupon-item">
                             <small style="color:#8b949e;">{m['lig']}</small><br>
                             <b>{m['ev']} - {m['dep']}</b><br>
-                            <span style="color:#3fb950;">{m['res'].get(f_tahmin, '?.?')}</span>
-                            <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'].get(f_sort, 0))}</span>
+                            <span style="color:#3fb950;">{m['res'].get(f_tahmin)}</span>
+                            <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'].get(f_sort))}</span>
                         </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.warning("🤖 Robotlar 'Gerçek Analiz' kriterine uyan maç bulamadı. Lütfen 'Tüm Ligleri Tara' butonuyla veriyi güncelleyin.")
+            st.warning("🤖 Analiz edilebilir maç bulunamadı. Lütfen taramayı tazeleyin.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
