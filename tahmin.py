@@ -55,11 +55,12 @@ def check_hit(liste, tip):
 
 import json
 import os
+from datetime import datetime
 
 ARSIV_DOSYASI = "ai_arsiv.json"
 
+# --- 🛠️ TEMEL YAZMA/OKUMA FONKSİYONLARI ---
 def kara_kutu_oku():
-    """JSON dosyasından geçmiş başarıları yükler."""
     if os.path.exists(ARSIV_DOSYASI):
         with open(ARSIV_DOSYASI, "r", encoding="utf-8") as f:
             try:
@@ -69,88 +70,79 @@ def kara_kutu_oku():
     return {}
 
 def kara_kutu_yaz(veri):
-    """Verileri JSON dosyasına kalıcı olarak mühürler."""
     with open(ARSIV_DOSYASI, "w", encoding="utf-8") as f:
         json.dump(veri, f, ensure_ascii=False, indent=4)
 
+# --- 🔐 BETON MÜHÜRLEME (DEĞİŞMEYEN KUPONLAR) ---
 def otomatik_muhur_tetikleyici():
-    """Cuma 12:00 geldiğinde mevcut bülteni otomatik olarak mühürler."""
+    """Mühürü hem session_state'e hem de JSON dosyasına kalıcı olarak işler."""
     simdi = datetime.now()
-    # Cuma günü ve saat 12:00 sonrası
+    arsiv = kara_kutu_oku()
+    
+    # Cuma 12:00 sonrası mühürleme kontrolü
     if simdi.weekday() == 4 and simdi.hour >= 12:
         filtre_anahtar = "AETHER_AI_Master"
         muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
         
-        # KRİTİK: Eğer mühür yoksa VEYA mühür var ama içi boşsa (banko yoksa) tekrar dene
-        if muhur_anahtari not in st.session_state or not st.session_state[muhur_anahtari].get("banko"):
-            
-            # Hafızadaki en taze verileri çekmeye çalışıyoruz
+        # 1. ÖNCE DOSYADA (JSON) VAR MI BAK? (Varsa oradan çek, asla değiştirme)
+        if f"m_k_{site_h_aktif}" in arsiv:
+            st.session_state[muhur_anahtari] = arsiv[f"m_k_{site_h_aktif}"]
+            return
+
+        # 2. DOSYADA YOKSA VE HAFIZADA VERİ VARSA YENİ MÜHÜR BAS
+        # 'son_bankolar' gibi verilerin dolu olduğundan emin olmalıyız
+        if muhur_anahtari not in st.session_state:
             guncel_banko = st.session_state.get('son_bankolar', [])
             
-            # SADECE VERİ VARSA MÜHÜR BAS (Boş mühürlenmeyi engeller)
             if guncel_banko:
-                st.session_state[muhur_anahtari] = {
+                m_veri = {
                     "banko": guncel_banko,
                     "ideal": st.session_state.get('son_idealler', []),
                     "ust": st.session_state.get('son_ustler', []),
                     "alt": st.session_state.get('son_altlar', [])
                 }
-                st.toast(f"🎯 {site_h_aktif}. Hafta Başarıyla Mühürlendi!")
+                # Hem hafızaya al
+                st.session_state[muhur_anahtari] = m_veri
+                # Hem de JSON'a 'm_k_X' (Mühürlü Kupon) olarak kalıcı işle
+                arsiv[f"m_k_{site_h_aktif}"] = m_veri
+                kara_kutu_yaz(arsiv)
+                st.toast(f"🎯 {site_h_aktif}. Hafta MÜHÜRLENDİ VE ARŞİVLENDİ!")
 
+# --- 🏆 OTONOM BAŞARI ARŞİVLEME ---
 def otonom_arsiv_guncelle():
-    # 1. Önce Kara Kutu'daki (dosyadaki) verileri çek
     arsiv = kara_kutu_oku()
-    
-    # 2. Bitmiş haftaları tara
     guncelleme_var_mi = False
-    for h_no in range(1, site_h_aktif):
+    
+    # Bitmiş haftaların sonuçlarını hesapla (1. haftadan mevcut haftaya kadar)
+    for h_no in range(1, site_h_aktif + 1):
         h_key = str(h_no)
+        m_key = f"m_k_{h_no}" # JSON'daki mühürlü kupon anahtarı
         
-        if h_key not in arsiv:
-            filtre_anahtar = "AETHER_AI_Master" 
-            muhur_anahtari = f"muhur_{h_no}_{filtre_anahtar}"
+        # Eğer bu hafta mühürlenmişse ama özeti (başarı puanı) henüz yazılmamışsa
+        if m_key in arsiv and (h_key not in arsiv or arsiv[h_key].get("durum") != "KAPALİ"):
+            m_kupon = arsiv[m_key]
             
-            # Eğer mühür hafızadaysa VE içi doluysa arşive işle
-            if muhur_anahtari in st.session_state:
-                m_kupon = st.session_state[muhur_anahtari]
-                
-                # Eğer mühürün içi boşsa bu haftayı atla (Kara Kutuya çöp veri yazma)
-                if not m_kupon.get("banko"):
-                    continue
+            # Haftanın sonuçlarını check_hit ile hesapla
+            b_skor = check_hit(m_kupon.get("banko", []), "banko")
+            i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
+            u_skor = check_hit(m_kupon.get("ust", []), "ust")
+            a_skor = check_hit(m_kupon.get("alt", []), "alt")
+            
+            puan = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
+            
+            # Arşiv özetini oluştur
+            arsiv[h_key] = {
+                "W": {"b": f"{b_skor}/5", "i": f"{i_skor}/5", "u": f"{u_skor}/5", "a": f"{a_skor}/5", "p": puan},
+                "durum": "KAPALİ" if h_no < site_h_aktif else "AÇIK"
+            }
+            guncelleme_var_mi = True
 
-                haftalik_ozet = {}
-                for r_id, r_ad in [("W", "WICKHAM"), ("A", "AETHER"), ("N", "NEXUS"), ("S", "STANDART"), ("SP", "SPEKTRUM")]:
-                    # check_hit fonksiyonuna mühürlü kuponu gönderiyoruz
-                    b_skor = check_hit(m_kupon.get("banko", []), "banko")
-                    i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
-                    u_skor = check_hit(m_kupon.get("ust", []), "ust")
-                    a_skor = check_hit(m_kupon.get("alt", []), "alt")
-                    
-                    p = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
-                    
-                    haftalik_ozet[r_id] = {
-                        "b": f"✅ {b_skor}/5" if b_skor < 5 else "🏆 5/5",
-                        "i": f"✅ {i_skor}/5" if i_skor < 5 else "💎 5/5",
-                        "u": f"✅ {u_skor}/5" if u_skor < 5 else "🔥 5/5",
-                        "a": f"✅ {a_skor}/5" if a_skor < 5 else "🛡️ 5/5",
-                        "p": p,
-                        "t": "Kara Kutu ✅"
-                    }
-                
-                arsiv[h_key] = haftalik_ozet
-                guncelleme_var_mi = True
-
-    # 3. Yeni veri işlendiyse dosyayı güncelle
     if guncelleme_var_mi:
         kara_kutu_yaz(arsiv)
     
-    # 4. Global erişim için session_state'e aktar
     st.session_state.otonom_kayitlar = arsiv
 
-# --- ÇALIŞTIRMA SIRALAMASI ---
-simdi = datetime.now()
-site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
-
+# --- 🚀 ÇALIŞTIRMA ---
 otomatik_muhur_tetikleyici()
 otonom_arsiv_guncelle()
 
