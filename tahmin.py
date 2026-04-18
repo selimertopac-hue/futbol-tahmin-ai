@@ -309,28 +309,92 @@ def winner(sk):
         return "X"
     except: return "?"
 
+# --- 1. GÖRSEL FORM NOKTALARI ---
 def get_form_dots(team_name, matches):
-    finished = [m for m in matches if m['status'] == 'FINISHED' and (m['homeTeam']['name'] == team_name or m['awayTeam']['name'] == team_name)]
-    finished = sorted(finished, key=lambda x: x['utcDate'], reverse=True)[:5]
+    # Status kontrolü ve takım ismi filtreleme
+    finished = [m for m in matches if m.get('status') == 'FINISHED' and (m['homeTeam']['name'] == team_name or m['awayTeam']['name'] == team_name)]
+    # Tarihe göre sırala ve son 5 maçı al
+    finished = sorted(finished, key=lambda x: x.get('utcDate', ''), reverse=True)[:5]
+    
     dots = ""
     for m in finished:
-        h_s, a_s = m['score']['fullTime']['home'], m['score']['fullTime']['away']
-        if m['homeTeam']['name'] == team_name: res = "W" if h_s > a_s else ("L" if a_s > h_s else "D")
-        else: res = "W" if a_s > h_s else ("L" if h_s > a_s else "D")
-        dots += f'<span class="form-dot form-{res}"></span>'
+        try:
+            h_s = m['score']['fullTime']['home']
+            a_s = m['score']['fullTime']['away']
+            if m['homeTeam']['name'] == team_name:
+                res = "W" if h_s > a_s else ("L" if a_s > h_s else "D")
+            else:
+                res = "W" if a_s > h_s else ("L" if h_s > a_s else "D")
+            dots += f'<span class="form-dot form-{res}"></span>'
+        except:
+            continue
     return f'<div style="margin-top:3px;">{dots}</div>'
 
+# --- 2. GÜNCELLENMİŞ AVRUPA RADARI ---
+def tum_ligleri_tara():
+    ligler = {
+        "Türkiye Süper Lig": "4339", "Türkiye 1. Lig": "4491",
+        "Hollanda Eredivisie": "4337", "Hollanda Eerste Divisie": "4403",
+        "Belçika Pro League": "4333", "Belçika Challenger Pro": "4525",
+        "İskoçya Premiership": "4330", "İskoçya Championship": "4395",
+        "İngiltere Premier": "4328", "İngiltere Championship": "4329",
+        "İspanya La Liga": "4335", "İspanya Segunda": "4400",
+        "Almanya Bundesliga": "4331", "Almanya 2. Bundesliga": "4338",
+        "İtalya Serie A": "4332", "İtalya Serie B": "4401",
+        "Fransa Ligue 1": "4334", "Fransa Ligue 2": "4402",
+        "İsveç Allsvenskan": "4340", "İsviçre Super League": "4344",
+        "Rusya Premier": "4351", "Hırvatistan HNL": "4415",
+        "Bosna Premier": "4410"
+    }
+    
+    tum_fikstur = []
+    tum_hafiza = []
+    
+    islem_kutusu = st.empty()
+    
+    for lig_ad, lig_id in ligler.items():
+        islem_kutusu.info(f"📡 {lig_ad} verileri radarımıza giriyor...")
+        
+        # Gelecek Maçlar (Fikstür)
+        f_data = world_veri_al(f"eventsnextleague.php?id={lig_id}")
+        if f_data and f_data.get('events'):
+            for f in f_data['events']:
+                # KRİTİK: Her maçı yeni bir kopya olarak oluşturup ligini mühürlüyoruz
+                yeni_mac = {
+                    'strHomeTeam': f.get('strHomeTeam'),
+                    'strAwayTeam': f.get('strAwayTeam'),
+                    'lig_etiket': lig_ad  
+                }
+                tum_fikstur.append(yeni_mac)
+        
+        # Geçmiş Maçlar (Hafıza)
+        h_data = world_veri_al(f"eventspastleague.php?id={lig_id}")
+        if h_data and h_data.get('events'):
+            for m in h_data['events']:
+                tum_hafiza.append({
+                    'homeTeam': {'name': m['strHomeTeam']},
+                    'awayTeam': {'name': m['strAwayTeam']},
+                    'status': 'FINISHED',
+                    'score': {
+                        'fullTime': {
+                            'home': int(m['intHomeScore'] or 0), 
+                            'away': int(m['intAwayScore'] or 0)
+                        }
+                    },
+                    'matchday': int(m.get('intRound', 1))
+                })
+
+    islem_kutusu.success("🌍 Tüm Avrupa ve Alt Ligler başarıyla analiz edildi!")
+    return tum_fikstur, tum_hafiza
+
+# --- 3. DÜRÜST ANALİZ MOTORU (POISSON) ---
 def analiz_et(ev, dep, matches, h_no):
     try:
-        # --- 🛡️ 1. İSİM NORMALİZE EDİCİ ---
         def temizle(metin):
             if not metin: return ""
             return str(metin).lower().strip().replace(" ", "").replace("ş", "s").replace("ç", "c").replace("ı", "i").replace("ğ", "g").replace("ö", "o").replace("ü", "u")
 
-        ev_t = temizle(ev)
-        dep_t = temizle(dep)
-
-        # --- 📊 2. VERİ AYIKLAMA ---
+        ev_t, dep_t = temizle(ev), temizle(dep)
         df_raw = []
         for m in matches:
             h_hafiza = temizle(m['homeTeam']['name'])
@@ -346,68 +410,50 @@ def analiz_et(ev, dep, matches, h_no):
                         'MD': m.get('matchday', 1)
                     })
 
-        # --- 🚀 3. ESNEK FİLTRE (Sallamayı Durduran Emniyet Kilidi) ---
-        # Veri 3 maçtan azsa robot "bilmiyorum" der ve 0 puan döner
+        # --- 🚀 EMNİYET KİLİDİ ---
         if len(df_raw) < 3: 
             return {
-                "std": "?.?", "s_c": 0, 
-                "spec": "?.?", "sp_c": 0,
-                "nexus": "?.?", "n_c": 0,
-                "wickham": "?.?", "w_c": 0,
-                "aether": "?.?", "ae_c": 0,
-                "total_xg": 0, "h_p": 0, "s_p": 0, "note": "❌ Yetersiz Veri"
+                "std": "?.?", "s_c": 0, "spec": "?.?", "sp_c": 0,
+                "nexus": "?.?", "n_c": 0, "wickham": "?.?", "w_c": 0,
+                "aether": "?.?", "ae_c": 0, "total_xg": 0, "h_p": 0, "s_p": 0, "note": "❌ Yetersiz Veri"
             }
 
-        # --- 📈 4. MATEMATİKSEL MOTOR (Poisson) ---
         df = pd.DataFrame(df_raw)
         l_e, l_d = df['HG'].mean(), df['AG'].mean()
-        
-        # Sıfıra bölünme hatası koruması
         if l_e == 0: l_e = 1.0
         if l_d == 0: l_d = 1.0
         
         def get_stats(team_name, is_h):
             t_clean = temizle(team_name)
-            # DataFrame içinde temizlenmiş isimlerle filtrele
             t_df = df[df.apply(lambda x: temizle(x['H' if is_h else 'A']) == t_clean, axis=1)].copy()
-            
             if t_df.empty: return l_e, l_d, 1.0
-            
             max_md = df['MD'].max() if df['MD'].max() > 0 else 1
             t_df['w'] = 1.0 + (t_df['MD'] / max_md)
-            
             g = (t_df['HG' if is_h else 'AG'] * t_df['w']).sum() / t_df['w'].sum()
             y = (t_df['AG' if is_h else 'HG'] * t_df['w']).sum() / t_df['w'].sum()
-            
-            # Son form durumu
-            recent = t_df.sort_values('MD', ascending=False).head(3)
-            e_rec = recent['HG' if is_h else 'AG'].mean()
+            e_rec = t_df.sort_values('MD', ascending=False).head(3)['HG' if is_h else 'AG'].mean()
             return g, y, e_rec
 
         e_g, e_y, e_rec = get_stats(ev, True)
         d_g, d_y, d_rec = get_stats(dep, False)
         
-        # xG Tahminleri (Poisson için temel)
         ex = (e_g / l_e) * (d_y / l_e) * l_e
         ax = (d_g / l_d) * (e_y / l_d) * l_d
         
+        from scipy.stats import poisson
         def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
-            # Güven puanı: Skorun olasılığı ve güç farkı
             prob = m[s[0], s[1]] * 100
             conf = min(99, int(prob * 3 + abs(e-a)*20 + 20))
             return f"{s[0]} - {s[1]}", conf
 
-        # --- 🤖 ROBOT ÇIKTILARINI HAZIRLA ---
-        r_s = sk(ex * 1.05, ax * 0.95)   # Standart
-        r_sp = sk(ex * 1.15, ax * 1.15) # Spektrum
-        r_nx = sk(ex * 0.9, ax * 1.1)   # Nexus
-        r_w = sk(ex * 1.1, ax * 0.8)    # Wickham
-        
-        # Aether Master Sentezi
-        ae_ex, ae_ax = (ex + ex*1.1 + ex*0.9)/3, (ax + ax*1.1 + ax*0.8)/3
-        r_ae = sk(ae_ex, ae_ax)
+        # Robot modellerini oluştur
+        r_s = sk(ex, ax)
+        r_sp = sk(ex * 1.2, ax * 1.2)
+        r_nx = sk(ex * 0.8, ax * 1.2)
+        r_w = sk(ex * 1.2, ax * 0.8)
+        r_ae = sk((ex + ex*1.1)/2, (ax + ax*1.1)/2)
 
         return {
             "std": r_s[0], "s_c": r_s[1],
@@ -419,8 +465,7 @@ def analiz_et(ev, dep, matches, h_no):
             "h_p": int(min(100, ex*40)), "s_p": int(min(100, (1/max(0.1, ax))*20)),
             "note": "✅ Analiz Tamamlandı"
         }
-    except Exception as e:
-        # Hata durumunda boş dönme, en azından hatayı logla
+    except:
         return None
         # --- 📈 4. MATEMATİKSEL MOTOR (Poisson) ---
         df = pd.DataFrame(df_raw)
