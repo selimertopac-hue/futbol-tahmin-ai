@@ -823,31 +823,29 @@ elif mod == "🤖 Tahmin Robotu":
 
     # --- 2. ANA TETİKLEYİCİ BUTON ---
     if st.button("🚀 TÜM AVRUPA VE ALT LİGLERİ ŞİMDİ TARA", use_container_width=True):
-        with st.spinner("🌍 20+ Lig ve Binlerce Maç Taranıyor... Bu işlem 30-40 saniye sürebilir."):
+        with st.spinner("🌍 20+ Lig Taranıyor..."):
             fikstur, hafiza = tum_ligleri_tara()
-            # Verileri hafızaya mühürle
             st.session_state.tr_fikstur = fikstur
             st.session_state.tr_hafiza = hafiza
-            st.session_state.analiz_yapildi = True # Analizin bittiğine dair bayrak
-            st.rerun() # Sayfayı yenileyerek kuponları göster
+            st.rerun()
 
     # --- 3. ANALİZ MOTORU VE GÖRÜNTÜLEME ---
-    # Eğer veri hafızadaysa, lig seçimi BEKLEMEDEN kuponları oluştur
     if 'tr_fikstur' in st.session_state and st.session_state.tr_fikstur:
         fixtures = st.session_state.tr_fikstur
         hafiza = st.session_state.tr_hafiza
         
-        with st.spinner("🤖 Robotlar tüm havuzdan en iyi maçları seçiyor..."):
+        with st.spinner("🤖 Robotlar havuzu süzüyor..."):
             gunun_analizleri = []
-            # Tüm havuzu tara (Hız için ilk 100 maça bakabiliriz, veya hepsine)
             for f in fixtures:
                 res = analiz_et(f['strHomeTeam'], f['strAwayTeam'], hafiza, s_sec)
-                if res:
+                
+                # 🔥 KRİTİK DÜZELTME 1: Robot "Yetersiz Veri" dediyse listeye ASLA alma
+                if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get(aktif_r_puan, 0) > 0:
                     f.update({'res': res})
                     gunun_analizleri.append(f)
 
         if gunun_analizleri:
-            st.success(f"✅ Toplam {len(fixtures)} maç içinden en iyi analizler çıkarıldı.")
+            st.success(f"✅ {len(gunun_analizleri)} adet profesyonel analiz hazır!")
             st.divider()
             
             # --- 4'LÜ KUPON TASARIMI ---
@@ -860,39 +858,29 @@ elif mod == "🤖 Tahmin Robotu":
             ]
 
             for title, col, sort_key, t_key, color in kupon_config:
-                # Robot seçimine göre dinamik önceliklendirme
+                # Dinamik robot puanı önceliği
                 final_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
                 final_tahmin = aktif_r_tahmin if title in ["⭐ BANKO", "💎 İDEAL"] else t_key
 
                 with col:
                     st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
                     
-                    # 🚀 KRİTİK FİLTRE: Sadece dürüst robotun onayladığı, puanı 0'dan büyük maçlar
-                    gecerli_analizler = [
-                        m for m in gunun_analizleri 
-                        if m.get('res') and m['res'].get(final_sort, 0) > 0 and m['res'].get('note') == "✅ Analiz Tamamlandı"
-                    ]
+                    # 🔥 KRİTİK DÜZELTME 2: Sadece puanı 0'dan büyük ve notu onaylı olanları sırala
+                    top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(final_sort, 0), reverse=True)[:5]
                     
-                    top_matches = sorted(gecerli_analizler, key=lambda x: x['res'].get(final_sort, 0), reverse=True)[:5]
-                    
-                    if not top_matches:
-                        st.markdown('<div class="coupon-item">Veri yetersiz.</div>', unsafe_allow_html=True)
-                    else:
-                        for m in top_matches:
-                            st.markdown(f"""
-                            <div class="coupon-item">
-                                <small style="color:#8b949e;">{m.get('lig_etiket', 'Avrupa')}</small><br>
-                                <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
-                                <span style="color:#3fb950;">{m['res'][final_tahmin]}</span>
-                                <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'][final_sort])}</span>
-                            </div>""", unsafe_allow_html=True)
+                    for m in top_matches:
+                        st.markdown(f"""
+                        <div class="coupon-item">
+                            <small style="color:#8b949e;">{m.get('lig_etiket', 'Avrupa')}</small><br>
+                            <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
+                            <span style="color:#3fb950;">{m['res'][final_tahmin]}</span>
+                            <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'][final_sort])}</span>
+                        </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
         else:
-            # Buradaki hizalama çok önemli, if fixtures: bloğuna bağlı olmalı
-            st.warning("🤖 Robotlar tüm havuzda analiz edilebilir maç bulamadı.")
+            st.warning("🤖 Mevcut verilerle profesyonel kupon oluşturulamadı. Daha fazla veri bekleniyor.")
     else:
-        # Bu else, en dıştaki 'if tr_fikstur in session_state' bloğuna aittir
-        st.info("💡 Yukarıdaki butona basarak tüm Avrupa ve Alt Lig bültenini radarımıza alabilirsiniz.")
+        st.info("💡 Lütfen yukarıdaki butona basarak taramayı başlatın.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
