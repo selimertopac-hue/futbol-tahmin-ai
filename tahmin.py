@@ -548,56 +548,75 @@ if mod == "🏠 Canlı Skorlar":
             """, unsafe_allow_html=True)
 
 elif mod == "🤖 Tahmin Robotu":
-    st.title("🌍 Küresel Tahmin Radarı: TheSportsDB")
+    st.title("🌍 Küresel Tahmin Radarı (TSDB Motoru)")
     
-    # 1. HAFTA SEÇİCİ (Global AI ile uyumlu)
-    s_sec = st.sidebar.selectbox("📅 Analiz Haftası", list(range(1, 11)), index=site_h_aktif-1)
-    
-    # TheSportsDB için Süper Lig ID: 4339
-    # Tüm dünyayı taramak için lig bazlı veya tarih bazlı gidebiliriz
-    st.info("📊 Süper Lig (ID: 4339) ve Dünya bülteni analiz ediliyor.")
+    # 1. Lig Seçimi (TheSportsDB'de lig bazlı gitmek daha sağlıklıdır)
+    lig_secenekleri = {
+        "🇹🇷 Süper Lig": "4339",
+        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier Lig": "4328",
+        "🇪🇸 La Liga": "4335",
+        "🇩🇪 Bundesliga": "4331",
+        "🇮🇹 Serie A": "4332",
+        "🇫🇷 Ligue 1": "4334"
+    }
+    secilen_lig_ad = st.sidebar.selectbox("🎯 Hedef Lig", list(lig_secenekleri.keys()))
+    secilen_lig_id = lig_secenekleri[secilen_lig_ad]
 
-    with st.spinner("🔭 Veriler TheSportsDB üzerinden çekiliyor..."):
-        # Bugünün ve yakındaki maçları çekmek için (Örn: Süper Lig maçları)
-        # Not: TheSportsDB'de 'eventsnextleague.php?id=4339' gibi endpointler kullanılır
-        raw_data = world_veri_al("eventsnextleague.php", params={'id': '4339'})
+    st.info(f"📊 {secilen_lig_ad} için yaklaşan maçlar analiz ediliyor...")
+
+    with st.spinner("🔭 Veri havuzu taranıyor..."):
+        # TheSportsDB 'eventsnextleague.php' endpoint'i ile gelecek maçları çeker
+        raw_data = world_veri_al(f"eventsnextleague.php?id={secilen_lig_id}")
         fixtures = raw_data.get('events', [])
 
     if not fixtures:
-        st.warning("⚠️ Seçilen ligde yakında oynanacak maç bulunamadı.")
+        st.warning(f"⚠️ {secilen_lig_ad} için yakında oynanacak (veya API'de tanımlı) maç bulunamadı.")
+        # Alternatif: Son oynanan maçları gösterelim mi?
+        if st.button("Son Oynanan Maçları Getir"):
+            raw_data = world_veri_al(f"eventspastleague.php?id={secilen_lig_id}")
+            fixtures = raw_data.get('events', [])
+            st.rerun()
     else:
         gunun_analizleri = []
         for f in fixtures:
-            ev_ad = f['strHomeTeam']
-            dep_ad = f['strAwayTeam']
+            ev_ad = f.get('strHomeTeam')
+            dep_ad = f.get('strAwayTeam')
             
-            # Robot analizini tetikle
+            # --- ROBOT ANALİZİ ---
+            # Not: TSDB'den geçmiş maçları çekip analiz_et'e göndermediğimiz için 
+            # analiz_et fonksiyonunun içindeki 'if len(df_raw) < 5: return None' 
+            # satırını geçici olarak devre dışı bırakman gerekebilir!
             res = analiz_et(ev_ad, dep_ad, [], site_h_aktif)
             
             if res:
-                f.update({'res': res, 'l_ad': f['strLeague']})
+                f.update({'res': res})
                 gunun_analizleri.append(f)
 
-        # 4'LÜ KUPON TASARIMI
-        c1, c2, c3, c4 = st.columns(4)
-        kupon_config = [
-            ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
-            ("💎 İDEAL", c2, "ae_c", "aether", "#58A6FF"),
-            ("🔥 ÜST", c3, "total_xg", "spec", "#d73a49"),
-            ("🛡️ ALT", c4, "s_p", "nexus", "#0366d6")
-        ]
+        if not gunun_analizleri:
+            st.error("🤖 Robotlar veri yetersizliği nedeniyle analiz üretemedi. (analiz_et fonksiyonunu kontrol edin)")
+        else:
+            # 4'LÜ KUPON TASARIMI
+            c1, c2, c3, c4 = st.columns(4)
+            kupon_config = [
+                ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
+                ("💎 İDEAL", c2, "ae_c", "aether", "#58A6FF"),
+                ("🔥 ÜST", c3, "total_xg", "spec", "#d73a49"),
+                ("🛡️ ALT", c4, "s_p", "nexus", "#0366d6")
+            ]
 
-        for title, col, sort_key, t_key, color in kupon_config:
-            with col:
-                st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
-                top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(sort_key, 0), reverse=True)[:5]
-                for m in top_matches:
-                    st.markdown(f"""
-                    <div class="coupon-item">
-                        <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
-                        <span style="color:#3fb950;">{m['res'][t_key]}</span>
-                    </div>""", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            for title, col, sort_key, t_key, color in kupon_config:
+                with col:
+                    st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
+                    # Robotun güven puanına göre sırala
+                    top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(sort_key, 0), reverse=True)[:5]
+                    for m in top_matches:
+                        tahmin = m['res'].get(t_key, "---")
+                        st.markdown(f"""
+                        <div class="coupon-item">
+                            <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
+                            <span style="color:#3fb950;">{tahmin}</span>
+                        </div>""", unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
