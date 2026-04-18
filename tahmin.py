@@ -808,47 +808,44 @@ if mod == "🏠 Canlı Skorlar":
 elif mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı & Avrupa Havuzu")
     
-    # --- 1. ÜST PANEL: AYARLAR ---
+    # Ayarlar
     c_h, c_r = st.columns(2)
     with c_h:
         s_sec = st.selectbox("📅 Analiz Haftası", list(range(1, 11)), index=site_h_aktif-1, key="tr_hafta")
     with c_r:
-        robot_secim = st.selectbox("🤖 Uzman Robot Filtresi", ["AETHER (Denge)", "WICKHAM (Hücum)", "NEXUS (Savunma)", "SPEKTRUM (Sürpriz)"], key="tr_robot")
+        robot_secim = st.selectbox("🤖 Robot Filtresi", ["AETHER (Denge)", "WICKHAM (Hücum)", "NEXUS (Savunma)", "SPEKTRUM (Sürpriz)"], key="tr_robot")
 
-    # Robot Map'lemeleri
     r_key_map = {"AETHER (Denge)": "ae_c", "WICKHAM (Hücum)": "w_c", "NEXUS (Savunma)": "n_c", "SPEKTRUM (Sürpriz)": "sp_c"}
-    r_val_map = {"AETHER (Denge)": "aether", "WICKHAM (Hücum)": "wickham", "NEXUS (Savunma)": "nexus", "SPEKTRUM (Sürpriz)": "spec"}
     aktif_r_puan = r_key_map[robot_secim]
-    aktif_r_tahmin = r_val_map[robot_secim]
+    aktif_r_tahmin = robot_secim.split(" ")[0].lower().replace("spektrum", "spec")
 
-    # --- 2. ANA TETİKLEYİCİ BUTON ---
-    if st.button("🚀 TÜM AVRUPA VE ALT LİGLERİ ŞİMDİ TARA", use_container_width=True):
-        with st.spinner("🌍 20+ Lig Taranıyor..."):
+    # Temizlik Butonu (Eski verileri silmek için)
+    if st.sidebar.button("🗑️ Hafızayı Sıfırla"):
+        for key in ['tr_fikstur', 'tr_hafiza', 'analiz_yapildi']:
+            if key in st.session_state: del st.session_state[key]
+        st.rerun()
+
+    if st.button("🚀 TÜM AVRUPA LİGLERİNİ TARA", use_container_width=True):
+        with st.spinner("🌍 Ligler süpürülüyor..."):
             fikstur, hafiza = tum_ligleri_tara()
             st.session_state.tr_fikstur = fikstur
             st.session_state.tr_hafiza = hafiza
             st.rerun()
 
-    # --- 3. ANALİZ MOTORU VE GÖRÜNTÜLEME ---
-    if 'tr_fikstur' in st.session_state and st.session_state.tr_fikstur:
-        fixtures = st.session_state.tr_fikstur
-        hafiza = st.session_state.tr_hafiza
-        
-        with st.spinner("🤖 Robotlar havuzu süzüyor..."):
-            gunun_analizleri = []
-            for f in fixtures:
-                res = analiz_et(f['strHomeTeam'], f['strAwayTeam'], hafiza, s_sec)
-                
-                # 🔥 KRİTİK DÜZELTME 1: Robot "Yetersiz Veri" dediyse listeye ASLA alma
-                if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get(aktif_r_puan, 0) > 0:
-                    f.update({'res': res})
-                    gunun_analizleri.append(f)
+    if 'tr_fikstur' in st.session_state:
+        # --- ANALİZ DÖNGÜSÜ ---
+        gunun_analizleri = []
+        for f in st.session_state.tr_fikstur:
+            res = analiz_et(f['strHomeTeam'], f['strAwayTeam'], st.session_state.tr_hafiza, s_sec)
+            
+            # 🔥 BURASI KRİTİK: Sadece onayı almış ve puanı 0'dan büyük olanları al!
+            if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get(aktif_r_puan, 0) > 0:
+                f_copy = f.copy()
+                f_copy['res'] = res
+                gunun_analizleri.append(f_copy)
 
         if gunun_analizleri:
-            st.success(f"✅ {len(gunun_analizleri)} adet profesyonel analiz hazır!")
-            st.divider()
-            
-            # --- 4'LÜ KUPON TASARIMI ---
+            st.success(f"✅ {len(gunun_analizleri)} Maç Başarıyla Analiz Edildi.")
             c1, c2, c3, c4 = st.columns(4)
             kupon_config = [
                 ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
@@ -858,14 +855,11 @@ elif mod == "🤖 Tahmin Robotu":
             ]
 
             for title, col, sort_key, t_key, color in kupon_config:
-                # Dinamik robot puanı önceliği
-                final_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
-                final_tahmin = aktif_r_tahmin if title in ["⭐ BANKO", "💎 İDEAL"] else t_key
-
                 with col:
-                    st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="editor-card" style="border-top-color:{color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
                     
-                    # 🔥 KRİTİK DÜZELTME 2: Sadece puanı 0'dan büyük ve notu onaylı olanları sırala
+                    # Filtreleme ve Sıralama
+                    final_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
                     top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(final_sort, 0), reverse=True)[:5]
                     
                     for m in top_matches:
@@ -873,14 +867,12 @@ elif mod == "🤖 Tahmin Robotu":
                         <div class="coupon-item">
                             <small style="color:#8b949e;">{m.get('lig_etiket', 'Avrupa')}</small><br>
                             <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
-                            <span style="color:#3fb950;">{m['res'][final_tahmin]}</span>
-                            <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'][final_sort])}</span>
+                            <span style="color:#3fb950;">{m['res'].get(t_key if title not in ["⭐ BANKO", "💎 İDEAL"] else aktif_r_tahmin)}</span>
+                            <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'].get(final_sort, 0))}</span>
                         </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.warning("🤖 Mevcut verilerle profesyonel kupon oluşturulamadı. Daha fazla veri bekleniyor.")
-    else:
-        st.info("💡 Lütfen yukarıdaki butona basarak taramayı başlatın.")
+            st.warning("⚠️ Analiz edilebilir veri bulunamadı. Lütfen taramayı tazeleyin.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
