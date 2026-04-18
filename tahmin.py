@@ -852,25 +852,31 @@ elif mod == "🤖 Tahmin Robotu":
                 ("🛡️ ALT", c4, "s_p", "nexus", "#0366d6")
             ]
 
-            for title, col, sort_key, t_key, color in kupon_config:
-                # Robot seçimine göre dinamik önceliklendirme
-                final_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
-                final_tahmin = aktif_r_tahmin if title in ["⭐ BANKO", "💎 İDEAL"] else t_key
+            # --- Tahmin Robotu Sekmesindeki Kupon Döngüsü ---
+for title, col, sort_key, t_key, color in kupon_config:
+    final_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
+    final_tahmin = aktif_r_tahmin if title in ["⭐ BANKO", "💎 İDEAL"] else t_key
 
-                with col:
-                    st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
-                    # Tüm havuzdaki en iyi 5 maçı seçiyoruz (Lig ayrımı yapmadan!)
-                    top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(final_sort, 0), reverse=True)[:5]
-                    
-                    for m in top_matches:
-                        st.markdown(f"""
-                        <div class="coupon-item">
-                            <small style="color:#8b949e;">{m.get('lig_etiket', 'Avrupa')}</small><br>
-                            <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
-                            <span style="color:#3fb950;">{m['res'][final_tahmin]}</span>
-                            <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'][final_sort])}</span>
-                        </div>""", unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+    with col:
+        st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
+        
+        # SADECE ANALİZİ TAMAMLANAN VE PUANI 0'DAN BÜYÜK OLANLARI GÖSTER
+        gecerli_analizler = [
+            m for m in gunun_analizleri 
+            if m.get('res') and m['res'].get(final_sort, 0) > 0 and m['res'].get('note') == "✅ Analiz Tamamlandı"
+        ]
+        
+        top_matches = sorted(gecerli_analizler, key=lambda x: x['res'].get(final_sort, 0), reverse=True)[:5]
+        
+        for m in top_matches:
+            st.markdown(f"""
+            <div class="coupon-item">
+                <small style="color:#8b949e;">{m.get('lig_etiket', 'Avrupa')}</small><br>
+                <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
+                <span style="color:#3fb950;">{m['res'][final_tahmin]}</span>
+                <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'][final_sort])}</span>
+            </div>""", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
         st.info("💡 Yukarıdaki butona basarak tüm Avrupa ve Alt Lig bültenini radarımıza alabilirsiniz.")
 elif mod == "Global AI":
