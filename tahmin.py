@@ -61,12 +61,14 @@ def tum_ligleri_tara():
     for lig_ad, lig_id in ligler.items():
         islem_kutusu.info(f"📡 {lig_ad} verileri radarımıza giriyor...")
         
-        # Gelecek Maçlar
+        # Gelecek Maçlar Kısmı
         f_data = world_veri_al(f"eventsnextleague.php?id={lig_id}")
-        if f_data and f_data.get('events'):
-            events = f_data['events']
-            for f in events: f['lig_etiket'] = lig_ad
-            tum_fikstur.extend(events)
+        if f_data and isinstance(f_data.get('events'), list):
+            for f in f_data['events']:
+                # DİKKAT: Yeni bir sözlük oluşturarak lig etiketini çiviliyoruz
+                mac_obj = f.copy()
+                mac_obj['lig_etiket'] = lig_ad 
+                tum_fikstur.append(mac_obj)
         
         # Geçmiş Maçlar (Robotların Hafızası)
         h_data = world_veri_al(f"eventspastleague.php?id={lig_id}")
@@ -320,25 +322,21 @@ def get_form_dots(team_name, matches):
 
 def analiz_et(ev, dep, matches, h_no):
     try:
-        # --- 🛡️ 1. İSİM NORMALİZE EDİCİ (Robotun Gözünü Açar) ---
+        # --- 🛡️ 1. İSİM NORMALİZE EDİCİ ---
         def temizle(metin):
             if not metin: return ""
-            # Türkçe karakterleri ve boşlukları temizleyerek eşleşme şansını %100 yapar
             return str(metin).lower().strip().replace(" ", "").replace("ş", "s").replace("ç", "c").replace("ı", "i").replace("ğ", "g").replace("ö", "o").replace("ü", "u")
 
         ev_t = temizle(ev)
         dep_t = temizle(dep)
 
-        # --- 📊 2. VERİ AYIKLAMA (Sadece Alakalı Maçlar) ---
+        # --- 📊 2. VERİ AYIKLAMA ---
         df_raw = []
         for m in matches:
-            # Hafızadaki maçların takımlarını da temizleyerek karşılaştır
             h_hafiza = temizle(m['homeTeam']['name'])
             a_hafiza = temizle(m['awayTeam']['name'])
             
-            # Takımlardan biri ev sahibi veya deplasman ise listeye al
             if h_hafiza == ev_t or a_hafiza == ev_t or h_hafiza == dep_t or a_hafiza == dep_t:
-                # Skor verisi var mı kontrol et
                 if m.get('score') and m['score'].get('fullTime') and m['score']['fullTime']['home'] is not None:
                     df_raw.append({
                         'H': m['homeTeam']['name'],
@@ -348,17 +346,16 @@ def analiz_et(ev, dep, matches, h_no):
                         'MD': m.get('matchday', 1)
                     })
 
-        # --- 🚀 3. ESNEK FİLTRE (Veri Azsa Bile Sallama, Tahmin Üret) ---
-        # Eğer yeterli veri yoksa (Süper Lig gibi yeni eklenenlerde) robotu durdurma
-        if len(df_raw) < 2: 
-            # Hiç veri yoksa varsayılan lig ortalaması değerlerini döndür (Sistem çökmez)
+        # --- 🚀 3. ESNEK FİLTRE (Sallamayı Durduran Emniyet Kilidi) ---
+        # Veri 3 maçtan azsa robot "bilmiyorum" der ve 0 puan döner
+        if len(df_raw) < 3: 
             return {
-                "std": "1 - 1", "s_c": 25, 
-                "spec": "2 - 1", "sp_c": 30,
-                "nexus": "0 - 1", "n_c": 20,
-                "wickham": "1 - 1", "w_c": 25,
-                "aether": "1 - 1", "ae_c": 25,
-                "total_xg": 2.2, "h_p": 50, "s_p": 50, "note": "⚠️ Kısıtlı Veri Analizi"
+                "std": "?.?", "s_c": 0, 
+                "spec": "?.?", "sp_c": 0,
+                "nexus": "?.?", "n_c": 0,
+                "wickham": "?.?", "w_c": 0,
+                "aether": "?.?", "ae_c": 0,
+                "total_xg": 0, "h_p": 0, "s_p": 0, "note": "❌ Yetersiz Veri"
             }
 
         # --- 📈 4. MATEMATİKSEL MOTOR (Poisson) ---
