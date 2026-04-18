@@ -259,46 +259,27 @@ def get_form_dots(team_name, matches):
 
 def analiz_et(ev, dep, matches, h_no):
     try:
-        # --- 🛡️ 1. İSİM NORMALİZE EDİCİ (Robotun Gözünü Açar) ---
-        def temizle(metin):
-            if not metin: return ""
-            # Türkçe karakterleri ve boşlukları temizleyerek eşleşme şansını %100 yapar
-            return str(metin).lower().strip().replace(" ", "").replace("ş", "s").replace("ç", "c").replace("ı", "i").replace("ğ", "g").replace("ö", "o").replace("ü", "u")
+        df_raw = [m for m in matches if m['status'] == 'FINISHED' and m['score']['fullTime']['home'] is not None]
+        if len(df_raw) < 5: return None
+        df = pd.DataFrame([{'H': m['homeTeam']['name'], 'A': m['awayTeam']['name'], 'HG': m['score']['fullTime']['home'], 'AG': m['score']['fullTime']['away'], 'MD': m['matchday']} for m in df_raw])
+        l_e, l_d = df['HG'].mean(), df['AG'].mean()
+        
+        def get_stats(team, is_h):
+            t_df = df[df['H' if is_h else 'A'] == team].copy()
+            if t_df.empty: return l_e, l_d, 1.0
+            t_df['w'] = 1.0 + (t_df['MD'] / df['MD'].max())
+            g = (t_df['HG' if is_h else 'AG']*t_df['w']).sum()/t_df['w'].sum()
+            y = (t_df['AG' if is_h else 'HG']*t_df['w']).sum()/t_df['w'].sum()
+            return g, y, t_df.sort_values('MD', ascending=False).head(3)['HG' if is_h else 'AG'].mean()
 
-        ev_t = temizle(ev)
-        dep_t = temizle(dep)
-
-        # --- 📊 2. VERİ AYIKLAMA (Sadece Alakalı Maçlar) ---
-        df_raw = []
-        for m in matches:
-            # Hafızadaki maçların takımlarını da temizleyerek karşılaştır
-            h_hafiza = temizle(m['homeTeam']['name'])
-            a_hafiza = temizle(m['awayTeam']['name'])
-            
-            # Takımlardan biri ev sahibi veya deplasman ise listeye al
-            if h_hafiza == ev_t or a_hafiza == ev_t or h_hafiza == dep_t or a_hafiza == dep_t:
-                # Skor verisi var mı kontrol et
-                if m.get('score') and m['score'].get('fullTime') and m['score']['fullTime']['home'] is not None:
-                    df_raw.append({
-                        'H': m['homeTeam']['name'],
-                        'A': m['awayTeam']['name'],
-                        'HG': m['score']['fullTime']['home'],
-                        'AG': m['score']['fullTime']['away'],
-                        'MD': m.get('matchday', 1)
-                    })
-
-        # --- 🚀 3. ESNEK FİLTRE (Veri Azsa Bile Sallama, Tahmin Üret) ---
-        # Eğer yeterli veri yoksa (Süper Lig gibi yeni eklenenlerde) robotu durdurma
-        if len(df_raw) < 2: 
-            # Hiç veri yoksa varsayılan lig ortalaması değerlerini döndür (Sistem çökmez)
-            return {
-                "std": "1 - 1", "s_c": 25, 
-                "spec": "2 - 1", "sp_c": 30,
-                "nexus": "0 - 1", "n_c": 20,
-                "wickham": "1 - 1", "w_c": 25,
-                "aether": "1 - 1", "ae_c": 25,
-                "total_xg": 2.2, "h_p": 50, "s_p": 50, "note": "⚠️ Kısıtlı Veri Analizi"
-            }
+        e_g, e_y, e_rec = get_stats(ev, True)
+        d_g, d_y, d_rec = get_stats(dep, False)
+        ex, ax = (e_g/l_e)*(d_y/l_e)*l_e, (d_g/l_d)*(e_y/l_d)*l_d
+        
+        def sk(e, a):
+            m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
+            s = np.unravel_index(np.argmax(m), m.shape)
+            return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
         # --- 📈 4. MATEMATİKSEL MOTOR (Poisson) ---
         df = pd.DataFrame(df_raw)
