@@ -55,24 +55,27 @@ def tum_ligleri_tara():
     
     tum_fikstur = []
     tum_hafiza = []
-    
     islem_kutusu = st.empty()
     
-    for lig_ad, lig_id in ligler.items():
-        islem_kutusu.info(f"📡 {lig_ad} verileri radarımıza giriyor...")
+    for l_ad, l_id in ligler.items():
+        islem_kutusu.info(f"📡 {l_ad} taranıyor...")
         
-        # Gelecek Maçlar Kısmı
-        f_data = world_veri_al(f"eventsnextleague.php?id={lig_id}")
+        # GELECEK MAÇLAR
+        f_data = world_veri_al(f"eventsnextleague.php?id={l_id}")
         if f_data and isinstance(f_data.get('events'), list):
             for f in f_data['events']:
-                # DİKKAT: Yeni bir sözlük oluşturarak lig etiketini çiviliyoruz
-                mac_obj = f.copy()
-                mac_obj['lig_etiket'] = lig_ad 
-                tum_fikstur.append(mac_obj)
+                # 🔥 BURASI ÇOK KRİTİK: Maçı yeni bir sözlük olarak oluşturuyoruz
+                # f.copy() yerine direkt anahtarları atıyoruz ki lig ismi karışmasın!
+                mac = {
+                    'strHomeTeam': f.get('strHomeTeam'),
+                    'strAwayTeam': f.get('strAwayTeam'),
+                    'lig_etiket': str(l_ad) # Lig ismini o anki değerle mühürledik
+                }
+                tum_fikstur.append(mac)
         
-        # Geçmiş Maçlar (Robotların Hafızası)
-        h_data = world_veri_al(f"eventspastleague.php?id={lig_id}")
-        if h_data and h_data.get('events'):
+        # GEÇMİŞ MAÇLAR (Hafıza)
+        h_data = world_veri_al(f"eventspastleague.php?id={l_id}")
+        if h_data and isinstance(h_data.get('events'), list):
             for m in h_data['events']:
                 tum_hafiza.append({
                     'homeTeam': {'name': m['strHomeTeam']},
@@ -87,7 +90,7 @@ def tum_ligleri_tara():
                     'matchday': int(m.get('intRound', 1))
                 })
 
-    islem_kutusu.success("🌍 Tüm Avrupa ve Alt Ligler başarıyla analiz edildi!")
+    islem_kutusu.success("🌍 Tüm Avrupa başarıyla hafızaya alındı!")
     return tum_fikstur, tum_hafiza        
 def takim_gecmisi_al(team_id):
     """Robotun analiz yapabilmesi için takımın son 5 maçını çeker."""
