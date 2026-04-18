@@ -25,18 +25,15 @@ SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 # Sayfa konfigürasyonu her zaman fonksiyonlardan önce veya hemen sonra gelmeli (Burada olması iyi)
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
 
-# --- YENİ DÜNYA RADARI (RAPID-API VERSION) ---
-RAPID_API_KEY = "b6e78e72damsh3b35bfef609b11bp1e701bjsn01310ac6d49e"
-RAPID_API_HOST = "api-football-v1.p.rapidapi.com"
+# --- YENİ DÜNYA RADARI (THESPORTSDB VERSION) ---
+TSDB_API_KEY = "3" # Ücretsiz test anahtarı genelde 3'tür, kendi anahtarını aldıysan onu yaz
+TSDB_BASE_URL = f"https://www.thesportsdb.com/api/v1/json/{TSDB_API_KEY}/"
 
 def world_veri_al(endpoint, params={}):
-    url = f"https://{RAPID_API_HOST}/v3/{endpoint}"
-    headers = {
-        "X-RapidAPI-Key": RAPID_API_KEY,
-        "X-RapidAPI-Host": RAPID_API_HOST
-    }
+    """TheSportsDB üzerinden veri çeker."""
+    url = f"{TSDB_BASE_URL}{endpoint}"
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=10)
+        response = requests.get(url, params=params, timeout=10)
         return response.json()
     except Exception as e:
         return {"errors": str(e)}
@@ -551,71 +548,55 @@ if mod == "🏠 Canlı Skorlar":
             """, unsafe_allow_html=True)
 
 elif mod == "🤖 Tahmin Robotu":
-    st.title("🌍 Küresel Tahmin Radarı: Haftalık Havuz")
+    st.title("🌍 Küresel Tahmin Radarı: TheSportsDB")
     
-    # 1. HAFTA SEÇİCİ (Global AI ile Senkronize)
+    # 1. HAFTA SEÇİCİ (Global AI ile uyumlu)
     s_sec = st.sidebar.selectbox("📅 Analiz Haftası", list(range(1, 11)), index=site_h_aktif-1)
     
-    # Seçilen haftanın tarih sınırlarını belirle
-    h_bas = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
-    h_bit = h_bas + timedelta(days=7)
-    
-    st.info(f"📅 {h_bas.strftime('%d.%m')} - {h_bit.strftime('%d.%m')} tarihleri arasındaki tüm Dünya bülteni analiz ediliyor.")
+    # TheSportsDB için Süper Lig ID: 4339
+    # Tüm dünyayı taramak için lig bazlı veya tarih bazlı gidebiliriz
+    st.info("📊 Süper Lig (ID: 4339) ve Dünya bülteni analiz ediliyor.")
 
-    with st.spinner(f"🔭 Bülten taranıyor..."):
-        # Buradaki her satır 'with'in altında bir TAB içeride olmalı!
-        params = {'from': h_bas.strftime('%Y-%m-%d'), 'to': h_bit.strftime('%Y-%m-%d')} 
-        raw_data = world_veri_al("fixtures", params=params)
-        
-        # --- HATA DEDEKTİFİ ---
-        if raw_data.get('errors'):
-            st.error(f"❌ API Hatası: {raw_data['errors']}")
-        
-        fixtures = raw_data.get('response', [])
+    with st.spinner("🔭 Veriler TheSportsDB üzerinden çekiliyor..."):
+        # Bugünün ve yakındaki maçları çekmek için (Örn: Süper Lig maçları)
+        # Not: TheSportsDB'de 'eventsnextleague.php?id=4339' gibi endpointler kullanılır
+        raw_data = world_veri_al("eventsnextleague.php", params={'id': '4339'})
+        fixtures = raw_data.get('events', [])
+
     if not fixtures:
-        st.warning("⚠️ Bu tarih aralığında maç bulunamadı. API anahtarını veya tarihleri kontrol et.")
+        st.warning("⚠️ Seçilen ligde yakında oynanacak maç bulunamadı.")
     else:
-        # --- ROBOTLARI TETİKLEME (Global AI Mantığıyla 4'lü Kupon) ---
         gunun_analizleri = []
-        
-        # Filtreleme: Önce maçları analiz et (Hız için ilk 30 maçı alalım)
-        for f in fixtures[:30]:
-            ev_ad = f['teams']['home']['name']
-            dep_ad = f['teams']['away']['name']
+        for f in fixtures:
+            ev_ad = f['strHomeTeam']
+            dep_ad = f['strAwayTeam']
             
-            # Robotlara geçmişi çekmeden temel analiz yaptırıyoruz (Hız için)
+            # Robot analizini tetikle
             res = analiz_et(ev_ad, dep_ad, [], site_h_aktif)
             
             if res:
-                f.update({'res': res, 'l_ad': f"{f['league']['country']} - {f['league']['name']}"})
+                f.update({'res': res, 'l_ad': f['strLeague']})
                 gunun_analizleri.append(f)
 
-        # 4'LÜ KUPON TASARIMI (Tıpkı Global AI gibi!)
+        # 4'LÜ KUPON TASARIMI
         c1, c2, c3, c4 = st.columns(4)
-        
-        kuponlar = [
+        kupon_config = [
             ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
-            ("💎 İDEAL", c2, "ae_c", "aether", "#58A6FF"), # İdeal için farklı bir sıralama eklenebilir
+            ("💎 İDEAL", c2, "ae_c", "aether", "#58A6FF"),
             ("🔥 ÜST", c3, "total_xg", "spec", "#d73a49"),
             ("🛡️ ALT", c4, "s_p", "nexus", "#0366d6")
         ]
 
-        for title, col, sort_key, t_key, color in kuponlar:
+        for title, col, sort_key, t_key, color in kupon_config:
             with col:
                 st.markdown(f'<div class="editor-card" style="border-top-color: {color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
-                
-                # Sıralama mantığı
-                top_5 = sorted(gunun_analizleri, key=lambda x: x['res'].get(sort_key, 0), reverse=True)[:5]
-                
-                for m in top_5:
-                    tahmin = m['res'].get(t_key, "Analiz Yok")
+                top_matches = sorted(gunun_analizleri, key=lambda x: x['res'].get(sort_key, 0), reverse=True)[:5]
+                for m in top_matches:
                     st.markdown(f"""
                     <div class="coupon-item">
-                        <b>{m['teams']['home']['name']} - {m['teams']['away']['name']}</b><br>
-                        <small>{m['l_ad']}</small><br>
-                        <span style="color:#3fb950;">{tahmin}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        <b>{m['strHomeTeam']} - {m['strAwayTeam']}</b><br>
+                        <span style="color:#3fb950;">{m['res'][t_key]}</span>
+                    </div>""", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
