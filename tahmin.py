@@ -110,35 +110,49 @@ def otomatik_muhur_tetikleyici():
 
 # --- 🏆 OTONOM BAŞARI ARŞİVLEME ---
 def otonom_arsiv_guncelle():
-    global site_h_aktif  # Bu satırı fonksiyonun en başına ekleyebilirsin
+    global site_h_aktif  # Dışarıdaki değişkeni içeri çağırıyoruz
+    
+    # 1. Değişkeni en başta tanımlıyoruz (Hata almamak için şart!)
+    guncelleme_var_mi = False 
+    
     arsiv = kara_kutu_oku()
     
-    # Bitmiş haftaların sonuçlarını hesapla (1. haftadan mevcut haftaya kadar)
-    for h_no in range(1, site_h_aktif + 1):
-        h_key = str(h_no)
-        m_key = f"m_k_{h_no}" # JSON'daki mühürlü kupon anahtarı
-        
-        # Eğer bu hafta mühürlenmişse ama özeti (başarı puanı) henüz yazılmamışsa
-        if m_key in arsiv and (h_key not in arsiv or arsiv[h_key].get("durum") != "KAPALİ"):
-            m_kupon = arsiv[m_key]
+    # 2. Bitmiş haftaların sonuçlarını hesapla
+    try:
+        for h_no in range(1, site_h_aktif + 1):
+            h_key = str(h_no)
+            m_key = f"m_k_{h_no}" # JSON'daki mühürlü kupon anahtarı
             
-            # Haftanın sonuçlarını check_hit ile hesapla
-            b_skor = check_hit(m_kupon.get("banko", []), "banko")
-            i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
-            u_skor = check_hit(m_kupon.get("ust", []), "ust")
-            a_skor = check_hit(m_kupon.get("alt", []), "alt")
-            
-            puan = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
-            
-            # Arşiv özetini oluştur
-            arsiv[h_key] = {
-                "W": {"b": f"{b_skor}/5", "i": f"{i_skor}/5", "u": f"{u_skor}/5", "a": f"{a_skor}/5", "p": puan},
-                "durum": "KAPALİ" if h_no < site_h_aktif else "AÇIK"
-            }
-            guncelleme_var_mi = True
+            # Eğer bu hafta mühürlenmişse ama özeti henüz yazılmamışsa
+            if m_key in arsiv and (h_key not in arsiv or arsiv[h_key].get("durum") != "KAPALİ"):
+                m_kupon = arsiv[m_key]
+                
+                # Haftanın sonuçlarını check_hit ile hesapla
+                b_skor = check_hit(m_kupon.get("banko", []), "banko")
+                i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
+                u_skor = check_hit(m_kupon.get("ust", []), "ust")
+                a_skor = check_hit(m_kupon.get("alt", []), "alt")
+                
+                # Puanlama (20 maç üzerinden % kaç başarı)
+                toplam_isabet = b_skor + i_skor + u_skor + a_skor
+                puan = int((toplam_isabet / 20) * 100) if toplam_isabet > 0 else 0
+                
+                # Arşiv özetini oluştur
+                arsiv[h_key] = {
+                    "W": {"b": f"{b_skor}/5", "i": f"{i_skor}/5", "u": f"{u_skor}/5", "a": f"{a_skor}/5", "p": puan},
+                    "durum": "KAPALİ" if h_no < site_h_aktif else "AÇIK"
+                }
+                guncelleme_var_mi = True
 
-    if guncelleme_var_mi:
-        kara_kutu_yaz(arsiv)
+        # 3. Eğer bir güncelleme yapıldıysa dosyaya yaz
+        if guncelleme_var_mi:
+            kara_kutu_yaz(arsiv)
+        
+        # 4. Global erişim için session_state'e aktar
+        st.session_state.otonom_kayitlar = arsiv
+        
+    except Exception as e:
+        st.error(f"Otonom Arşiv Hatası: {e}")
     
     st.session_state.otonom_kayitlar = arsiv
 
