@@ -410,7 +410,7 @@ def analiz_et(ev, dep, matches, h_no):
                         'MD': m.get('matchday', 1)
                     })
 
-        # --- 🚀 EMNİYET KİLİDİ ---
+        # --- 🚀 EMNİYET KİLİDİ (Bilmediği Maça Sallamasını Önler) ---
         if len(df_raw) < 3: 
             return {
                 "std": "?.?", "s_c": 0, "spec": "?.?", "sp_c": 0,
@@ -418,6 +418,7 @@ def analiz_et(ev, dep, matches, h_no):
                 "aether": "?.?", "ae_c": 0, "total_xg": 0, "h_p": 0, "s_p": 0, "note": "❌ Yetersiz Veri"
             }
 
+        # --- 📊 POISSON MATEMATİK MOTORU ---
         df = pd.DataFrame(df_raw)
         l_e, l_d = df['HG'].mean(), df['AG'].mean()
         if l_e == 0: l_e = 1.0
@@ -437,10 +438,13 @@ def analiz_et(ev, dep, matches, h_no):
         e_g, e_y, e_rec = get_stats(ev, True)
         d_g, d_y, d_rec = get_stats(dep, False)
         
+        # xG Hesaplamaları
         ex = (e_g / l_e) * (d_y / l_e) * l_e
         ax = (d_g / l_d) * (e_y / l_d) * l_d
         
         from scipy.stats import poisson
+        import numpy as np # np hatası almamak için
+
         def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
@@ -448,12 +452,12 @@ def analiz_et(ev, dep, matches, h_no):
             conf = min(99, int(prob * 3 + abs(e-a)*20 + 20))
             return f"{s[0]} - {s[1]}", conf
 
-        # Robot modellerini oluştur
-        r_s = sk(ex, ax)
-        r_sp = sk(ex * 1.2, ax * 1.2)
-        r_nx = sk(ex * 0.8, ax * 1.2)
-        r_w = sk(ex * 1.2, ax * 0.8)
-        r_ae = sk((ex + ex*1.1)/2, (ax + ax*1.1)/2)
+        # --- 🤖 ROBOT TAHMİNLERİ ---
+        r_s = sk(ex, ax)           # Standart
+        r_sp = sk(ex * 1.2, ax * 1.2) # Spektrum (Gollü)
+        r_nx = sk(ex * 0.8, ax * 1.1) # Nexus (Savunma/Alt)
+        r_w = sk(ex * 1.3, ax * 0.8) # Wickham (Hücum)
+        r_ae = sk((ex + ex*1.1)/2, (ax + ax*1.1)/2) # Aether (Denge)
 
         return {
             "std": r_s[0], "s_c": r_s[1],
@@ -462,10 +466,13 @@ def analiz_et(ev, dep, matches, h_no):
             "wickham": r_w[0], "w_c": r_w[1],
             "aether": r_ae[0], "ae_c": r_ae[1],
             "total_xg": round(ex + ax, 2),
-            "h_p": int(min(100, ex*40)), "s_p": int(min(100, (1/max(0.1, ax))*20)),
+            "h_p": int(min(100, ex*40)), 
+            "s_p": int(min(100, (1/max(0.1, ax))*20)),
             "note": "✅ Analiz Tamamlandı"
         }
-    except:
+
+    except Exception as e:
+        # Tek bir genel hata yakalayıcı yeterlidir
         return None
         # --- 📈 4. MATEMATİKSEL MOTOR (Poisson) ---
         df = pd.DataFrame(df_raw)
