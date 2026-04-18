@@ -831,16 +831,26 @@ elif mod == "🤖 Tahmin Robotu":
     if 'tr_fikstur' in st.session_state:
         with st.spinner("🤖 Robotlar dürüstlük filtresinden geçiriliyor..."):
             ham_liste = []
+            
+            # --- 🚀 HATA VEREN DÖNGÜ BURASIYDI, ŞİMDİ GÜVENLİ HALE GETİRDİK ---
             for f in st.session_state.tr_fikstur:
+                # f.get() kullanarak hata almayı engelliyoruz
+                ev_adi = f.get('home') or f.get('strHomeTeam')
+                dep_adi = f.get('away') or f.get('strAwayTeam')
+                lig_adi = f.get('lig') or f.get('lig_etiket') or "Avrupa"
+
+                if not ev_adi or not dep_adi:
+                    continue # Eğer isimler yoksa bu maçı atla
+
                 # ANALİZ ET
-                res = analiz_et(f['home'], f['away'], st.session_state.tr_hafiza, s_sec)
+                res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
                 
-                # 🔥 KRİTİK FİLTRE: "✅ Analiz Tamamlandı" NOTU OLMAYANI ASLA ALMA
+                # Sadece robotun "✅ Analiz Tamamlandı" dediği gerçek maçları al
                 if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get(aktif_r_puan, 0) > 0:
                     ham_liste.append({
-                        'ev': f['home'],
-                        'dep': f['away'],
-                        'lig': f['lig'],
+                        'ev': ev_adi,
+                        'dep': dep_adi,
+                        'lig': lig_adi,
                         'res': res
                     })
 
