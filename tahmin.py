@@ -25,25 +25,37 @@ SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 # Sayfa konfigürasyonu her zaman fonksiyonlardan önce veya hemen sonra gelmeli (Burada olması iyi)
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
 
-# --- YENİ DÜNYA RADARI (THESPORTSDB VERSION) ---
-TSDB_API_KEY = "3" 
-TSDB_BASE_URL = f"https://www.thesportsdb.com/api/v1/json/{TSDB_API_KEY}/"
+import requests
 
-def world_veri_al(endpoint, params={}):
-    """TheSportsDB üzerinden veri çeker."""
-    url = f"{TSDB_BASE_URL}{endpoint}"
+# --- 🚀 GERÇEK DÜNYA RADARI (RAPIDAPI LIVE DATA) ---
+RAPID_API_KEY = "b6e78e72damsh3b35bfef609b11bp1e701bjsn01310ac6d49e"
+RAPID_API_HOST = "free-api-live-football-data.p.rapidapi.com"
+
+def rapid_veri_al(endpoint, params=None):
+    """RapidAPI üzerinden gerçek zamanlı veri çeker."""
+    url = f"https://{RAPID_API_HOST}/{endpoint}"
+    headers = {
+        "x-rapidapi-key": RAPID_API_KEY,
+        "x-rapidapi-host": RAPID_API_HOST
+    }
     try:
-        response = requests.get(url, params=params, timeout=10)
-        return response.json()
+        response = requests.get(url, headers=headers, params=params, timeout=15)
+        if response.status_code == 200:
+            return response.json()
+        return None
     except Exception as e:
-        return {"errors": str(e)}
+        st.error(f"⚠️ Bağlantı Hatası: {e}")
+        return None
+
 def tum_ligleri_tara():
+    # RapidAPI League ID'leri (Dokümandan alınan güncel ID'ler)
     ligler = {
-        "Türkiye Süper Lig": "4339", "Türkiye 1. Lig": "4491",
-        "Hollanda Eredivisie": "4337", "Hollanda Eerste Divisie": "4403",
-        "Belçika Pro League": "4333", "İngiltere Premier": "4328",
-        "İspanya La Liga": "4335", "Almanya Bundesliga": "4331",
-        "İtalya Serie A": "4332", "Fransa Ligue 1": "4334"
+        "Türkiye Süper Lig": "203", 
+        "İngiltere Premier": "39",
+        "İspanya La Liga": "140",
+        "Almanya Bundesliga": "78",
+        "İtalya Serie A": "135",
+        "Fransa Ligue 1": "61"
     }
     
     tum_fikstur = []
@@ -51,48 +63,41 @@ def tum_ligleri_tara():
     islem_kutusu = st.empty()
     
     for l_ad, l_id in ligler.items():
-        st.write(f"🔍 API Sorgusu Yapılıyor: {l_ad} (ID: {l_id})") # TEST SATIRI
-        f_data = world_veri_al(f"eventsnextleague.php?id={l_id}")
+        islem_kutusu.info(f"📡 {l_ad} gerçek verileri çekiliyor...")
         
-        # 🔥 İŞTE GERÇEK TEST BURASI:
-        if f_data and f_data.get('events'):
-            ilk_mac = f_data['events'][0].get('strEvent')
-            st.write(f"📡 API'den Gelen İlk Maç: {ilk_mac}") # TEST SATIRI
-        else:
-            st.write(f"⚠️ {l_ad} için API boş döndü veya hata verdi.")
-        if f_data and isinstance(f_data.get('events'), list):
-            for f in f_data['events']:
-                # 🔥 MAÇI İZOLE EDEREK EKLE (Referans hatasını önler)
+        # 1. GELECEK MAÇLAR (Fikstür)
+        # Not: Kullandığın API'nin endpoint ismine göre burayı 'football-get-all-fixtures' veya benzeri yapmalısın
+        f_data = rapid_veri_al("football-get-all-fixtures", params={"league_id": l_id, "season": "2023"})
+        
+        if f_data and f_data.get('status') == 'success':
+            matches = f_data.get('response', [])
+            for m in matches:
                 tum_fikstur.append({
-                    'strHomeTeam': f.get('strHomeTeam'),
-                    'strAwayTeam': f.get('strAwayTeam'),
-                    'lig_etiket': su_anki_lig # İsmi buraya mühürledik
+                    'home': m.get('home_team_name'),
+                    'away': m.get('away_team_name'),
+                    'lig': str(l_ad)
                 })
         
-        # Hafıza kısmı (Past Events)
-        h_data = world_veri_al(f"eventspastleague.php?id={l_id}")
-        if h_data and isinstance(h_data.get('events'), list):
-            for m in h_data['events']:
+        # 2. GEÇMİŞ MAÇLAR (Robotun Hafızası)
+        h_data = rapid_veri_al("football-get-all-results", params={"league_id": l_id, "season": "2023"})
+        if h_data and h_data.get('status') == 'success':
+            results = h_data.get('response', [])
+            for r in results:
                 tum_hafiza.append({
-                    'homeTeam': {'name': m['strHomeTeam']},
-                    'awayTeam': {'name': m['strAwayTeam']},
+                    'homeTeam': {'name': r.get('home_team_name')},
+                    'awayTeam': {'name': r.get('away_team_name')},
                     'status': 'FINISHED',
                     'score': {
                         'fullTime': {
-                            'home': int(m['intHomeScore'] or 0), 
-                            'away': int(m['intAwayScore'] or 0)
+                            'home': int(r.get('home_score') or 0),
+                            'away': int(r.get('away_score') or 0)
                         }
                     },
-                    'matchday': int(m.get('intRound', 1))
+                    'matchday': 1
                 })
 
-    islem_kutusu.success("🌍 Tüm Avrupa başarıyla ayrıştırıldı!")
-    return tum_fikstur, tum_hafiza
-def takim_gecmisi_al(team_id):
-    """Robotun analiz yapabilmesi için takımın son 5 maçını çeker."""
-    params = {'team': team_id, 'last': 5}
-    res = world_veri_al("fixtures", params=params)
-    return res.get('response', [])   
+    islem_kutusu.success("🌍 RapidAPI ile Gerçek Veriler Yüklendi!")
+    return tum_fikstur, tum_hafiza   
     
 # --- 2. TEMEL HESAP MAKİNESİ (check_hit) ---
 def check_hit(liste, tip):
