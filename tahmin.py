@@ -833,31 +833,36 @@ elif mod == "🤖 Tahmin Robotu":
 
     if 'tr_fikstur' in st.session_state:
         with st.spinner("🤖 Analizler dürüstlük filtresinden geçiyor..."):
-            # LİSTEYİ SIFIRDAN OLUŞTUR (Hafıza karışıklığına son)
             ham_liste = []
             
             for f in st.session_state.tr_fikstur:
-                # Verileri güvenli çek
+                # 1. Verileri izole ederek çek
                 ev_adi = f.get('home') or f.get('strHomeTeam')
                 dep_adi = f.get('away') or f.get('strAwayTeam')
-                # Lig ismini sadece o maçın içinden al (Döngüden değil!)
                 lig_adi = f.get('lig') or f.get('lig_etiket') or "Avrupa"
 
                 if not ev_adi or not dep_adi: continue
 
-                # ROBOT ANALİZİ
+                # 2. ROBOT ANALİZİ
                 res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
                 
-                # 🔥 BURASI KRİTİK: Robot "Yetersiz Veri" dediyse asla alma!
-                # Doncaster neden geliyor? Çünkü robot veri bulamasa da bir şey dönüyor.
-                # 'note' kontrolü ile vizeyi sorguluyoruz:
+                # 3. 🔥 SIZMA ENGELLEYİCİ FİLTRE 🔥
+                # Sadece robotun vize verdiği VE gerçekten gol beklentisi hesapladığı maçları al
                 if res and res.get('note') == "✅ Analiz Tamamlandı":
-                    # Puan %90'dan fazlaysa ama gol beklentisi (total_xg) 0 ise bu bir hatadır, ele!
-                    if res.get(aktif_r_puan, 0) > 98 and res.get('total_xg', 0) == 0:
-                        continue
+                    
+                    # Doncaster gibi verisi olmayan maçlar bazen %99 puanla sızar.
+                    # Eğer toplam gol beklentisi 0 ise veya robotun puanı %98 üzerindeyken xG mantıksızsa ele.
+                    txg = res.get('total_xg', 0)
+                    r_puan = res.get(aktif_r_puan, 0)
+                    
+                    if txg == 0 or (r_puan > 98 and txg < 0.1):
+                        continue # Bu maç hatalı veridir, listeye ekleme!
                         
                     ham_liste.append({
-                        'ev': ev_adi, 'dep': dep_adi, 'lig': lig_adi, 'res': res
+                        'ev': ev_adi, 
+                        'dep': dep_adi, 
+                        'lig': lig_adi, 
+                        'res': res
                     })
 
         if ham_liste:
