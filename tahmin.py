@@ -345,27 +345,27 @@ def tum_ligleri_tara():
     
     tum_fikstur = []
     tum_hafiza = []
-    
     islem_kutusu = st.empty()
     
-    for lig_ad, lig_id in ligler.items():
-        islem_kutusu.info(f"📡 {lig_ad} verileri radarımıza giriyor...")
+    for l_ad, l_id in ligler.items():
+        # 🔥 BURASI KRİTİK: Lig ismini döngü başında sabit bir metne çeviriyoruz
+        aktif_lig_ismi = str(l_ad) 
+        islem_kutusu.info(f"📡 {aktif_lig_ismi} taranıyor...")
         
-        # Gelecek Maçlar (Fikstür)
-        f_data = world_veri_al(f"eventsnextleague.php?id={lig_id}")
-        if f_data and f_data.get('events'):
+        # Gelecek Maçlar
+        f_data = world_veri_al(f"eventsnextleague.php?id={l_id}")
+        if f_data and isinstance(f_data.get('events'), list):
             for f in f_data['events']:
-                # KRİTİK: Her maçı yeni bir kopya olarak oluşturup ligini mühürlüyoruz
-                yeni_mac = {
-                    'strHomeTeam': f.get('strHomeTeam'),
-                    'strAwayTeam': f.get('strAwayTeam'),
-                    'lig_etiket': lig_ad  
-                }
-                tum_fikstur.append(yeni_mac)
+                # 🔥 BURASI DA KRİTİK: 'lig' anahtarına o anki sabit ismi yazıyoruz
+                tum_fikstur.append({
+                    'home': f.get('strHomeTeam'),
+                    'away': f.get('strAwayTeam'),
+                    'lig': aktif_lig_ismi 
+                })
         
         # Geçmiş Maçlar (Hafıza)
-        h_data = world_veri_al(f"eventspastleague.php?id={lig_id}")
-        if h_data and h_data.get('events'):
+        h_data = world_veri_al(f"eventspastleague.php?id={l_id}")
+        if h_data and isinstance(h_data.get('events'), list):
             for m in h_data['events']:
                 tum_hafiza.append({
                     'homeTeam': {'name': m['strHomeTeam']},
@@ -380,7 +380,7 @@ def tum_ligleri_tara():
                     'matchday': int(m.get('intRound', 1))
                 })
 
-    islem_kutusu.success("🌍 Tüm Avrupa ve Alt Ligler başarıyla analiz edildi!")
+    islem_kutusu.success("🌍 Tüm Avrupa başarıyla hafızaya alındı!")
     return tum_fikstur, tum_hafiza
 
 # --- 3. DÜRÜST ANALİZ MOTORU (POISSON) ---
