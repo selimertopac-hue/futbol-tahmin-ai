@@ -804,66 +804,65 @@ if mod == "🏠 Canlı Skorlar":
 elif mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı & Avrupa Havuzu")
     
-    # Cache temizleme butonu
-    if st.sidebar.button("🗑️ Cache Temizle"):
+    # 1. TAM TEMİZLİK BUTONU
+    if st.sidebar.button("🧨 SİSTEMİ SIFIRLA (TEMİZ KURULUM)"):
         st.cache_data.clear()
         st.session_state.clear()
+        if os.path.exists("ai_arsiv.json"):
+            os.remove("ai_arsiv.json")
         st.rerun()
 
     c_h, c_r = st.columns(2)
     with c_h:
         s_sec = st.selectbox("📅 Analiz Haftası", list(range(1, 11)), index=site_h_aktif-1, key="tr_hafta")
     with c_r:
-        robot_secim = st.selectbox("🤖 Robot Filtresi", ["AETHER", "WICKHAM", "NEXUS", "SPEKTRUM"], key="tr_robot")
+        robot_secim = st.selectbox("🤖 Robot Seçimi", ["AETHER", "WICKHAM", "NEXUS", "SPEKTRUM"], key="tr_robot")
 
     r_map = {"AETHER": "ae_c", "WICKHAM": "w_c", "NEXUS": "n_c", "SPEKTRUM": "sp_c"}
     t_map = {"AETHER": "aether", "WICKHAM": "wickham", "NEXUS": "nexus", "SPEKTRUM": "spec"}
     aktif_r_puan = r_map[robot_secim]
     aktif_r_tahmin = t_map[robot_secim]
 
-    if st.button("🚀 TÜM AVRUPA LİGLERİNİ TAZEDEN TARA", use_container_width=True):
-        with st.spinner("🌍 Tüm ligler sıfırdan taranıyor..."):
+    if st.button("🚀 TÜM AVRUPA LİGLERİNİ YENİDEN TARA", use_container_width=True):
+        with st.spinner("🌍 Veriler sıfırdan çekiliyor..."):
             fikstur, hafiza = tum_ligleri_tara()
             st.session_state.tr_fikstur = fikstur
             st.session_state.tr_hafiza = hafiza
             st.rerun()
 
     if 'tr_fikstur' in st.session_state:
-        with st.spinner("🤖 Robotlar dürüstlük filtresinden geçiriliyor..."):
+        with st.spinner("🤖 Analizler dürüstlük filtresinden geçiyor..."):
+            # LİSTEYİ SIFIRDAN OLUŞTUR (Hafıza karışıklığına son)
             ham_liste = []
+            
             for f in st.session_state.tr_fikstur:
-                # Yeni veri yapısına göre çekiyoruz
-                ev_adi = f.get('home')
-                dep_adi = f.get('away')
-                lig_adi = f.get('lig') # Burası mühürlediğimiz ismi çeker
+                # Verileri güvenli çek
+                ev_adi = f.get('home') or f.get('strHomeTeam')
+                dep_adi = f.get('away') or f.get('strAwayTeam')
+                # Lig ismini sadece o maçın içinden al (Döngüden değil!)
+                lig_adi = f.get('lig') or f.get('lig_etiket') or "Avrupa"
 
-                if not ev_adi or not dep_adi:
-                    continue 
+                if not ev_adi or not dep_adi: continue
 
+                # ROBOT ANALİZİ
                 res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
                 
-                # ✅ SADECE ONAY ALANLARI LİSTEYE AL
-                if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get(aktif_r_puan, 0) > 0:
+                # 🔥 BURASI KRİTİK: Robot "Yetersiz Veri" dediyse asla alma!
+                # Doncaster neden geliyor? Çünkü robot veri bulamasa da bir şey dönüyor.
+                # 'note' kontrolü ile vizeyi sorguluyoruz:
+                if res and res.get('note') == "✅ Analiz Tamamlandı":
+                    # Puan %90'dan fazlaysa ama gol beklentisi (total_xg) 0 ise bu bir hatadır, ele!
+                    if res.get(aktif_r_puan, 0) > 98 and res.get('total_xg', 0) == 0:
+                        continue
+                        
                     ham_liste.append({
-                        'ev': ev_adi,
-                        'dep': dep_adi,
-                        'lig': lig_adi,
-                        'res': res
-                    })
-                # ANALİZ ET
-                res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
-                
-                # Sadece robotun "✅ Analiz Tamamlandı" dediği gerçek maçları al
-                if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get(aktif_r_puan, 0) > 0:
-                    ham_liste.append({
-                        'ev': ev_adi,
-                        'dep': dep_adi,
-                        'lig': lig_adi,
-                        'res': res
+                        'ev': ev_adi, 'dep': dep_adi, 'lig': lig_adi, 'res': res
                     })
 
         if ham_liste:
-            st.success(f"✅ Filtrelerden geçen {len(ham_liste)} gerçek maç bulundu.")
+            st.success(f"✅ {len(ham_liste)} gerçek maç başarıyla analiz edildi.")
+            
+            # --- KUPONLAR ---
             c1, c2, c3, c4 = st.columns(4)
             kupon_config = [
                 ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
@@ -875,13 +874,24 @@ elif mod == "🤖 Tahmin Robotu":
             for title, col, sort_key, t_key, color in kupon_config:
                 with col:
                     st.markdown(f'<div class="editor-card" style="border-top-color:{color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
+                    
                     f_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
                     f_tahmin = aktif_r_tahmin if title in ["⭐ BANKO", "💎 İDEAL"] else t_key
                     
-                    # Sıralama ve ilk 5
-                    top_5 = sorted(ham_liste, key=lambda x: x['res'].get(f_sort, 0), reverse=True)[:5]
+                    # Sıralama ve tekrarları önleme
+                    top_matches = sorted(ham_liste, key=lambda x: x['res'].get(f_sort, 0), reverse=True)
                     
-                    for m in top_5:
+                    # Maçları benzersiz yap (Aynı maç farklı ligde çıkmasın)
+                    gorulen_maclar = set()
+                    final_5 = []
+                    for m in top_matches:
+                        mac_id = f"{m['ev']}-{m['dep']}"
+                        if mac_id not in gorulen_maclar:
+                            final_5.append(m)
+                            gorulen_maclar.add(mac_id)
+                        if len(final_5) == 5: break
+
+                    for m in final_5:
                         st.markdown(f"""
                         <div class="coupon-item">
                             <small style="color:#8b949e;">{m['lig']}</small><br>
@@ -891,7 +901,7 @@ elif mod == "🤖 Tahmin Robotu":
                         </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.warning("🤖 Analiz edilebilir maç bulunamadı. Lütfen taramayı tazeleyin.")
+            st.warning("🤖 Analiz kriterlerine uyan maç bulunamadı.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
