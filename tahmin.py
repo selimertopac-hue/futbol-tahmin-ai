@@ -51,13 +51,15 @@ def tum_ligleri_tara():
     islem_kutusu = st.empty()
     
     for l_ad, l_id in ligler.items():
-        # 🔥 BURASI ÇOK KRİTİK: Lig adını yerel bir değişkene kopyalıyoruz
-        su_anki_lig = str(l_ad) 
-        islem_kutusu.info(f"📡 {su_anki_lig} verileri çekiliyor...")
-        
+        st.write(f"🔍 API Sorgusu Yapılıyor: {l_ad} (ID: {l_id})") # TEST SATIRI
         f_data = world_veri_al(f"eventsnextleague.php?id={l_id}")
         
-        # API bazen boş dönebilir, kontrol ediyoruz
+        # 🔥 İŞTE GERÇEK TEST BURASI:
+        if f_data and f_data.get('events'):
+            ilk_mac = f_data['events'][0].get('strEvent')
+            st.write(f"📡 API'den Gelen İlk Maç: {ilk_mac}") # TEST SATIRI
+        else:
+            st.write(f"⚠️ {l_ad} için API boş döndü veya hata verdi.")
         if f_data and isinstance(f_data.get('events'), list):
             for f in f_data['events']:
                 # 🔥 MAÇI İZOLE EDEREK EKLE (Referans hatasını önler)
