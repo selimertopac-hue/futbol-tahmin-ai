@@ -853,36 +853,28 @@ elif mod == "🤖 Tahmin Robotu":
             st.rerun()
 
     if 'tr_fikstur' in st.session_state:
-        ham_liste = []
-        for f in st.session_state.tr_fikstur:
-            ev, dep, lig = f['home'], f['away'], f['lig']
-            
-            # 🛡️ SAVUNMA HATTI 1: Takım isimleri içinde 'Süper Lig'de olamayacak kelimeler var mı?
-            # Eğer Türkiye Süper Lig taranıyorsa ama takımda 'City', 'United', 'Rovers' geçiyorsa bu sahte veridir.
-            if "Türkiye" in lig:
-                yasakli_kelimeler = ["city", "united", "town", "rovers", "albion", "county", "orient", "wigan", "reading"]
-                if any(w in ev.lower() or w in dep.lower() for w in yasakli_kelimeler):
-                    continue # Sahte veriyi direkt çöpe at
-            
-            res = analiz_et(ev, dep, st.session_state.tr_hafiza, s_sec)
-            
-            # 🛡️ SAVUNMA HATTI 2: Robot onayı ve xG doğrulaması
-            if res and res.get('note') == "✅ Analiz Tamamlandı":
-                # Eğer toplam gol beklentisi (xG) tam olarak 0 veya tam olarak 1.0 gibi 'statik' ise veride sorun vardır
-                if res.get('total_xg', 0) > 0.1:
-                    ham_liste.append({'ev': ev, 'dep': dep, 'lig': lig, 'res': res})
-            # Robot Analizi
-            res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
-            
-            # SERT FİLTRE: Analiz tamamlanmalı ve gol beklentisi (xG) 0'dan büyük olmalı
-            if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get('total_xg', 0) > 0:
-                ham_liste.append({
-                    'ev': ev_adi, 'dep': dep_adi, 'lig': lig_adi, 'res': res
-                })
+        with st.spinner("🤖 iSports Verileri Analiz Ediliyor..."):
+            ham_liste = []
+            for f in st.session_state.tr_fikstur:
+                ev_adi = f.get('home')
+                dep_adi = f.get('away')
+                lig_adi = f.get('lig')
 
-    if ham_liste:
-        st.success(f"✅ Cuma öğleden sonrası için {len(ham_liste)} net analiz oluşturuldu.")
-        # Burada kuponları (BANKO, İDEAL vb.) gösteren görsel kodların devam edecek...
+                if not ev_adi or not dep_adi: continue
+
+                # Analiz Motoru
+                res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
+                
+                # Sadece robotun ONAY verdiği maçları listeye ekle
+                if res and res.get('note') == "✅ Analiz Tamamlandı":
+                    # Doncaster filtresi: xG 0'dan büyük olmalı
+                    if res.get('total_xg', 0) > 0:
+                        ham_liste.append({
+                            'ev': ev_adi,
+                            'dep': dep_adi,
+                            'lig': lig_adi,
+                            'res': res
+                        })
                 
                 # 3. 🔥 SIZMA ENGELLEYİCİ FİLTRE 🔥
                 # Sadece robotun vize verdiği VE gerçekten gol beklentisi hesapladığı maçları al
