@@ -335,21 +335,16 @@ def get_form_dots(team_name, matches):
             continue
     return f'<div style="margin-top:3px;">{dots}</div>'
 
-# --- 2. GÜNCELLENMİŞ AVRUPA RADARI ---
 def tum_ligleri_tara():
+    # RapidAPI - Güncel Lig ID'leri
     ligler = {
-        "Türkiye Süper Lig": "4339", "Türkiye 1. Lig": "4491",
-        "Hollanda Eredivisie": "4337", "Hollanda Eerste Divisie": "4403",
-        "Belçika Pro League": "4333", "Belçika Challenger Pro": "4525",
-        "İskoçya Premiership": "4330", "İskoçya Championship": "4395",
-        "İngiltere Premier": "4328", "İngiltere Championship": "4329",
-        "İspanya La Liga": "4335", "İspanya Segunda": "4400",
-        "Almanya Bundesliga": "4331", "Almanya 2. Bundesliga": "4338",
-        "İtalya Serie A": "4332", "İtalya Serie B": "4401",
-        "Fransa Ligue 1": "4334", "Fransa Ligue 2": "4402",
-        "İsveç Allsvenskan": "4340", "İsviçre Super League": "4344",
-        "Rusya Premier": "4351", "Hırvatistan HNL": "4415",
-        "Bosna Premier": "4410"
+        "Türkiye Süper Lig": "203", 
+        "İngiltere Premier": "39",
+        "İspanya La Liga": "140",
+        "Almanya Bundesliga": "78",
+        "İtalya Serie A": "135",
+        "Fransa Ligue 1": "61",
+        "Hollanda Eredivisie": "94"
     }
     
     tum_fikstur = []
@@ -357,39 +352,40 @@ def tum_ligleri_tara():
     islem_kutusu = st.empty()
     
     for l_ad, l_id in ligler.items():
-        # 🔥 BURASI KRİTİK: Lig ismini döngü başında sabit bir metne çeviriyoruz
-        aktif_lig_ismi = str(l_ad) 
-        islem_kutusu.info(f"📡 {aktif_lig_ismi} taranıyor...")
+        islem_kutusu.info(f"📡 {l_ad} gerçek verileri çekiliyor...")
         
-        # Gelecek Maçlar
-        f_data = world_veri_al(f"eventsnextleague.php?id={l_id}")
-        if f_data and isinstance(f_data.get('events'), list):
-            for f in f_data['events']:
-                # 🔥 BURASI DA KRİTİK: 'lig' anahtarına o anki sabit ismi yazıyoruz
+        # 1. GELECEK MAÇLAR (Fixtures) - 2025/2026 Sezonu
+        f_data = rapid_veri_al("football-get-all-fixtures", params={"league_id": l_id, "season": "2025"})
+        
+        if f_data and f_data.get('status') == 'success':
+            matches = f_data.get('response', [])
+            for m in matches:
+                # Cuma 12:00'den sonrasını hedeflemek için zaman damgasını alıyoruz
                 tum_fikstur.append({
-                    'home': f.get('strHomeTeam'),
-                    'away': f.get('strAwayTeam'),
-                    'lig': aktif_lig_ismi 
+                    'home': m.get('home_team_name'),
+                    'away': m.get('away_team_name'),
+                    'lig': str(l_ad),
+                    'date': m.get('date') # Maç saati kontrolü için
                 })
         
-        # Geçmiş Maçlar (Hafıza)
-        h_data = world_veri_al(f"eventspastleague.php?id={l_id}")
-        if h_data and isinstance(h_data.get('events'), list):
-            for m in h_data['events']:
+        # 2. GEÇMİŞ MAÇLAR (Hafıza)
+        h_data = rapid_veri_al("football-get-all-results", params={"league_id": l_id, "season": "2025"})
+        if h_data and h_data.get('status') == 'success':
+            results = h_data.get('response', [])
+            for r in results:
                 tum_hafiza.append({
-                    'homeTeam': {'name': m['strHomeTeam']},
-                    'awayTeam': {'name': m['strAwayTeam']},
+                    'homeTeam': {'name': r.get('home_team_name')},
+                    'awayTeam': {'name': r.get('away_team_name')},
                     'status': 'FINISHED',
                     'score': {
                         'fullTime': {
-                            'home': int(m['intHomeScore'] or 0), 
-                            'away': int(m['intAwayScore'] or 0)
+                            'home': int(r.get('home_score') or 0),
+                            'away': int(r.get('away_score') or 0)
                         }
-                    },
-                    'matchday': int(m.get('intRound', 1))
+                    }
                 })
 
-    islem_kutusu.success("🌍 Tüm Avrupa başarıyla hafızaya alındı!")
+    islem_kutusu.success("🌍 Tüm Avrupa bülteni Cuma bülteni için hazır!")
     return tum_fikstur, tum_hafiza
 
 # --- 3. DÜRÜST ANALİZ MOTORU (POISSON) ---
