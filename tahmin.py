@@ -331,63 +331,57 @@ def isports_veri_al(endpoint, params={}):
         return None
 
 def tum_ligleri_tara():
-    # iSportsAPI League ID'leri (Dökümana göre en popüler ligler)
+    # football-data.org için lig kodları
     ligler = {
-        "Türkiye Süper Lig": "163", 
-        "İngiltere Premier": "82",
-        "İspanya La Liga": "120",
-        "Almanya Bundesliga": "114",
-        "İtalya Serie A": "119",
-        "Fransa Ligue 1": "111",
-        "Hollanda Eredivisie": "131"
+        "İngiltere Premier": "PL",
+        "İspanya La Liga": "PD",
+        "İtalya Serie A": "SA",
+        "Almanya Bundesliga": "BL1",
+        "Fransa Ligue 1": "FL1",
+        "Hollanda Eredivisie": "DED",
+        "Portekiz": "PPL"
     }
     
     tum_fikstur = []
     tum_hafiza = []
     islem_kutusu = st.empty()
-    
-    for l_ad, l_id in ligler.items():
-        islem_kutusu.info(f"📡 {l_ad} gerçek verileri çekiliyor...")
+    headers = {"X-Auth-Token": FOOTBALL_DATA_KEY}
+
+    for l_ad, l_kod in ligler.items():
+        # 🔥 KRİTİK: Lig ismini burada sabitle
+        aktif_lig = str(l_ad)
+        islem_kutusu.info(f"📡 {aktif_lig} ({l_kod}) verileri çekiliyor...")
         
-        # 1. GELECEK MAÇLAR (Fixtures)
-        # iSportsAPI fixture endpoint'i genelde 'schedule' olarak geçer
-        f_data = isports_veri_al("schedule", params={"leagueId": l_id})
-        
-        if f_data and f_data.get('code') == 0:
-            matches = f_data.get('data', [])
-            for m in matches:
-                # Sadece henüz başlamamış maçları al
-                if m.get('status') == "0": 
+        try:
+            # GELECEK MAÇLAR
+            f_url = f"https://api.football-data.org/v4/competitions/{l_kod}/matches?status=SCHEDULED"
+            f_res = requests.get(f_url, headers=headers, timeout=10).json()
+            
+            if 'matches' in f_res:
+                for m in f_res['matches']:
                     tum_fikstur.append({
-                        'home': m.get('homeName'),
-                        'away': m.get('awayName'),
-                        'lig': str(l_ad),
-                        'date': m.get('matchTime')
+                        'home': m['homeTeam']['name'],
+                        'away': m['awayTeam']['name'],
+                        'lig': aktif_lig # <--- 'su_anki_lig' değil, 'aktif_lig'
                     })
-        
-        # 2. GEÇMİŞ MAÇLAR (Hafıza - Robotun Beyni)
-        # iSportsAPI sonuçlar için genelde 'score' veya 'history' endpoint'i kullanır
-        h_data = isports_veri_al("score", params={"leagueId": l_id})
-        if h_data and h_data.get('code') == 0:
-            results = h_data.get('data', [])
-            for r in results:
-                # Sadece bitmiş maçları hafızaya ekle
-                if r.get('status') == "-1": # -1 genelde FINISHED demektir
+            
+            # GEÇMİŞ MAÇLAR (Analiz hafızası için)
+            h_url = f"https://api.football-data.org/v4/competitions/{l_kod}/matches?status=FINISHED"
+            h_res = requests.get(h_url, headers=headers, timeout=10).json()
+            if 'matches' in h_res:
+                for m in h_res['matches']:
                     tum_hafiza.append({
-                        'homeTeam': {'name': r.get('homeName')},
-                        'awayTeam': {'name': r.get('awayName')},
+                        'homeTeam': {'name': m['homeTeam']['name']},
+                        'awayTeam': {'name': m['awayTeam']['name']},
                         'status': 'FINISHED',
-                        'score': {
-                            'fullTime': {
-                                'home': int(r.get('homeScore') or 0),
-                                'away': int(r.get('awayScore') or 0)
-                            }
-                        }
+                        'score': {'fullTime': {'home': m['score']['fullTime']['home'], 'away': m['score']['fullTime']['away']}},
+                        'matchday': m.get('matchday', 1)
                     })
-
-    islem_kutusu.success("🌍 iSportsAPI ile Gerçek Veriler Yüklendi!")
+        except Exception as e:
+            st.error(f"❌ {aktif_lig} hatası: {e}")
+            
+    islem_kutusu.success("🌍 Gerçek Avrupa verileri başarıyla yüklendi!")
     return tum_fikstur, tum_hafiza
-
 # --- 3. DÜRÜST ANALİZ MOTORU (POISSON) ---
 def analiz_et(ev, dep, matches, h_no):
     try:
