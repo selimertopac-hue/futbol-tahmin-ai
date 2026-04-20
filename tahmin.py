@@ -851,24 +851,24 @@ elif mod == "🤖 Tahmin Robotu":
             st.rerun()
 
     if 'tr_fikstur' in st.session_state:
-    with st.spinner("🤖 Cuma 12:00 bülteni analiz ediliyor..."):
         ham_liste = []
-        hedef_zaman = datetime(2026, 4, 24, 12, 0) # 24 Nisan Cuma 12:00 (Örnek tarih)
-
         for f in st.session_state.tr_fikstur:
-            ev_adi = f.get('home')
-            dep_adi = f.get('away')
-            lig_adi = f.get('lig')
-            mac_tarihi_str = f.get('date')
-
-            # Tarih kontrolü (Maç Cuma 12:00'den sonra mı?)
-            try:
-                mac_tarihi = datetime.fromisoformat(mac_tarihi_str.replace('Z', ''))
-                if mac_tarihi < hedef_zaman:
-                    continue 
-            except:
-                pass # Tarih formatı uymazsa devam et
-
+            ev, dep, lig = f['home'], f['away'], f['lig']
+            
+            # 🛡️ SAVUNMA HATTI 1: Takım isimleri içinde 'Süper Lig'de olamayacak kelimeler var mı?
+            # Eğer Türkiye Süper Lig taranıyorsa ama takımda 'City', 'United', 'Rovers' geçiyorsa bu sahte veridir.
+            if "Türkiye" in lig:
+                yasakli_kelimeler = ["city", "united", "town", "rovers", "albion", "county", "orient", "wigan", "reading"]
+                if any(w in ev.lower() or w in dep.lower() for w in yasakli_kelimeler):
+                    continue # Sahte veriyi direkt çöpe at
+            
+            res = analiz_et(ev, dep, st.session_state.tr_hafiza, s_sec)
+            
+            # 🛡️ SAVUNMA HATTI 2: Robot onayı ve xG doğrulaması
+            if res and res.get('note') == "✅ Analiz Tamamlandı":
+                # Eğer toplam gol beklentisi (xG) tam olarak 0 veya tam olarak 1.0 gibi 'statik' ise veride sorun vardır
+                if res.get('total_xg', 0) > 0.1:
+                    ham_liste.append({'ev': ev, 'dep': dep, 'lig': lig, 'res': res})
             # Robot Analizi
             res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
             
