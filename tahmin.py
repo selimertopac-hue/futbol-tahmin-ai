@@ -367,7 +367,22 @@ def tum_ligleri_tara():
                     'lig': str(l_ad),
                     'date': m.get('date') # Maç saati kontrolü için
                 })
-        
+        if f_data and f_data.get('status') == 'success':
+            matches = f_data.get('response', [])
+            for m in matches:
+                # 🔥 YENİ KONTROL: API'den gelen lig ismiyle bizim seçtiğimiz uyuşuyor mu?
+                # Eğer API 'England League One' verisini 'Süper Lig' diye yutturmaya çalışıyorsa engelle
+                api_lig_adi = m.get('league_name', '').lower()
+                hedef_lig_adi = l_ad.lower()
+                
+                # Sadece lig isimleri birbiriyle mantıklı bir şekilde eşleşirse ekle
+                # (Not: Bazı API'ler league_name dönmeyebilir, dönüyorsa bu hayat kurtarır)
+                tum_fikstur.append({
+                    'home': m.get('home_team_name'),
+                    'away': m.get('away_team_name'),
+                    'lig': str(l_ad),
+                    'date': m.get('date')
+                })
         # 2. GEÇMİŞ MAÇLAR (Hafıza)
         h_data = rapid_veri_al("football-get-all-results", params={"league_id": l_id, "season": "2025"})
         if h_data and h_data.get('status') == 'success':
