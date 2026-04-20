@@ -836,51 +836,39 @@ elif mod == "🤖 Tahmin Robotu":
             st.rerun()
 
     if 'tr_fikstur' in st.session_state:
-        with st.spinner("🤖 Gerçek veriler analiz ediliyor..."):
+        with st.spinner("🤖 Analizler dürüstlük filtresinden geçiyor..."):
             ham_liste = []
+            
             for f in st.session_state.tr_fikstur:
                 ev_adi = f.get('home')
                 dep_adi = f.get('away')
-                lig_adi = f.get('lig')
+                lig_adi = f.get('lig', 'Avrupa')
 
                 if not ev_adi or not dep_adi: continue
 
-                # Analiz Motoru
+                # 🔥 ESNEK VE AKILLI FİLTRE:
+                # Eğer lig "Türkiye" ise ama takım isimlerinde İngiliz/Yabancı ibareleri varsa engelle.
+                # Bu sayede yeni bir API ile GERÇEK Türkiye verisi geldiğinde (Galatasaray vb.) takılmaz.
+                sahte_veri_sinyali = ["doncaster", "stevenage", "wimbledon", "rotherham", "reading", "port vale"]
+                
+                if "Türkiye" in str(lig_adi):
+                    # Takım isimleri bu "mock data" listesindeyse geç (continue)
+                    if any(c in ev_adi.lower() or c in dep_adi.lower() for c in sahte_veri_sinyali):
+                        continue
+
+                # ANALİZ ET
                 res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
                 
-                # 🛑 ANALİZ TAMAMLANMADIYSA ASLA EKLEME
+                # Sadece robotun onay verdiği ve verisi olan maçları al
                 if res and res.get('note') == "✅ Analiz Tamamlandı":
-                    # Doncaster testi: Eğer hala Doncaster geliyorsa kodda sızıntı vardır.
-                    # Ama bu API'de Doncaster Premier Lig'de olmadığı için gelmemesi lazım.
-                    if res.get('total_xg', 0) > 0:
+                    # Doncaster'ın %99 sallamasını engelleyen xG kontrolü
+                    if res.get('total_xg', 0) > 0.1:
                         ham_liste.append({
-                            'ev': ev_adi,
-                            'dep': dep_adi,
-                            'lig': lig_adi,
+                            'ev': ev_adi, 
+                            'dep': dep_adi, 
+                            'lig': lig_adi, 
                             'res': res
                         })
-                
-                # 3. 🔥 SIZMA ENGELLEYİCİ FİLTRE 🔥
-                # Sadece robotun vize verdiği VE gerçekten gol beklentisi hesapladığı maçları al
-                if res and res.get('note') == "✅ Analiz Tamamlandı":
-                    
-                    # Doncaster gibi verisi olmayan maçlar bazen %99 puanla sızar.
-                    # Eğer toplam gol beklentisi 0 ise veya robotun puanı %98 üzerindeyken xG mantıksızsa ele.
-                    txg = res.get('total_xg', 0)
-                    r_puan = res.get(aktif_r_puan, 0)
-                    
-                    if txg == 0 or (r_puan > 98 and txg < 0.1):
-                        continue # Bu maç hatalı veridir, listeye ekleme!
-                        
-                    ham_liste.append({
-                        'ev': ev_adi, 
-                        'dep': dep_adi, 
-                        'lig': lig_adi, 
-                        'res': res
-                    })
-
-        if ham_liste:
-            st.success(f"✅ {len(ham_liste)} gerçek maç başarıyla analiz edildi.")
             
             # --- KUPONLAR ---
             c1, c2, c3, c4 = st.columns(4)
