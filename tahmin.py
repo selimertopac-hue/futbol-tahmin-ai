@@ -840,19 +840,36 @@ elif mod == "🤖 Tahmin Robotu":
             st.rerun()
 
     if 'tr_fikstur' in st.session_state:
-        with st.spinner("🤖 Analizler dürüstlük filtresinden geçiyor..."):
-            ham_liste = []
+    with st.spinner("🤖 Cuma 12:00 bülteni analiz ediliyor..."):
+        ham_liste = []
+        hedef_zaman = datetime(2026, 4, 24, 12, 0) # 24 Nisan Cuma 12:00 (Örnek tarih)
+
+        for f in st.session_state.tr_fikstur:
+            ev_adi = f.get('home')
+            dep_adi = f.get('away')
+            lig_adi = f.get('lig')
+            mac_tarihi_str = f.get('date')
+
+            # Tarih kontrolü (Maç Cuma 12:00'den sonra mı?)
+            try:
+                mac_tarihi = datetime.fromisoformat(mac_tarihi_str.replace('Z', ''))
+                if mac_tarihi < hedef_zaman:
+                    continue 
+            except:
+                pass # Tarih formatı uymazsa devam et
+
+            # Robot Analizi
+            res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
             
-            for f in st.session_state.tr_fikstur:
-                # 1. Verileri izole ederek çek
-                ev_adi = f.get('home') or f.get('strHomeTeam')
-                dep_adi = f.get('away') or f.get('strAwayTeam')
-                lig_adi = f.get('lig') or f.get('lig_etiket') or "Avrupa"
+            # SERT FİLTRE: Analiz tamamlanmalı ve gol beklentisi (xG) 0'dan büyük olmalı
+            if res and res.get('note') == "✅ Analiz Tamamlandı" and res.get('total_xg', 0) > 0:
+                ham_liste.append({
+                    'ev': ev_adi, 'dep': dep_adi, 'lig': lig_adi, 'res': res
+                })
 
-                if not ev_adi or not dep_adi: continue
-
-                # 2. ROBOT ANALİZİ
-                res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
+    if ham_liste:
+        st.success(f"✅ Cuma öğleden sonrası için {len(ham_liste)} net analiz oluşturuldu.")
+        # Burada kuponları (BANKO, İDEAL vb.) gösteren görsel kodların devam edecek...
                 
                 # 3. 🔥 SIZMA ENGELLEYİCİ FİLTRE 🔥
                 # Sadece robotun vize verdiği VE gerçekten gol beklentisi hesapladığı maçları al
