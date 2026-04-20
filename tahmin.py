@@ -27,36 +27,33 @@ st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="�
 
 import requests
 
-# --- 🚀 GERÇEK DÜNYA RADARI (RAPIDAPI LIVE DATA) ---
-RAPID_API_KEY = "b6e78e72damsh3b35bfef609b11bp1e701bjsn01310ac6d49e"
-RAPID_API_HOST = "free-api-live-football-data.p.rapidapi.com"
+# --- 🚀 iSPORTS API AYARLARI ---
+ISPORTS_API_KEY = "aG7K4Saw0S7rG40B"
+ISPORTS_BASE_URL = "http://api.isportsapi.com/sport/football"
 
-def rapid_veri_al(endpoint, params=None):
-    """RapidAPI üzerinden gerçek zamanlı veri çeker."""
-    url = f"https://{RAPID_API_HOST}/{endpoint}"
-    headers = {
-        "x-rapidapi-key": RAPID_API_KEY,
-        "x-rapidapi-host": RAPID_API_HOST
-    }
+def isports_veri_al(endpoint, params={}):
+    """iSportsAPI üzerinden veri çeker."""
+    params['api_key'] = ISPORTS_API_KEY
+    url = f"{ISPORTS_BASE_URL}/{endpoint}"
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=15)
+        response = requests.get(url, params=params, timeout=15)
         if response.status_code == 200:
             return response.json()
         return None
     except Exception as e:
-        st.error(f"⚠️ Bağlantı Hatası: {e}")
+        st.error(f"⚠️ iSportsAPI Bağlantı Hatası: {e}")
         return None
 
 def tum_ligleri_tara():
-    # RapidAPI - Güncel Lig ID'leri
+    # iSportsAPI League ID'leri (Dökümana göre en popüler ligler)
     ligler = {
-        "Türkiye Süper Lig": "203", 
-        "İngiltere Premier": "39",
-        "İspanya La Liga": "140",
-        "Almanya Bundesliga": "78",
-        "İtalya Serie A": "135",
-        "Fransa Ligue 1": "61",
-        "Hollanda Eredivisie": "94"
+        "Türkiye Süper Lig": "163", 
+        "İngiltere Premier": "82",
+        "İspanya La Liga": "120",
+        "Almanya Bundesliga": "114",
+        "İtalya Serie A": "119",
+        "Fransa Ligue 1": "111",
+        "Hollanda Eredivisie": "131"
     }
     
     tum_fikstur = []
@@ -66,38 +63,43 @@ def tum_ligleri_tara():
     for l_ad, l_id in ligler.items():
         islem_kutusu.info(f"📡 {l_ad} gerçek verileri çekiliyor...")
         
-        # 1. GELECEK MAÇLAR (Fixtures) - 2025/2026 Sezonu
-        f_data = rapid_veri_al("football-get-all-fixtures", params={"league_id": l_id, "season": "2025"})
+        # 1. GELECEK MAÇLAR (Fixtures)
+        # iSportsAPI fixture endpoint'i genelde 'schedule' olarak geçer
+        f_data = isports_veri_al("schedule", params={"leagueId": l_id})
         
-        if f_data and f_data.get('status') == 'success':
-            matches = f_data.get('response', [])
+        if f_data and f_data.get('code') == 0:
+            matches = f_data.get('data', [])
             for m in matches:
-                # Cuma 12:00'den sonrasını hedeflemek için zaman damgasını alıyoruz
-                tum_fikstur.append({
-                    'home': m.get('home_team_name'),
-                    'away': m.get('away_team_name'),
-                    'lig': str(l_ad),
-                    'date': m.get('date') # Maç saati kontrolü için
-                })
+                # Sadece henüz başlamamış maçları al
+                if m.get('status') == "0": 
+                    tum_fikstur.append({
+                        'home': m.get('homeName'),
+                        'away': m.get('awayName'),
+                        'lig': str(l_ad),
+                        'date': m.get('matchTime')
+                    })
         
-        # 2. GEÇMİŞ MAÇLAR (Hafıza)
-        h_data = rapid_veri_al("football-get-all-results", params={"league_id": l_id, "season": "2025"})
-        if h_data and h_data.get('status') == 'success':
-            results = h_data.get('response', [])
+        # 2. GEÇMİŞ MAÇLAR (Hafıza - Robotun Beyni)
+        # iSportsAPI sonuçlar için genelde 'score' veya 'history' endpoint'i kullanır
+        h_data = isports_veri_al("score", params={"leagueId": l_id})
+        if h_data and h_data.get('code') == 0:
+            results = h_data.get('data', [])
             for r in results:
-                tum_hafiza.append({
-                    'homeTeam': {'name': r.get('home_team_name')},
-                    'awayTeam': {'name': r.get('away_team_name')},
-                    'status': 'FINISHED',
-                    'score': {
-                        'fullTime': {
-                            'home': int(r.get('home_score') or 0),
-                            'away': int(r.get('away_score') or 0)
+                # Sadece bitmiş maçları hafızaya ekle
+                if r.get('status') == "-1": # -1 genelde FINISHED demektir
+                    tum_hafiza.append({
+                        'homeTeam': {'name': r.get('homeName')},
+                        'awayTeam': {'name': r.get('awayName')},
+                        'status': 'FINISHED',
+                        'score': {
+                            'fullTime': {
+                                'home': int(r.get('homeScore') or 0),
+                                'away': int(r.get('awayScore') or 0)
+                            }
                         }
-                    }
-                })
+                    })
 
-    islem_kutusu.success("🌍 Tüm Avrupa bülteni Cuma bülteni için hazır!")
+    islem_kutusu.success("🌍 iSportsAPI ile Gerçek Veriler Yüklendi!")
     return tum_fikstur, tum_hafiza   
     
 # --- 2. TEMEL HESAP MAKİNESİ (check_hit) ---
