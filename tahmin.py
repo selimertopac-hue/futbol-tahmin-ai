@@ -26,7 +26,7 @@ SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
 
 def tum_ligleri_tara():
-    # football-data.org için lig kodları (Bunlar kesin çalışır)
+    # football-data.org için lig kodları
     ligler = {
         "İngiltere Premier": "PL",
         "İspanya La Liga": "PD",
@@ -40,45 +40,43 @@ def tum_ligleri_tara():
     tum_fikstur = []
     tum_hafiza = []
     islem_kutusu = st.empty()
-    
-    headers = {"X-Auth-Token": "b900863038174d07855ace7f33c69c9b"}
+    headers = {"X-Auth-Token": FOOTBALL_DATA_KEY}
 
     for l_ad, l_kod in ligler.items():
-        islem_kutusu.info(f"📡 {l_ad} ({l_kod}) verileri çekiliyor...")
+        # 🔥 KRİTİK: Lig ismini burada sabitle
+        aktif_lig = str(l_ad)
+        islem_kutusu.info(f"📡 {aktif_lig} ({l_kod}) verileri çekiliyor...")
         
-        # 1. GELECEK MAÇLAR
         try:
-            f_res = requests.get(f"https://api.football-data.org/v4/competitions/{l_kod}/matches?status=SCHEDULED", headers=headers, timeout=10).json()
+            # GELECEK MAÇLAR
+            f_url = f"https://api.football-data.org/v4/competitions/{l_kod}/matches?status=SCHEDULED"
+            f_res = requests.get(f_url, headers=headers, timeout=10).json()
+            
             if 'matches' in f_res:
                 for m in f_res['matches']:
                     tum_fikstur.append({
                         'home': m['homeTeam']['name'],
                         'away': m['awayTeam']['name'],
-                        'lig': str(l_ad) # Lig ismini mühürledik
+                        'lig': aktif_lig # <--- 'su_anki_lig' değil, 'aktif_lig'
                     })
-        except: pass
-
-        # 2. GEÇMİŞ MAÇLAR (Robotun Hafızası)
-        try:
-            h_res = requests.get(f"https://api.football-data.org/v4/competitions/{l_kod}/matches?status=FINISHED", headers=headers, timeout=10).json()
+            
+            # GEÇMİŞ MAÇLAR (Analiz hafızası için)
+            h_url = f"https://api.football-data.org/v4/competitions/{l_kod}/matches?status=FINISHED"
+            h_res = requests.get(h_url, headers=headers, timeout=10).json()
             if 'matches' in h_res:
                 for m in h_res['matches']:
                     tum_hafiza.append({
                         'homeTeam': {'name': m['homeTeam']['name']},
                         'awayTeam': {'name': m['awayTeam']['name']},
                         'status': 'FINISHED',
-                        'score': {
-                            'fullTime': {
-                                'home': m['score']['fullTime']['home'],
-                                'away': m['score']['fullTime']['away']
-                            }
-                        },
+                        'score': {'fullTime': {'home': m['score']['fullTime']['home'], 'away': m['score']['fullTime']['away']}},
                         'matchday': m.get('matchday', 1)
                     })
-        except: pass
-
-    islem_kutusu.success("🌍 Sağlam API ile Tüm Bülten Güncellendi!")
-    return tum_fikstur, tum_hafiza   
+        except Exception as e:
+            st.error(f"❌ {aktif_lig} hatası: {e}")
+            
+    islem_kutusu.success("🌍 Gerçek Avrupa verileri başarıyla yüklendi!")
+    return tum_fikstur, tum_hafiza
     
 # --- 2. TEMEL HESAP MAKİNESİ (check_hit) ---
 def check_hit(liste, tip):
