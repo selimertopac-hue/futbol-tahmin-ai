@@ -28,7 +28,7 @@ st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="�
 import requests
 
 # --- 🚀 GERÇEK DÜNYA RADARI (RAPIDAPI LIVE DATA) ---
-RAPID_API_KEY = "b6e78e72damsh3b35bfef609b11bp1e701bjsn01310ac6d49e"
+RAPID_API_KEY = "184bb970-3a95-11f1-ba75-3151818b60d9"
 RAPID_API_HOST = "free-api-live-football-data.p.rapidapi.com"
 
 def rapid_veri_al(endpoint, params=None):
