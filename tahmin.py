@@ -838,7 +838,7 @@ elif mod == "🤖 Tahmin Robotu":
             st.rerun()
 
     if 'tr_fikstur' in st.session_state:
-        with st.spinner("🤖 iSports Verileri Analiz Ediliyor..."):
+        with st.spinner("🤖 Gerçek veriler analiz ediliyor..."):
             ham_liste = []
             for f in st.session_state.tr_fikstur:
                 ev_adi = f.get('home')
@@ -850,9 +850,10 @@ elif mod == "🤖 Tahmin Robotu":
                 # Analiz Motoru
                 res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
                 
-                # Sadece robotun ONAY verdiği maçları listeye ekle
+                # 🛑 ANALİZ TAMAMLANMADIYSA ASLA EKLEME
                 if res and res.get('note') == "✅ Analiz Tamamlandı":
-                    # Doncaster filtresi: xG 0'dan büyük olmalı
+                    # Doncaster testi: Eğer hala Doncaster geliyorsa kodda sızıntı vardır.
+                    # Ama bu API'de Doncaster Premier Lig'de olmadığı için gelmemesi lazım.
                     if res.get('total_xg', 0) > 0:
                         ham_liste.append({
                             'ev': ev_adi,
