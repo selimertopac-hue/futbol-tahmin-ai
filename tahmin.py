@@ -48,14 +48,15 @@ def rapid_veri_al(endpoint, params=None):
         return None
 
 def tum_ligleri_tara():
-    # RapidAPI League ID'leri (Dokümandan alınan güncel ID'ler)
+    # RapidAPI - Güncel Lig ID'leri
     ligler = {
         "Türkiye Süper Lig": "203", 
         "İngiltere Premier": "39",
         "İspanya La Liga": "140",
         "Almanya Bundesliga": "78",
         "İtalya Serie A": "135",
-        "Fransa Ligue 1": "61"
+        "Fransa Ligue 1": "61",
+        "Hollanda Eredivisie": "94"
     }
     
     tum_fikstur = []
@@ -65,21 +66,22 @@ def tum_ligleri_tara():
     for l_ad, l_id in ligler.items():
         islem_kutusu.info(f"📡 {l_ad} gerçek verileri çekiliyor...")
         
-        # 1. GELECEK MAÇLAR (Fikstür)
-        # Not: Kullandığın API'nin endpoint ismine göre burayı 'football-get-all-fixtures' veya benzeri yapmalısın
-        f_data = rapid_veri_al("football-get-all-fixtures", params={"league_id": l_id, "season": "2023"})
+        # 1. GELECEK MAÇLAR (Fixtures) - 2025/2026 Sezonu
+        f_data = rapid_veri_al("football-get-all-fixtures", params={"league_id": l_id, "season": "2025"})
         
         if f_data and f_data.get('status') == 'success':
             matches = f_data.get('response', [])
             for m in matches:
+                # Cuma 12:00'den sonrasını hedeflemek için zaman damgasını alıyoruz
                 tum_fikstur.append({
                     'home': m.get('home_team_name'),
                     'away': m.get('away_team_name'),
-                    'lig': str(l_ad)
+                    'lig': str(l_ad),
+                    'date': m.get('date') # Maç saati kontrolü için
                 })
         
-        # 2. GEÇMİŞ MAÇLAR (Robotun Hafızası)
-        h_data = rapid_veri_al("football-get-all-results", params={"league_id": l_id, "season": "2023"})
+        # 2. GEÇMİŞ MAÇLAR (Hafıza)
+        h_data = rapid_veri_al("football-get-all-results", params={"league_id": l_id, "season": "2025"})
         if h_data and h_data.get('status') == 'success':
             results = h_data.get('response', [])
             for r in results:
@@ -92,11 +94,10 @@ def tum_ligleri_tara():
                             'home': int(r.get('home_score') or 0),
                             'away': int(r.get('away_score') or 0)
                         }
-                    },
-                    'matchday': 1
+                    }
                 })
 
-    islem_kutusu.success("🌍 RapidAPI ile Gerçek Veriler Yüklendi!")
+    islem_kutusu.success("🌍 Tüm Avrupa bülteni Cuma bülteni için hazır!")
     return tum_fikstur, tum_hafiza   
     
 # --- 2. TEMEL HESAP MAKİNESİ (check_hit) ---
