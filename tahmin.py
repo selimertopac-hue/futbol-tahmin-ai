@@ -1009,7 +1009,7 @@ elif mod == "Global AI":
                     matches = m_kupon[k_key]
                     h_skor = check_hit(matches, k_key)
                     
-                    # HTML Paketleme (Kutucukların içinde görünmesi için tek string)
+                    # 1. Kartın en üst kısmını (başlığı) ekliyoruz
                     kart_icerigi = f"""
                         <div class="editor-card" style="border-top: 4px solid {color};">
                             <div class="coupon-title" style="color:{color};">{title} 
@@ -1017,6 +1017,7 @@ elif mod == "Global AI":
                             </div>
                     """
                     
+                    # 2. Maçları tek tek döngüyle bu içeriğe ekliyoruz
                     for m in matches:
                         t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
                         if k_key == "ust": t = "2.5 ÜST"
@@ -1029,13 +1030,13 @@ elif mod == "Global AI":
                                 <span style="float:right; color:#8b949e;">%{int(m['puan'])}</span>
                             </div>
                         """
+                    
+                    # 3. Kartı kapatıyoruz
                     kart_icerigi += "</div>"
-                    # BURASI ÇOK ÖNEMLİ: HTML olarak basıyoruz
+                    
+                    # 4. İŞTE ÇÖZÜM BURASI: 
+                    # unsafe_allow_html=True demezsen ekranda kodları görürsün!
                     st.markdown(kart_icerigi, unsafe_allow_html=True)
-
-        else: # <--- İşte 1065. satırdaki hata buradaydı. Şimdi 'if len(g_l) > 0' ile hizalı.
-            st.warning(f"⚠️ {s_sec}. hafta için analiz edilecek maç bulunamadı.")
-
         # --- 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ (GLOBAL AI GÖVDESİNDE) ---
         st.divider()
         st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
