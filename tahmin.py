@@ -1064,7 +1064,7 @@ elif mod == "Global AI":
 # (Burada unsafe_allow_html=True olmazsa ekranda kodları görürsün!)
 st.markdown(kart_icerigi, unsafe_allow_html=True)
 # --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (ANLIK AKIŞ) ---
-            st.divider()
+st.divider()
             st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
             st.info("⚡ **Canlı Veri Akışı:** Buradaki listeler mühürlenmez. Robotlar o saniye ligde gördüğü en taze fırsatları (Top 20) listeler.")
             
