@@ -968,21 +968,22 @@ elif mod == "Global AI":
                 return hit
 
             # --- 🛡️ MÜHÜRLEME SİSTEMİ (10'LU VE STRATEJİK) ---
-            muhur_anahtari = f"muhur_{s_sec}_{filtre.replace(' ', '_')}"
+            muhur_anahtari = f"muhur_v10_{s_sec}_{filtre.replace(' ', '_')}"
             
             if muhur_anahtari not in st.session_state:
-                # 1. MS 1 Odaklı Bankolar (Ev Sahibi Galibiyeti En Yüksek 10 Maç)
+                # 1. MS 1 Odaklı Bankolar (Ev Sahibi Galibiyeti - En İyi 10 Maç)
                 banko_adaylar = [m for m in g_l if winner(m['res']['aether'] if "AETHER" in filtre else m['res']['wickham']) == "1"]
-                banko_10 = sorted(banko_adaylar, key=lambda x: x['puan'], reverse=True)[:10]
+                banko_10 = sorted(banko_adaylar, key=lambda x: x['puan'], reverse=True)[:10] # Burası 10 oldu
 
-                # 2. MS 2 Odaklı İdealler (Deplasman Galibiyeti En Yüksek 10 Maç)
+                # 2. MS 2 Odaklı İdealler (Deplasman Galibiyeti - En İyi 10 Maç)
                 ideal_adaylar = [m for m in g_l if winner(m['res']['aether'] if "AETHER" in filtre else m['res']['wickham']) == "2"]
-                ideal_10 = sorted(ideal_adaylar, key=lambda x: x['puan'], reverse=True)[:10]
+                ideal_10 = sorted(ideal_adaylar, key=lambda x: x['puan'], reverse=True)[:10] # Burası 10 oldu
 
                 # 3. Üst ve Alt (En Yüksek Puanlı 10 Maç)
                 ust_10 = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:10]
                 alt_10 = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=False)[:10]
 
+                # Mühürü session_state'e işle
                 st.session_state[muhur_anahtari] = {
                     "banko": banko_10,
                     "ideal": ideal_10,
