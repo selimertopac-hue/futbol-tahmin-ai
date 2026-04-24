@@ -1030,37 +1030,38 @@ elif mod == "Global AI":
                 ("🛡️ ALT 10", c4, "alt", "#0366d6")
             ]
 
-            for title, col, k_key, color in kupon_detay:
-                with col:
-                    matches = m_kupon[k_key]
-                    h_skor = check_hit(matches, k_key)
-                    
-                    # 1. Kartın Başlangıcını bir değişkene yazıyoruz
-                    kart_icerigi = f"""
-                        <div class="editor-card" style="border-top: 4px solid {color};">
-                            <div class="coupon-title" style="color:{color};">{title} 
-                                <span class="success-badge">{h_skor}/10</span>
-                            </div>
-                    """
-                    
-                    # 2. Maçları bu değişkenin üzerine ekliyoruz (Döngü burada)
-                    for m in matches:
-                        t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
-                        if k_key == "ust": t = "2.5 ÜST"
-                        elif k_key == "alt": t = "2.5 ALT"
-                        
-                        kart_icerigi += f"""
-                            <div class="coupon-item">
-                                <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
-                                <span style="color:{color}; font-weight:bold;">{t}</span>
-                                <span style="float:right; color:#8b949e;">%{int(m['puan'] if 'puan' in m else 80)}</span>
-                            </div>
-                        """
-                    
-                    # --- KART KAPANIŞI VE BASIMI ---
-                    kart_icerigi += "</div>"
-                    st.markdown(kart_icerigi, unsafe_allow_html=True)
-
+            # --- KUPONLARI EKRANA BASAN KISIM ---
+for title, col, k_key, color in kupon_detay:
+    with col:
+        matches = m_kupon[k_key]
+        h_skor = check_hit(matches, k_key)
+        
+        # 1. HTML içeriğini biriktiriyoruz (Bu kısım sende zaten var)
+        kart_icerigi = f"""
+            <div class="editor-card" style="border-top: 4px solid {color};">
+                <div class="coupon-title" style="color:{color};">{title} 
+                    <span class="success-badge">{h_skor}/10</span>
+                </div>
+        """
+        
+        for m in matches:
+            t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
+            if k_key == "ust": t = "2.5 ÜST"
+            elif k_key == "alt": t = "2.5 ALT"
+            
+            kart_icerigi += f"""
+                <div class="coupon-item">
+                    <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
+                    <span style="color:{color}; font-weight:bold;">{t}</span>
+                    <span style="float:right; color:#8b949e;">%{int(m['puan'] if 'puan' in m else 80)}</span>
+                </div>
+            """
+        
+        kart_icerigi += "</div>"
+        
+        # 2. İŞTE BURASI ÇOK KRİTİK:
+        # Eğer sondaki virgül ve True kısmını yazmazsan ekranda kodları görürsün.
+        st.markdown(kart_icerigi, unsafe_allow_html=True)
         else:
             st.warning(f"⚠️ {s_sec}. hafta için analiz edilecek maç bulunamadı.")
 
