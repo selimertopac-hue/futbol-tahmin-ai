@@ -1009,7 +1009,7 @@ elif mod == "Global AI":
                     matches = m_kupon[k_key]
                     h_skor = check_hit(matches, k_key)
                     
-                    # 1. Kartın en üst kısmını (başlığı) ekliyoruz
+                    # 1. HTML içeriğini biriktirmeye başlıyoruz
                     kart_icerigi = f"""
                         <div class="editor-card" style="border-top: 4px solid {color};">
                             <div class="coupon-title" style="color:{color};">{title} 
@@ -1027,15 +1027,14 @@ elif mod == "Global AI":
                             <div class="coupon-item">
                                 <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
                                 <span style="color:{color}; font-weight:bold;">{t}</span>
-                                <span style="float:right; color:#8b949e;">%{int(m['puan'])}</span>
+                                <span style="float:right; color:#8b949e;">%{int(m['puan'] if 'puan' in m else 80)}</span>
                             </div>
                         """
                     
-                    # 3. Kartı kapatıyoruz
+                    # 3. Kartın kapanış etiketini ekliyoruz
                     kart_icerigi += "</div>"
                     
-                    # 4. İŞTE ÇÖZÜM BURASI: 
-                    # unsafe_allow_html=True demezsen ekranda kodları görürsün!
+                    # 4. TEK SEFERDE VE HTML OLARAK BASIYORUZ
                     st.markdown(kart_icerigi, unsafe_allow_html=True)
         # --- 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ (GLOBAL AI GÖVDESİNDE) ---
         st.divider()
