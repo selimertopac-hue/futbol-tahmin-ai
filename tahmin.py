@@ -1060,8 +1060,9 @@ elif mod == "Global AI":
                     # 3. Kartın kapanışını ekliyoruz
                     kart_icerigi += "</div>"
                     
-                    # 4. VE TEK SEFERDE BASIYORUZ (Sihirli an burası)
-                    st.markdown(kart_icerigi, unsafe_allow_html=True)
+                    # 4. VE TEK SEFERDE BASIYORUZ 
+# (Burada unsafe_allow_html=True olmazsa ekranda kodları görürsün!)
+st.markdown(kart_icerigi, unsafe_allow_html=True)
 # --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (ANLIK AKIŞ) ---
             st.divider()
             st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
