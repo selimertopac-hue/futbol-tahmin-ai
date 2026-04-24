@@ -869,22 +869,16 @@ elif mod == "🤖 Tahmin Robotu":
 
                 if not ev_adi or not dep_adi: continue
 
-                # 🔥 ESNEK VE AKILLI FİLTRE:
-                # Eğer lig "Türkiye" ise ama takım isimlerinde İngiliz/Yabancı ibareleri varsa engelle.
-                # Bu sayede yeni bir API ile GERÇEK Türkiye verisi geldiğinde (Galatasaray vb.) takılmaz.
+                # Sahte veri sinyallerini engelle
                 sahte_veri_sinyali = ["doncaster", "stevenage", "wimbledon", "rotherham", "reading", "port vale"]
-                
                 if "Türkiye" in str(lig_adi):
-                    # Takım isimleri bu "mock data" listesindeyse geç (continue)
                     if any(c in ev_adi.lower() or c in dep_adi.lower() for c in sahte_veri_sinyali):
                         continue
 
                 # ANALİZ ET
                 res = analiz_et(ev_adi, dep_adi, st.session_state.tr_hafiza, s_sec)
                 
-                # Sadece robotun onay verdiği ve verisi olan maçları al
                 if res and res.get('note') == "✅ Analiz Tamamlandı":
-                    # Doncaster'ın %99 sallamasını engelleyen xG kontrolü
                     if res.get('total_xg', 0) > 0.1:
                         ham_liste.append({
                             'ev': ev_adi, 
@@ -893,50 +887,68 @@ elif mod == "🤖 Tahmin Robotu":
                             'res': res
                         })
             
-            # --- TAHMİN ROBOTU: HTML BİLEŞEN SİSTEMİ ---
-                import streamlit.components.v1 as components
+            # --- TAHMİN ROBOTU: KUPON OLUŞTURMA (DÖNGÜ DIŞINDA) ---
+            if ham_liste:
+                st.success(f"✅ {len(ham_liste)} gerçek maç başarıyla analiz edildi.")
+                
+                # Seçilen robotun %70 barajını uygula
+                kaliteli_ham_liste = [m for m in ham_liste if m['res'].get(aktif_r_puan, 0) >= 70]
+                
+                if not kaliteli_ham_liste:
+                    st.warning(f"⚠️ {robot_secim} robotu için %70 güven barajını geçen maç bulunamadı.")
+                else:
+                    import streamlit.components.v1 as components
+                    c1, c2, c3, c4 = st.columns(4)
+                    
+                    # Kupon konfigürasyonunu tanımlıyoruz
+                    kupon_config = [
+                        ("⭐ BANKO", c1, aktif_r_puan, aktif_r_tahmin, "#58A6FF"),
+                        ("💎 İDEAL", c2, aktif_r_puan, aktif_r_tahmin, "#3fb950"),
+                        ("🔥 ÜST", c3, "total_xg", "spec", "#d73a49"),
+                        ("🛡️ ALT", c4, "total_xg", "nexus", "#0366d6")
+                    ]
 
-                for title, col, sort_key, t_key, color in kupon_config:
-                    with col:
-                        # Sıralama ve Filtreleme
-                        top_matches = sorted(kaliteli_ham_liste, key=lambda x: x['res'].get(sort_key, 0), 
-                                             reverse=True if title != "🛡️ ALT" else False)
-                        
-                        gorulen_maclar = set()
-                        final_matches = []
-                        for m in top_matches:
-                            mac_id = f"{m['ev']}-{m['dep']}"
-                            if mac_id not in gorulen_maclar:
-                                final_matches.append(m)
-                                gorulen_maclar.add(mac_id)
-                            if len(final_matches) == 10: break
+                    for title, col, sort_key, t_key, color in kupon_config:
+                        with col:
+                            # Sıralama: Alt için en düşük, diğerleri için en yüksek
+                            top_matches = sorted(kaliteli_ham_liste, key=lambda x: x['res'].get(sort_key, 0), 
+                                                 reverse=True if title != "🛡️ ALT" else False)
+                            
+                            gorulen_maclar = set()
+                            final_matches = []
+                            for m in top_matches:
+                                mac_id = f"{m['ev']}-{m['dep']}"
+                                if mac_id not in gorulen_maclar:
+                                    final_matches.append(m)
+                                    gorulen_maclar.add(mac_id)
+                                if len(final_matches) == 10: break
 
-                        # --- HTML ve CSS PAKETİ ---
-                        html_output = f"""
-                        <div style="background: #0d1117; color: #f0f6fc; font-family: sans-serif; padding: 10px; border-radius: 10px; border: 1px solid #30363d; border-top: 4px solid {color};">
-                            <div style="color:{color}; font-weight:bold; margin-bottom:10px; text-align:center; font-size:16px; border-bottom: 1px solid #30363d; padding-bottom:8px;">{title}</div>
-                        """
-                        
-                        for m in final_matches:
-                            t_metni = m['res'].get(t_key)
-                            if title == "🔥 ÜST": t_metni = "2.5 ÜST"
-                            elif title == "🛡️ ALT": t_metni = "2.5 ALT"
-                            
-                            puan_degeri = int(m['res'].get(sort_key) if title in ["⭐ BANKO", "💎 İDEAL"] else 80)
-                            
-                            html_output += f"""
-                            <div style="background: #161b22; padding: 8px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #30363d; position: relative;">
-                                <div style="color:#8b949e; font-size:10px; margin-bottom:2px;">{m['lig'][0:20]}</div>
-                                <div style="font-size: 12px; font-weight: bold; margin-bottom:4px;">{m['ev'][0:12]} - {m['dep'][0:12]}</div>
-                                <span style="color:{color}; font-weight:bold; font-size:13px;">{t_metni}</span>
-                                <span style="float:right; font-size:11px; color:#8b949e; font-weight:bold;">%{puan_degeri}</span>
-                            </div>
+                            # --- HTML GÖRSEL PAKETİ ---
+                            html_output = f"""
+                            <div style="background: #0d1117; color: #f0f6fc; font-family: sans-serif; padding: 10px; border-radius: 10px; border: 1px solid #30363d; border-top: 4px solid {color};">
+                                <div style="color:{color}; font-weight:bold; margin-bottom:10px; text-align:center; font-size:16px; border-bottom: 1px solid #30363d; padding-bottom:8px;">{title}</div>
                             """
-                        
-                        html_output += "</div>"
-                        
-                        # --- DOĞRUDAN HTML ENJEKSİYONU ---
-                        components.html(html_output, height=580, scrolling=True)
+                            
+                            for m in final_matches:
+                                t_metni = m['res'].get(t_key)
+                                if title == "🔥 ÜST": t_metni = "2.5 ÜST"
+                                elif title == "🛡️ ALT": t_metni = "2.5 ALT"
+                                
+                                puan_degeri = int(m['res'].get(sort_key) if title in ["⭐ BANKO", "💎 İDEAL"] else 80)
+                                
+                                html_output += f"""
+                                <div style="background: #161b22; padding: 8px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #30363d;">
+                                    <div style="color:#8b949e; font-size:10px; margin-bottom:2px;">{m['lig'][0:20]}</div>
+                                    <div style="font-size: 11px; font-weight: bold; margin-bottom:4px; color:#ffffff;">{m['ev'][0:12]} - {m['dep'][0:12]}</div>
+                                    <span style="color:{color}; font-weight:bold; font-size:13px;">{t_metni}</span>
+                                    <span style="float:right; font-size:11px; color:#8b949e; font-weight:bold;">%{puan_degeri}</span>
+                                </div>
+                                """
+                            
+                            html_output += "</div>"
+                            components.html(html_output, height=600, scrolling=True)
+            else:
+                st.warning("🤖 Analiz kriterlerine uyan maç bulunamadı.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
