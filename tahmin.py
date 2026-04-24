@@ -897,45 +897,62 @@ elif mod == "🤖 Tahmin Robotu":
         if ham_liste:
             st.success(f"✅ {len(ham_liste)} gerçek maç başarıyla analiz edildi.")
             
-            c1, c2, c3, c4 = st.columns(4)
-            kupon_config = [
-                ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
-                ("💎 İDEAL", c2, "ae_c", "aether", "#58A6FF"),
-                ("🔥 ÜST", c3, "total_xg", "spec", "#d73a49"),
-                ("🛡️ ALT", c4, "s_p", "nexus", "#0366d6")
-            ]
+            # 1. %70 BARAJI: Tüm ham listeyi seçilen robotun kalitesine göre filtrele
+            kaliteli_ham_liste = [m for m in ham_liste if m['res'].get(aktif_r_puan, 0) >= 70]
+            
+            if not kaliteli_ham_liste:
+                st.warning(f"⚠️ {robot_secim} robotu için %70 güven barajını geçen maç bulunamadı.")
+            else:
+                c1, c2, c3, c4 = st.columns(4)
+                kupon_config = [
+                    ("⭐ BANKO", c1, aktif_r_puan, aktif_r_tahmin, "#58A6FF"),
+                    ("💎 İDEAL", c2, aktif_r_puan, aktif_r_tahmin, "#3fb950"),
+                    ("🔥 ÜST", c3, "total_xg", "spec", "#d73a49"),
+                    ("🛡️ ALT", c4, "total_xg", "nexus", "#0366d6")
+                ]
 
-            for title, col, sort_key, t_key, color in kupon_config:
-                with col:
-                    st.markdown(f'<div class="editor-card" style="border-top-color:{color};"><div class="coupon-title">{title}</div>', unsafe_allow_html=True)
-                    
-                    f_sort = aktif_r_puan if title in ["⭐ BANKO", "💎 İDEAL"] else sort_key
-                    f_tahmin = aktif_r_tahmin if title in ["⭐ BANKO", "💎 İDEAL"] else t_key
-                    
-                    # Sıralama ve tekrarları önleme
-                    top_matches = sorted(ham_liste, key=lambda x: x['res'].get(f_sort, 0), reverse=True)
-                    
-                    # Maçları benzersiz yap
-                    gorulen_maclar = set()
-                    final_5 = []
-                    for m in top_matches:
-                        mac_id = f"{m['ev']}-{m['dep']}"
-                        if mac_id not in gorulen_maclar:
-                            final_5.append(m)
-                            gorulen_maclar.add(mac_id)
-                        if len(final_5) == 5: break
+                for title, col, sort_key, t_key, color in kupon_config:
+                    with col:
+                        # Sıralama ve benzersiz yapma
+                        top_matches = sorted(kaliteli_ham_liste, key=lambda x: x['res'].get(sort_key, 0), 
+                                             reverse=True if title != "🛡️ ALT" else False)
+                        
+                        gorulen_maclar = set()
+                        final_matches = []
+                        for m in top_matches:
+                            mac_id = f"{m['ev']}-{m['dep']}"
+                            if mac_id not in gorulen_maclar:
+                                final_matches.append(m)
+                                gorulen_maclar.add(mac_id)
+                            if len(final_matches) == 10: break # Robot kısmında 10 maç gösterelim
 
-                    for m in final_5:
-                        st.markdown(f"""
-                        <div class="coupon-item">
-                            <small style="color:#8b949e;">{m['lig']}</small><br>
-                            <b>{m['ev']} - {m['dep']}</b><br>
-                            <span style="color:#3fb950;">{m['res'].get(f_tahmin)}</span>
-                            <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'].get(f_sort))}</span>
-                        </div>""", unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                        # --- HTML BLOK BİRLEŞTİRME (KUTU İÇİNDE TUTAN SİHİR) ---
+                        kart_icerigi = f"""
+                            <div class="editor-card" style="border-top: 4px solid {color}; padding: 10px; background: #0d1117; border-radius: 10px;">
+                                <div class="coupon-title" style="color:{color}; font-weight:bold; margin-bottom:10px; text-align:center;">{title}</div>
+                        """
+                        
+                        for m in final_matches:
+                            tahmin_metni = m['res'].get(t_key)
+                            # Üst/Alt başlıkları için özel etiketleme
+                            if title == "🔥 ÜST": tahmin_metni = "2.5 ÜST"
+                            elif title == "🛡️ ALT": tahmin_metni = "2.5 ALT"
+                            
+                            kart_icerigi += f"""
+                                <div class="coupon-item" style="background: #161b22; padding: 8px; margin-bottom: 5px; border-radius: 5px; border: 1px solid #30363d;">
+                                    <small style="color:#8b949e;">{m['lig'][0:15]}</small><br>
+                                    <b style="font-size: 0.85rem;">{m['ev'][0:10]} - {m['dep'][0:10]}</b><br>
+                                    <span style="color:{color}; font-weight:bold;">{tahmin_metni}</span>
+                                    <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'].get(sort_key) if title in ["⭐ BANKO", "💎 İDEAL"] else 85)}</span>
+                                </div>
+                            """
+                        
+                        kart_icerigi += "</div>"
+                        
+                        # TEK SEFERDE BASIYORUZ (Böylece kutunun dışına taşmıyor)
+                        st.markdown(kart_icerigi, unsafe_allow_html=True)
         
-        else: # Bu else, 'if ham_liste:' ile aynı hizada olmalı!
+        else:
             st.warning("🤖 Analiz kriterlerine uyan maç bulunamadı.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
