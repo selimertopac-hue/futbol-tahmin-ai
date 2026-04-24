@@ -1035,33 +1035,33 @@ elif mod == "Global AI":
                     matches = m_kupon[k_key]
                     h_skor = check_hit(matches, k_key)
                     
-                    # --- KART BAŞLANGICI ---
-                    # editor-card div'ini burada açıyoruz
-                    st.markdown(f"""
+                    # 1. Kartın Başlangıcını bir değişkene yazıyoruz
+                    kart_icerigi = f"""
                         <div class="editor-card" style="border-top: 4px solid {color};">
                             <div class="coupon-title" style="color:{color};">{title} 
                                 <span class="success-badge">{h_skor}/10</span>
                             </div>
-                    """, unsafe_allow_html=True)
+                    """
                     
-                    # --- MAÇ DÖNGÜSÜ (KARTIN İÇİNDE) ---
+                    # 2. Maçları bu değişkenin üzerine ekliyoruz (Döngü burada)
                     for m in matches:
                         t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
                         if k_key == "ust": t = "2.5 ÜST"
                         elif k_key == "alt": t = "2.5 ALT"
                         
-                        # Her bir maç coupon-item div'i içinde
-                        st.markdown(f"""
+                        kart_icerigi += f"""
                             <div class="coupon-item">
                                 <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
                                 <span style="color:{color}; font-weight:bold;">{t}</span>
                                 <span style="float:right; color:#8b949e;">%{int(m['puan'] if 'puan' in m else 80)}</span>
                             </div>
-                        """, unsafe_allow_html=True)
+                        """
                     
-                    # --- KART KAPANIŞI ---
-                    # editor-card div'ini burada kapatıyoruz. Bu çok önemli!
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    # 3. Kartın kapanışını ekliyoruz
+                    kart_icerigi += "</div>"
+                    
+                    # 4. VE TEK SEFERDE BASIYORUZ (Sihirli an burası)
+                    st.markdown(kart_icerigi, unsafe_allow_html=True)
 # --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (ANLIK AKIŞ) ---
             st.divider()
             st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
