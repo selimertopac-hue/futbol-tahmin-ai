@@ -924,7 +924,7 @@ elif mod == "Global AI":
     st.info(f"📅 Bu hafta {h_baslangic.strftime('%d.%m')} - {h_bitis.strftime('%d.%m')} arası maçları kapsar.")
 
     # --- KİLİT KONTROLÜ ---
-    if simdi < hedef_tarih:
+    if False: # Kilidi geçici olarak kırdık
         st.markdown(f'<div class="lock-box"><h2>🔒 {s_sec}. Hafta Henüz Kilitli</h2><p>Tahminler {hedef_tarih.strftime("%d.%m %H:%M")} itibarıyla açılacaktır.</p></div>', unsafe_allow_html=True)
     else:
         # 3. VERİ ÇEKME VE ANALİZ DÖNGÜSÜ
