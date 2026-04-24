@@ -902,7 +902,7 @@ elif mod == "🤖 Tahmin Robotu":
                             <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'].get(f_sort))}</span>
                         </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-        if ham_liste:
+if ham_liste:
     st.success("Maçlar bulundu!") # En az bir satır kod olmalı
 else:
     st.warning("Maç bulunamadı.")
