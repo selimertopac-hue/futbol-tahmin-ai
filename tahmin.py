@@ -1057,108 +1057,91 @@ elif mod == "Global AI":
                             </div>
                         """
                     
-                    # 3. Kartın kapanışını ekliyoruz
+                    # --- KART KAPANIŞI VE BASIMI ---
                     kart_icerigi += "</div>"
-                    
-                    # 4. VE TEK SEFERDE BASIYORUZ 
-                    # (Hizalama: 'with col' bloğunun içinde, 'for m in matches' döngüsünün dışında)
                     st.markdown(kart_icerigi, unsafe_allow_html=True)
 
         else:
             st.warning(f"⚠️ {s_sec}. hafta için analiz edilecek maç bulunamadı.")
 
-# --- 🛑 BURADAN İTİBAREN ANA HİZAYA (SOLA) DÖNÜYORUZ ---
-# Burası 'if mod == "Global AI":' bloğunun ana gövdesidir.
+        # --- 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ (GLOBAL AI GÖVDESİNDE) ---
+        st.divider()
+        st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
+        st.info("⚡ **Canlı Veri Akışı:** Buradaki listeler mühürlenmez. Robotlar o saniye ligde gördüğü en taze fırsatları (Top 20) listeler.")
 
-st.divider()
-st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
-st.info("⚡ **Canlı Veri Akışı:** Buradaki listeler mühürlenmez. Robotlar o saniye ligde gördüğü en taze fırsatları (Top 20) listeler.")
+        v_tabs = st.tabs(["🧪 WICKHAM", "✨ AETHER", "🛡️ NEXUS", "🤖 STANDART", "🔥 SPEKTRUM"])
+        robot_config = [
+            {"tab": v_tabs[0], "puan_k": "w_c", "tahmin_k": "wickham", "emoji": "🧪", "name": "Wickham"},
+            {"tab": v_tabs[1], "puan_k": "ae_c", "tahmin_k": "aether", "emoji": "✨", "name": "Aether"},
+            {"tab": v_tabs[2], "puan_k": "n_c", "tahmin_k": "nexus", "emoji": "🛡️", "name": "Nexus"},
+            {"tab": v_tabs[3], "puan_k": "s_c", "tahmin_k": "std", "emoji": "🤖", "name": "Standart"},
+            {"tab": v_tabs[4], "puan_k": "sp_c", "tahmin_k": "spec", "emoji": "🔥", "name": "Spektrum"}
+        ]
 
-# Beş robot için sekmeleri oluşturalım
-v_tabs = st.tabs(["🧪 WICKHAM", "✨ AETHER", "🛡️ NEXUS", "🤖 STANDART", "🔥 SPEKTRUM"])
-
-# Robot konfigürasyonlarını tanımlayalım
-robot_config = [
-    {"tab": v_tabs[0], "puan_k": "w_c", "tahmin_k": "wickham", "emoji": "🧪", "name": "Wickham"},
-    {"tab": v_tabs[1], "puan_k": "ae_c", "tahmin_k": "aether", "emoji": "✨", "name": "Aether"},
-    {"tab": v_tabs[2], "puan_k": "n_c", "tahmin_k": "nexus", "emoji": "🛡️", "name": "Nexus"},
-    {"tab": v_tabs[3], "puan_k": "s_c", "tahmin_k": "std", "emoji": "🤖", "name": "Standart"},
-    {"tab": v_tabs[4], "puan_k": "sp_c", "tahmin_k": "spec", "emoji": "🔥", "name": "Spektrum"}
-]
-
-for rb in robot_config:
-    with rb['tab']:
-        st.markdown(f"### {rb['emoji']} {rb['name']} Güncel Fırsat Listesi")
-        
-        # O robota ait puan anahtarına göre anlık sıralama (Canlı liste: g_l)
-        top_av = sorted(g_l, key=lambda x: x['res'].get(rb['puan_k'], 0), reverse=True)[:20]
-        
-        if not top_av:
-            st.warning("Bu robot için şu an uygun fırsat saptanmadı.")
-        else:
-            for m in top_av:
-                res = m['res']
-                ham_tahmin = res.get(rb['tahmin_k'], "---")
+        for rb in robot_config:
+            with rb['tab']:
+                st.markdown(f"### {rb['emoji']} {rb['name']} Güncel Fırsat Listesi")
+                top_av = sorted(g_l, key=lambda x: x['res'].get(rb['puan_k'], 0), reverse=True)[:20]
                 
-                # --- AKILLI ÇİFT TAHMİN MEKANİZMASI (MS & GOL) ---
-                if "-" in str(ham_tahmin):
-                    try:
-                        pts = ham_tahmin.split(" - ")
-                        ev_g, dep_g = int(pts[0]), int(pts[1])
-                        
-                        ms_tahmin = f"MS {winner(ham_tahmin)}"
-                        gol_tahmin = "2.5 ÜST" if (ev_g + dep_g) > 2.5 else "2.5 ALT"
-                        
-                        st.markdown(f"""
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.5); border-radius: 8px; margin-bottom: 5px;">
-                            <div style="flex: 2;">
-                                <b>{m['homeTeam']['shortName']} - {m['awayTeam']['shortName']}</b> 
-                                <br><small style="color:#8B949E;">📍 {m['l_ad']}</small>
-                            </div>
-                            <div style="flex: 1.5; display: flex; gap: 5px; justify-content: center;">
-                                <span style="background:#238636; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold; min-width:50px; text-align:center;">{ms_tahmin}</span>
-                                <span style="background:#1f6feb; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold; min-width:60px; text-align:center;">{gol_tahmin}</span>
-                            </div>
-                            <div style="flex: 1; text-align: right;">
-                                <span style="color:#58A6FF; font-weight:bold;">%{int(res.get(rb['puan_k'], 0))}</span>
-                                <br><small style="color:#8B949E;">Güven</small>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    except:
-                        st.write(f"⚠️ {m['homeTeam']['shortName']} verisi formatlanamadı.")
+                if not top_av:
+                    st.warning("Bu robot için şu an uygun fırsat saptanmadı.")
                 else:
-                    st.write(f"🔍 {m['homeTeam']['shortName']}: {ham_tahmin}")
-            # --- DETAYLI ANALİZ KARTLARI ---
-            st.markdown("---")
-            st.subheader(f"🔥 {filtre}: Haftalık Detaylı Analiz Raporu")
-            for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
-                res = m['res']
-                m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
-                st.markdown(f"""
-                <div class="match-card">
-                    <div class="rank-badge">🔥 %{int(m['puan'])}</div>
-                    <div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;">
-                        <div style="text-align: center; width: 33%;"><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div>
-                        <div style="width: 33%; text-align: center;">{m_sk}</div>
-                        <div style="text-align: center; width: 33%;"><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div>
-                    </div>
-                    <div style="display: flex; justify-content: space-around; margin-top: 15px;">
-                        <div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div>
-                        <div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div>
-                        <div class="prediction-box" style="border-color:#3fb950;">🧪 WICKHAM<br><b>{res['wickham']}</b></div>
-                        <div class="prediction-box">🛡️ NEXUS<br><b>{res['nexus']}</b></div>
-                    </div>
+                    for m in top_av:
+                        res = m['res']
+                        ham_tahmin = res.get(rb['tahmin_k'], "---")
+                        if "-" in str(ham_tahmin):
+                            try:
+                                pts = ham_tahmin.split(" - ")
+                                ev_g, dep_g = int(pts[0]), int(pts[1])
+                                ms_tahmin = f"MS {winner(ham_tahmin)}"
+                                gol_tahmin = "2.5 ÜST" if (ev_g + dep_g) > 2.5 else "2.5 ALT"
+                                
+                                st.markdown(f"""
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.5); border-radius: 8px; margin-bottom: 5px;">
+                                    <div style="flex: 2;">
+                                        <b>{m['homeTeam']['shortName']} - {m['awayTeam']['shortName']}</b><br><small style="color:#8B949E;">📍 {m['l_ad']}</small>
+                                    </div>
+                                    <div style="flex: 1.5; display: flex; gap: 5px; justify-content: center;">
+                                        <span style="background:#238636; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold; min-width:50px; text-align:center;">{ms_tahmin}</span>
+                                        <span style="background:#1f6feb; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold; min-width:60px; text-align:center;">{gol_tahmin}</span>
+                                    </div>
+                                    <div style="flex: 1; text-align: right;">
+                                        <span style="color:#58A6FF; font-weight:bold;">%{int(res.get(rb['puan_k'], 0))}</span><br><small style="color:#8B949E;">Güven</small>
+                                    </div>
+                                </div>""", unsafe_allow_html=True)
+                            except: st.write(f"🔍 {m['homeTeam']['shortName']}: {ham_tahmin}")
+                        else: st.write(f"🔍 {m['homeTeam']['shortName']}: {ham_tahmin}")
+
+        # --- DETAYLI ANALİZ KARTLARI ---
+        st.markdown("---")
+        st.subheader(f"🔥 {filtre}: Haftalık Detaylı Analiz Raporu")
+        for m in sorted(g_l, key=lambda x: x['puan'], reverse=True)[:20]:
+            res = m['res']
+            m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
+            st.markdown(f"""
+            <div class="match-card">
+                <div class="rank-badge">🔥 %{int(m['puan'])}</div>
+                <div style="font-size:0.8rem; color:#8B949E;">{m['l_ad']} - Hafta {m['matchday']}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top:10px;">
+                    <div style="text-align: center; width: 33%;"><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], m['l_full'])}</div>
+                    <div style="width: 33%; text-align: center;">{m_sk}</div>
+                    <div style="text-align: center; width: 33%;"><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], m['l_full'])}</div>
                 </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.warning(f"⚠️ {s_sec}. hafta için seçilen tarih aralığında analiz edilecek maç bulunamadı.")
+                <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+                    <div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div>
+                    <div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div>
+                    <div class="prediction-box" style="border-color:#3fb950;">🧪 WICKHAM<br><b>{res['wickham']}</b></div>
+                    <div class="prediction-box">🛡️ NEXUS<br><b>{res['nexus']}</b></div>
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+# --- ANA MENÜ DİĞER MODLARI (TAM SOLA YASLI) ---
 elif mod == "Lig Odaklı":
+    st.title("🎯 Lig Odaklı Analiz")
     lig_adi = st.sidebar.selectbox("🎯 Lig Seçin", list(LIGLER.keys()))
     lig_kodu = LIGLER[lig_adi]
     puan_durumu_data = veri_al(f"competitions/{lig_kodu}/standings")
-    maclar_data = all_d[lig_adi]
+    maclar_data = all_d.get(lig_adi, {})
     col_standings, col_matches = st.columns([1, 2.5])
     with col_standings:
         st.subheader("📊 Puan Durumu")
@@ -1174,10 +1157,11 @@ elif mod == "Lig Odaklı":
             g_h = max([m['matchday'] for m in l_matches if m['status'] == 'FINISHED'] or [1])
             h_s = st.selectbox("📅 Hafta Seç", sorted(list(set([m['matchday'] for m in l_matches if m['matchday']]))), index=g_h-1)
             for m in [x for x in l_matches if x['matchday'] == h_s]:
-                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_matches, h_s) # h_s eklendi!
+                res = analiz_et(m['homeTeam']['name'], m['awayTeam']['name'], l_matches, h_s)
                 if res:
                     m_sk = f"<h3>{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}</h3>" if m['status']=='FINISHED' else f"🕒 {m['utcDate'][11:16]}"
-                    st.markdown(f"""<div class="match-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="text-align: center; width: 33%;"><img src="{m['homeTeam']['crest']}" width="30"><br><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], l_matches)}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><img src="{m['awayTeam']['crest']}" width="30"><br><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], l_matches)}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div></div>""", unsafe_allow_html=True)
+                    st.markdown(f"""<div class="match-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="text-align: center; width: 33%;"><b>{m['homeTeam']['name']}</b>{get_form_dots(m['homeTeam']['name'], l_matches)}</div><div style="width: 33%; text-align: center;">{m_sk}</div><div style="text-align: center; width: 33%;"><b>{m['awayTeam']['name']}</b>{get_form_dots(m['awayTeam']['name'], l_matches)}</div></div><div style="display: flex; justify-content: space-around; margin-top: 15px;"><div class="prediction-box aether-box">✨ AETHER<br><b>{res['aether']}</b></div><div class="prediction-box">🤖 STD<br><b>{res['std']}</b></div><div class="prediction-box">🔥 NEXUS<br><b>{res['nexus']}</b></div></div></div>""", unsafe_allow_html=True)
+
 elif mod == "💎 Value Hunter":
     st.title("💎 AI Value Hunter (Değer Analizi)")
     st.info("Piyasa oranları ile AI beklentimiz arasındaki farkı tarayan profesyonel analiz motoru.")
