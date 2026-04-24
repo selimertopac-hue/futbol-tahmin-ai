@@ -864,7 +864,10 @@ elif mod == "🤖 Tahmin Robotu":
                             'res': res
                         })
             
-            # --- KUPONLAR ---
+            # --- KUPONLARIN OLUŞTURULMA MANTĞI ---
+        if ham_liste:
+            st.success(f"✅ {len(ham_liste)} gerçek maç başarıyla analiz edildi.")
+            
             c1, c2, c3, c4 = st.columns(4)
             kupon_config = [
                 ("⭐ BANKO", c1, "ae_c", "aether", "#58A6FF"),
@@ -883,7 +886,7 @@ elif mod == "🤖 Tahmin Robotu":
                     # Sıralama ve tekrarları önleme
                     top_matches = sorted(ham_liste, key=lambda x: x['res'].get(f_sort, 0), reverse=True)
                     
-                    # Maçları benzersiz yap (Aynı maç farklı ligde çıkmasın)
+                    # Maçları benzersiz yap
                     gorulen_maclar = set()
                     final_5 = []
                     for m in top_matches:
@@ -902,10 +905,9 @@ elif mod == "🤖 Tahmin Robotu":
                             <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'].get(f_sort))}</span>
                         </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-if ham_liste:
-    st.success("Maçlar bulundu!") # En az bir satır kod olmalı
-else:
-    st.warning("Maç bulunamadı.")
+        
+        else: # Bu else, 'if ham_liste:' ile aynı hizada olmalı!
+            st.warning("🤖 Analiz kriterlerine uyan maç bulunamadı.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
