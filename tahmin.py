@@ -902,8 +902,10 @@ elif mod == "🤖 Tahmin Robotu":
                             <span style="float:right; font-size:0.8rem; color:#8b949e;">%{int(m['res'].get(f_sort))}</span>
                         </div>""", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.warning("🤖 Analiz kriterlerine uyan maç bulunamadı.")
+        if ham_liste:
+    st.success("Maçlar bulundu!") # En az bir satır kod olmalı
+else:
+    st.warning("Maç bulunamadı.")
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
