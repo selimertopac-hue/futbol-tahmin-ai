@@ -967,67 +967,68 @@ elif mod == "Global AI":
                                 if winner(t_skor) == gw: hit += 1
                 return hit
 
-            # --- 🛡️ MÜHÜRLEME SİSTEMİ (SNAPSHOT) ---
-            # Her hafta ve her algoritma filtresi için benzersiz bir mühür oluşturur
+            # --- 🛡️ MÜHÜRLEME SİSTEMİ (10'LU VE STRATEJİK) ---
             muhur_anahtari = f"muhur_{s_sec}_{filtre.replace(' ', '_')}"
             
             if muhur_anahtari not in st.session_state:
-                # Cuma günü ilk girişte o anki en iyi maçları hafızaya kilitle
+                # 1. MS 1 Odaklı Bankolar (Ev Sahibi Galibiyeti En Yüksek 10 Maç)
+                banko_adaylar = [m for m in g_l if winner(m['res']['aether'] if "AETHER" in filtre else m['res']['wickham']) == "1"]
+                banko_10 = sorted(banko_adaylar, key=lambda x: x['puan'], reverse=True)[:10]
+
+                # 2. MS 2 Odaklı İdealler (Deplasman Galibiyeti En Yüksek 10 Maç)
+                ideal_adaylar = [m for m in g_l if winner(m['res']['aether'] if "AETHER" in filtre else m['res']['wickham']) == "2"]
+                ideal_10 = sorted(ideal_adaylar, key=lambda x: x['puan'], reverse=True)[:10]
+
+                # 3. Üst ve Alt (En Yüksek Puanlı 10 Maç)
+                ust_10 = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:10]
+                alt_10 = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=False)[:10]
+
                 st.session_state[muhur_anahtari] = {
-                    "banko": sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5],
-                    "ideal": sorted(g_l, key=lambda x: x['puan'], reverse=True)[5:10] if len(g_l) > 10 else sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5],
-                    "ust": sorted(g_l, key=lambda x: (x['res']['h_p'] if "WICKHAM" in filtre else (x['res']['total_xg'] if "Spektrum" in filtre else x['res']['total_xg'] * x['res']['ae_c'])), reverse=True)[:5],
-                    "alt": sorted(g_l, key=lambda x: (x['res']['s_p'] if "WICKHAM" in filtre else (x['res']['s_p'] + x['res']['n_c'] if "Nexus" in filtre else x['res']['total_xg'])), reverse=False if "WICKHAM" not in filtre and "Nexus" not in filtre else True)[:5]
+                    "banko": banko_10,
+                    "ideal": ideal_10,
+                    "ust": ust_10,
+                    "alt": alt_10
                 }
-            
-            # Artık tüm kuponlar bu 'muhur' üzerinden çekilecek
+            # --- GLOBAL AI 10'LU KUPON GÖRÜNÜMÜ ---
             m_kupon = st.session_state[muhur_anahtari]
+            c1, c2 = st.columns(2) # 4 yerine 2 kolon yaparak maçları daha rahat sığdırıyoruz
 
-            # --- GLOBAL AI DÖRT BÜYÜK KUPON DÜZENİ ---
-            c1, c2, c3, c4 = st.columns(4) 
-
-            # 1. BANKO KUPON
+            # --- SOL KOLON: BANKO (MS 1) & ÜST ---
             with c1:
+                # 1. BANKO KUPON (MS 1)
                 bankolar = m_kupon["banko"]
                 h_b = check_hit(bankolar, "banko")
-                seal = '<div class="full-hit-seal">🏆 5/5 FULL HIT</div>' if h_b == 5 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO ({filtre[:3]}) <span class="success-badge">{h_b}/5</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="editor-card"><div class="coupon-title">⭐ BANKO 10 (MS 1 ODAKLI) <span class="success-badge">{h_b}/10</span></div>', unsafe_allow_html=True)
                 for b in bankolar:
                     t = b['res']['wickham'] if "WICKHAM" in filtre else b['res']['aether']
-                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b> | {t}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 2. İDEAL KUPON
-            with c2:
-                idealler = m_kupon["ideal"]
-                h_i = check_hit(idealler, "ideal")
-                seal = '<div class="full-hit-seal" style="background:#58A6FF; color:white;">💎 ELMAS SERİ</div>' if h_i == 5 else ""
-                st.markdown(f'<div class="editor-card" style="border-top-color: #58A6FF;">{seal}<div class="coupon-title">💎 İDEAL ({filtre[:3]}) <span class="success-badge">{h_i}/5</span></div>', unsafe_allow_html=True)
-                for i in idealler:
-                    t = i['res']['wickham'] if "WICKHAM" in filtre else i['res']['aether']
-                    st.markdown(f'<div class="coupon-item"><b>{i["homeTeam"]["shortName"]} - {i["awayTeam"]["shortName"]}</b><br>Tahmin: {t}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # 3. ÜST KUPON
-            with c3:
+                # 2. ÜST KUPON (10 MAÇ)
                 ustler = m_kupon["ust"]
                 h_u = check_hit(ustler, "ust")
-                seal = '<div class="full-hit-seal" style="background:#d73a49; color:white;">🔥 FIRE STRIKE</div>' if h_u == 5 else ""
-                st.markdown(f'<div class="editor-card" style="border-top-color: #d73a49;">{seal}<div class="coupon-title">⚽ ÜST ({filtre[:3]}) <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="editor-card" style="border-top-color: #d73a49;"><div class="coupon-title">⚽ ÜST 10 <span class="success-badge">{h_u}/10</span></div>', unsafe_allow_html=True)
                 for u in ustler:
-                    info = f"Güç: %{int(u['res']['h_p'])}" if "WICKHAM" in filtre else f"xG: {u['res']['total_xg']:.2f}"
-                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ÜST</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b> | 2.5 ÜST</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 4. ALT KUPON
-            with c4:
+            # --- SAĞ KOLON: İDEAL (MS 2) & ALT ---
+            with c2:
+                # 3. İDEAL KUPON (MS 2)
+                idealler = m_kupon["ideal"]
+                h_i = check_hit(idealler, "ideal")
+                st.markdown(f'<div class="editor-card" style="border-top-color: #58A6FF;"><div class="coupon-title">💎 İDEAL 10 (MS 2 ODAKLI) <span class="success-badge">{h_i}/10</span></div>', unsafe_allow_html=True)
+                for i in idealler:
+                    t = i['res']['wickham'] if "WICKHAM" in filtre else i['res']['aether']
+                    st.markdown(f'<div class="coupon-item"><b>{i["homeTeam"]["shortName"]} - {i["awayTeam"]["shortName"]}</b> | {t}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                # 4. ALT KUPON (10 MAÇ)
                 altlar = m_kupon["alt"]
                 h_a = check_hit(altlar, "alt")
-                seal = '<div class="full-hit-seal" style="background:#0366d6; color:white;">🛡️ IRON WALL</div>' if h_a == 5 else ""
-                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;">{seal}<div class="coupon-title">📉 ALT ({filtre[:3]}) <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;"><div class="coupon-title">📉 ALT 10 <span class="success-badge">{h_a}/10</span></div>', unsafe_allow_html=True)
                 for a in altlar:
-                    info = f"Sertlik: %{int(a['res']['s_p'])}" if "WICKHAM" in filtre else f"xG: {a['res']['total_xg']:.2f}"
-                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b><br>{info} | 2.5 ALT</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b> | 2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 # --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (ANLIK AKIŞ) ---
             st.divider()
