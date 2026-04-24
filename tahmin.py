@@ -203,22 +203,51 @@ otonom_arsiv_guncelle()
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
     <style>
+    /* Genel Uygulama Teması */
     .stApp { background-color: #0D1117; color: #C9D1D9; }
+    
+    /* Maç Kartları (Detaylı Analizler İçin) */
     .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; position: relative; }
-    .editor-card { background: linear-gradient(145deg, #1c2128, #0d1117); border: 1px solid #58A6FF; padding: 15px; border-radius: 12px; height: 100%; border-top: 4px solid #58A6FF; position: relative; margin-bottom: 20px; }
-    .success-badge { background: #238636; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; float: right; }
-    .full-hit-seal { position: absolute; top: -10px; right: -10px; background: #D4AF37; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; transform: rotate(15deg); box-shadow: 0 0 10px rgba(212,175,55,0.5); z-index: 10; font-size: 0.8rem; }
-    .coupon-item { background: #0d1117; padding: 8px; margin-top: 8px; border-radius: 6px; border: 1px solid #30363d; font-size: 0.85rem; }
-    .coupon-title { font-weight: bold; color: #58A6FF; margin-bottom: 10px; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 5px; }
-    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; flex: 1; margin: 0 4px; }
+    
+    /* KUPON KARTLARI (10 Maç Sığacak Şekilde Daraltıldı) */
+    .editor-card { 
+        background: linear-gradient(145deg, #1c2128, #0d1117); 
+        border: 1px solid #30363d; 
+        padding: 8px; 
+        border-radius: 10px; 
+        min-height: 750px; /* 10 maç için dikey alan */
+        position: relative; 
+        margin-bottom: 15px;
+    }
+    
+    .coupon-title { 
+        font-weight: bold; 
+        font-size: 0.85rem; 
+        text-align: center; 
+        border-bottom: 1px solid #30363d; 
+        padding-bottom: 5px; 
+        margin-bottom: 8px;
+    }
+    
+    /* KUPON İÇİNDEKİ MAÇ SATIRLARI */
+    .coupon-item { 
+        background: rgba(13, 17, 23, 0.6); 
+        padding: 5px 8px; 
+        margin-top: 5px; 
+        border-radius: 6px; 
+        border: 1px solid #21262d; 
+        font-size: 0.72rem; /* Font biraz küçültüldü ki sığsın */
+        line-height: 1.2;
+    }
+    
+    .success-badge { background: #238636; color: white; padding: 1px 6px; border-radius: 8px; font-size: 0.6rem; font-weight: bold; float: right; }
+    
+    /* Diğer Bileşenler */
+    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 6px; text-align: center; flex: 1; margin: 0 2px; font-size: 0.75rem; }
     .aether-box { background: rgba(138, 43, 226, 0.1); border: 1px solid #8A2BE2; color: #E0B0FF !important; }
-    .ai-insight { background: rgba(88, 166, 255, 0.05); border-left: 4px solid #58A6FF; padding: 12px; margin-top: 15px; border-radius: 4px; font-size: 0.85rem; color: #C9D1D9; font-style: italic; }
-    .form-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px; }
+    .form-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 1px; }
     .form-W { background-color: #238636; } .form-D { background-color: #9e9e9e; } .form-L { background-color: #f85149; }
-    .standings-table { font-size: 0.8rem; width: 100%; border-collapse: collapse; background: #161b22; border-radius: 10px; overflow: hidden; margin-top: 10px; }
-    .standings-table th { background: #30363d; padding: 10px; text-align: left; color: #58A6FF; }
-    .standings-table td { padding: 8px 10px; border-bottom: 1px solid #30363d; }
-    .lock-box { background: #161b22; border: 2px dashed #f85149; padding: 40px; border-radius: 15px; text-align: center; color: #f85149; margin-bottom: 20px; }
+    .lock-box { background: #161b22; border: 2px dashed #f85149; padding: 40px; border-radius: 15px; text-align: center; color: #f85149; }
     h1, h2, h3 { color: #58A6FF !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -990,47 +1019,46 @@ elif mod == "Global AI":
                     "ust": ust_10,
                     "alt": alt_10
                 }
-            # --- GLOBAL AI 10'LU KUPON GÖRÜNÜMÜ ---
+            # --- GLOBAL AI 10'LU KUPON (4 YAN YANA KOLON) ---
             m_kupon = st.session_state[muhur_anahtari]
-            c1, c2 = st.columns(2) # 4 yerine 2 kolon yaparak maçları daha rahat sığdırıyoruz
+            c1, c2, c3, c4 = st.columns(4) # Eski sisteme geri döndük!
 
-            # --- SOL KOLON: BANKO (MS 1) & ÜST ---
-            with c1:
-                # 1. BANKO KUPON (MS 1)
-                bankolar = m_kupon["banko"]
-                h_b = check_hit(bankolar, "banko")
-                st.markdown(f'<div class="editor-card"><div class="coupon-title">⭐ BANKO 10 (MS 1 ODAKLI) <span class="success-badge">{h_b}/10</span></div>', unsafe_allow_html=True)
-                for b in bankolar:
-                    t = b['res']['wickham'] if "WICKHAM" in filtre else b['res']['aether']
-                    st.markdown(f'<div class="coupon-item"><b>{b["homeTeam"]["shortName"]} - {b["awayTeam"]["shortName"]}</b> | {t}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            kupon_detay = [
+                ("⭐ BANKO (MS 1)", c1, "banko", "#58A6FF"),
+                ("💎 İDEAL (MS 2)", c2, "ideal", "#3fb950"),
+                ("🔥 ÜST 10", c3, "ust", "#d73a49"),
+                ("🛡️ ALT 10", c4, "alt", "#0366d6")
+            ]
 
-                # 2. ÜST KUPON (10 MAÇ)
-                ustler = m_kupon["ust"]
-                h_u = check_hit(ustler, "ust")
-                st.markdown(f'<div class="editor-card" style="border-top-color: #d73a49;"><div class="coupon-title">⚽ ÜST 10 <span class="success-badge">{h_u}/10</span></div>', unsafe_allow_html=True)
-                for u in ustler:
-                    st.markdown(f'<div class="coupon-item"><b>{u["homeTeam"]["shortName"]} - {u["awayTeam"]["shortName"]}</b> | 2.5 ÜST</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # --- SAĞ KOLON: İDEAL (MS 2) & ALT ---
-            with c2:
-                # 3. İDEAL KUPON (MS 2)
-                idealler = m_kupon["ideal"]
-                h_i = check_hit(idealler, "ideal")
-                st.markdown(f'<div class="editor-card" style="border-top-color: #58A6FF;"><div class="coupon-title">💎 İDEAL 10 (MS 2 ODAKLI) <span class="success-badge">{h_i}/10</span></div>', unsafe_allow_html=True)
-                for i in idealler:
-                    t = i['res']['wickham'] if "WICKHAM" in filtre else i['res']['aether']
-                    st.markdown(f'<div class="coupon-item"><b>{i["homeTeam"]["shortName"]} - {i["awayTeam"]["shortName"]}</b> | {t}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                # 4. ALT KUPON (10 MAÇ)
-                altlar = m_kupon["alt"]
-                h_a = check_hit(altlar, "alt")
-                st.markdown(f'<div class="editor-card" style="border-top: 4px solid #0366d6;"><div class="coupon-title">📉 ALT 10 <span class="success-badge">{h_a}/10</span></div>', unsafe_allow_html=True)
-                for a in altlar:
-                    st.markdown(f'<div class="coupon-item"><b>{a["homeTeam"]["shortName"]} - {a["awayTeam"]["shortName"]}</b> | 2.5 ALT</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            for title, col, k_key, color in kupon_detay:
+                with col:
+                    matches = m_kupon[k_key]
+                    h_skor = check_hit(matches, k_key)
+                    
+                    # Kart Başlığı
+                    st.markdown(f"""
+                        <div class="editor-card" style="border-top: 4px solid {color};">
+                            <div class="coupon-title" style="color:{color};">{title} 
+                                <span class="success-badge">{h_skor}/10</span>
+                            </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # 10 Maç Döngüsü
+                    for m in matches:
+                        t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
+                        # Tahmin gösterimi: Banko/İdeal ise skor, Üst/Alt ise metin
+                        if k_key == "ust": t = "2.5 ÜST"
+                        elif k_key == "alt": t = "2.5 ALT"
+                        
+                        st.markdown(f"""
+                            <div class="coupon-item">
+                                <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
+                                <span style="color:{color}; font-weight:bold;">{t}</span>
+                                <span style="float:right; color:#8b949e;">%{int(m['puan'] if 'puan' in m else 80)}</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown('</div>', unsafe_allow_html=True)
 # --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (ANLIK AKIŞ) ---
             st.divider()
             st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
