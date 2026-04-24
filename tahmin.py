@@ -893,29 +893,12 @@ elif mod == "🤖 Tahmin Robotu":
                             'res': res
                         })
             
-            # --- KUPONLARIN OLUŞTURULMA MANTĞI ---
-        if ham_liste:
-            st.success(f"✅ {len(ham_liste)} gerçek maç başarıyla analiz edildi.")
-            
-            # 1. Önce robotun puanına göre %70 barajını uygulayalım
-            kaliteli_ham_liste = [m for m in ham_liste if m['res'].get(aktif_r_puan, 0) >= 70]
-            
-            if not kaliteli_ham_liste:
-                st.warning(f"⚠️ {robot_secim} robotu için %70 güven barajını geçen maç bulunamadı.")
-            else:
-                # --- İŞTE EKSİK OLAN TANIMLAMA BURASI (HATA BURADAN ÇIKIYORDU) ---
-                c1, c2, c3, c4 = st.columns(4)
-                kupon_config = [
-                    ("⭐ BANKO", c1, aktif_r_puan, aktif_r_tahmin, "#58A6FF"),
-                    ("💎 İDEAL", c2, aktif_r_puan, aktif_r_tahmin, "#3fb950"),
-                    ("🔥 ÜST", c3, "total_xg", "spec", "#d73a49"),
-                    ("🛡️ ALT", c4, "total_xg", "nexus", "#0366d6")
-                ]
+            # --- TAHMİN ROBOTU: HTML BİLEŞEN SİSTEMİ ---
+                import streamlit.components.v1 as components
 
-                # --- ŞİMDİ DÖNGÜYE GİREBİLİRİZ ---
                 for title, col, sort_key, t_key, color in kupon_config:
                     with col:
-                        # Alt kuponu için en düşük xG, diğerleri için en yüksek puan/xG sıralaması
+                        # Sıralama ve Filtreleme
                         top_matches = sorted(kaliteli_ham_liste, key=lambda x: x['res'].get(sort_key, 0), 
                                              reverse=True if title != "🛡️ ALT" else False)
                         
@@ -928,28 +911,32 @@ elif mod == "🤖 Tahmin Robotu":
                                 gorulen_maclar.add(mac_id)
                             if len(final_matches) == 10: break
 
-                        # HTML Paketleme
-                        kart_icerigi = f"""
-                            <div class="editor-card" style="border-top: 4px solid {color}; padding: 10px; background: #0d1117; border-radius: 10px; border: 1px solid #30363d;">
-                                <div class="coupon-title" style="color:{color}; font-weight:bold; margin-bottom:12px; text-align:center; font-size:1.1rem; border-bottom: 1px solid #30363d; padding-bottom:8px;">{title}</div>
+                        # --- HTML ve CSS PAKETİ ---
+                        html_output = f"""
+                        <div style="background: #0d1117; color: #f0f6fc; font-family: sans-serif; padding: 10px; border-radius: 10px; border: 1px solid #30363d; border-top: 4px solid {color};">
+                            <div style="color:{color}; font-weight:bold; margin-bottom:10px; text-align:center; font-size:16px; border-bottom: 1px solid #30363d; padding-bottom:8px;">{title}</div>
                         """
                         
                         for m in final_matches:
-                            tahmin_metni = m['res'].get(t_key)
-                            if title == "🔥 ÜST": tahmin_metni = "2.5 ÜST"
-                            elif title == "🛡️ ALT": tahmin_metni = "2.5 ALT"
+                            t_metni = m['res'].get(t_key)
+                            if title == "🔥 ÜST": t_metni = "2.5 ÜST"
+                            elif title == "🛡️ ALT": t_metni = "2.5 ALT"
                             
-                            kart_icerigi += f"""
-                                <div class="coupon-item" style="background: #161b22; padding: 8px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #30363d;">
-                                    <small style="color:#8b949e; font-size:0.7rem;">{m['lig'][0:18]}</small><br>
-                                    <b style="font-size: 0.8rem; color: #f0f6fc;">{m['ev'][0:12]} - {m['dep'][0:12]}</b><br>
-                                    <span style="color:{color}; font-weight:bold; font-size:0.85rem;">{tahmin_metni}</span>
-                                    <span style="float:right; font-size:0.75rem; color:#8b949e; margin-top:2px;">%{int(m['res'].get(sort_key) if title in ["⭐ BANKO", "💎 İDEAL"] else 80)}</span>
-                                </div>
+                            puan_degeri = int(m['res'].get(sort_key) if title in ["⭐ BANKO", "💎 İDEAL"] else 80)
+                            
+                            html_output += f"""
+                            <div style="background: #161b22; padding: 8px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #30363d; position: relative;">
+                                <div style="color:#8b949e; font-size:10px; margin-bottom:2px;">{m['lig'][0:20]}</div>
+                                <div style="font-size: 12px; font-weight: bold; margin-bottom:4px;">{m['ev'][0:12]} - {m['dep'][0:12]}</div>
+                                <span style="color:{color}; font-weight:bold; font-size:13px;">{t_metni}</span>
+                                <span style="float:right; font-size:11px; color:#8b949e; font-weight:bold;">%{puan_degeri}</span>
+                            </div>
                             """
                         
-                        kart_icerigi += "</div>"
-                        st.markdown(kart_icerigi, unsafe_allow_html=True)
+                        html_output += "</div>"
+                        
+                        # --- DOĞRUDAN HTML ENJEKSİYONU ---
+                        components.html(html_output, height=580, scrolling=True)
 elif mod == "Global AI":
     # 1. Sidebar ve Algoritma Seçimi (Wickham v3 listeye eklendi)
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
