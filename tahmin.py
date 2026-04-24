@@ -1009,33 +1009,46 @@ elif mod == "Global AI":
                     matches = m_kupon[k_key]
                     h_skor = check_hit(matches, k_key)
                     
-                    # 1. HTML içeriğini biriktirmeye başlıyoruz
-                    kart_icerigi = f"""
-                        <div class="editor-card" style="border-top: 4px solid {color};">
-                            <div class="coupon-title" style="color:{color};">{title} 
-                                <span class="success-badge">{h_skor}/10</span>
-                            </div>
+                    # 1. HTML ve CSS'i birleştiriyoruz (Kutucukların stili burada)
+                    # Sadece bu kolona özel bir HTML yapısı kuruyoruz
+                    html_kod = f"""
+                    <style>
+                        .card {{ 
+                            background: #0d1117; 
+                            color: #c9d1d9; 
+                            font-family: sans-serif; 
+                            padding: 10px; 
+                            border-radius: 10px; 
+                            border-top: 4px solid {color};
+                            border: 1px solid #30363d;
+                        }}
+                        .title {{ color: {color}; font-weight: bold; font-size: 14px; text-align: center; margin-bottom: 10px; border-bottom: 1px solid #30363d; padding-bottom: 5px; }}
+                        .item {{ background: #161b22; padding: 6px; margin-top: 5px; border-radius: 5px; font-size: 12px; border: 1px solid #21262d; }}
+                        .score {{ color: {color}; font-weight: bold; }}
+                        .perc {{ float: right; color: #8b949e; font-size: 10px; }}
+                    </style>
+                    <div class="card">
+                        <div class="title">{title} ({h_skor}/10)</div>
                     """
                     
-                    # 2. Maçları tek tek döngüyle bu içeriğe ekliyoruz
                     for m in matches:
                         t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
                         if k_key == "ust": t = "2.5 ÜST"
                         elif k_key == "alt": t = "2.5 ALT"
                         
-                        kart_icerigi += f"""
-                            <div class="coupon-item">
-                                <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
-                                <span style="color:{color}; font-weight:bold;">{t}</span>
-                                <span style="float:right; color:#8b949e;">%{int(m['puan'] if 'puan' in m else 80)}</span>
-                            </div>
+                        html_kod += f"""
+                        <div class="item">
+                            <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
+                            <span class="score">{t}</span>
+                            <span class="perc">%{int(m['puan'] if 'puan' in m else 80)}</span>
+                        </div>
                         """
                     
-                    # 3. Kartın kapanış etiketini ekliyoruz
-                    kart_icerigi += "</div>"
+                    html_kod += "</div>"
                     
-                    # 4. TEK SEFERDE VE HTML OLARAK BASIYORUZ
-                    st.markdown(kart_icerigi, unsafe_allow_html=True)
+                    # 2. İŞTE FARKLI OLAN KISIM: markdown yerine html bileşeni kullanıyoruz
+                    import streamlit.components.v1 as components
+                    components.html(html_kod, height=550, scrolling=True)
         # --- 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ (GLOBAL AI GÖVDESİNDE) ---
         st.divider()
         st.markdown("## 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ")
