@@ -1035,7 +1035,8 @@ elif mod == "Global AI":
                     matches = m_kupon[k_key]
                     h_skor = check_hit(matches, k_key)
                     
-                    # Kart Başlığı
+                    # --- KART BAŞLANGICI ---
+                    # editor-card div'ini burada açıyoruz
                     st.markdown(f"""
                         <div class="editor-card" style="border-top: 4px solid {color};">
                             <div class="coupon-title" style="color:{color};">{title} 
@@ -1043,13 +1044,13 @@ elif mod == "Global AI":
                             </div>
                     """, unsafe_allow_html=True)
                     
-                    # 10 Maç Döngüsü
+                    # --- MAÇ DÖNGÜSÜ (KARTIN İÇİNDE) ---
                     for m in matches:
                         t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
-                        # Tahmin gösterimi: Banko/İdeal ise skor, Üst/Alt ise metin
                         if k_key == "ust": t = "2.5 ÜST"
                         elif k_key == "alt": t = "2.5 ALT"
                         
+                        # Her bir maç coupon-item div'i içinde
                         st.markdown(f"""
                             <div class="coupon-item">
                                 <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
@@ -1058,6 +1059,8 @@ elif mod == "Global AI":
                             </div>
                         """, unsafe_allow_html=True)
                     
+                    # --- KART KAPANIŞI ---
+                    # editor-card div'ini burada kapatıyoruz. Bu çok önemli!
                     st.markdown('</div>', unsafe_allow_html=True)
 # --- 2. VALUE HUNTER: CANLI TAHMİN TERMİNALİ (ANLIK AKIŞ) ---
             st.divider()
