@@ -982,20 +982,32 @@ elif mod == "Global AI":
             muhur_anahtari = f"muhur_v10_{s_sec}_{filtre.replace(' ', '_')}"
             
             if muhur_anahtari not in st.session_state:
-                # 1. ANA BARAJ: Robotun genel güven puanı %70 altı olan her şeyi eliyoruz
-                kaliteli_havuz = [m for m in g_l if m['puan'] >= 70]
+                # 1. Robotun kendi puan anahtarını belirleyelim
+                # (Wickham ise w_c, Aether ise ae_c gibi)
+                p_key = "w_c" if "WICKHAM" in filtre else \
+                        "ae_c" if "AETHER" in filtre else \
+                        "s_c" if "Standart" in filtre else \
+                        "sp_c" if "Spektrum" in filtre else "n_c"
+
+                # 2. ANA BARAJ: Sadece BU robotun %70 ve üzeri güvendiği maçlar
+                kaliteli_havuz = [m for m in g_l if m['res'].get(p_key, 0) >= 70]
                 
-                # 2. MS 1 ve MS 2 Filtreleri (Kaliteli havuz içinden)
-                banko_adaylar = [m for m in kaliteli_havuz if winner(m['res']['aether'] if "AETHER" in filtre else m['res']['wickham']) == "1"]
-                ideal_adaylar = [m for m in kaliteli_havuz if winner(m['res']['aether'] if "AETHER" in filtre else m['res']['wickham']) == "2"]
+                # 3. MS 1 ve MS 2 Filtreleri (Bu robotun kendi analizine göre)
+                # winner fonksiyonu robotun kendi skor tahmini üzerinden karar vermeli
+                t_key = "wickham" if "WICKHAM" in filtre else \
+                        "aether" if "AETHER" in filtre else \
+                        "std" if "Standart" in filtre else \
+                        "spec" if "Spektrum" in filtre else "nexus"
+
+                banko_adaylar = [m for m in kaliteli_havuz if winner(m['res'].get(t_key)) == "1"]
+                ideal_adaylar = [m for m in kaliteli_havuz if winner(m['res'].get(t_key)) == "2"]
                 
-                # 3. ALT ve ÜST Filtreleri (Yine sadece %70 güvenli maçlar arasından)
-                # Üst için xG değeri en yüksek olanları, Alt için en düşük olanları sıralıyoruz
+                # 4. Mühürleme
                 st.session_state[muhur_anahtari] = {
-                    "banko": sorted(banko_adaylar, key=lambda x: x['puan'], reverse=True)[:10],
-                    "ideal": sorted(ideal_adaylar, key=lambda x: x['puan'], reverse=True)[:10],
-                    "ust": sorted(kaliteli_havuz, key=lambda x: x['res']['total_xg'], reverse=True)[:10],
-                    "alt": sorted(kaliteli_havuz, key=lambda x: x['res']['total_xg'], reverse=False)[:10]
+                    "banko": sorted(banko_adaylar, key=lambda x: x['res'].get(p_key, 0), reverse=True)[:10],
+                    "ideal": sorted(ideal_adaylar, key=lambda x: x['res'].get(p_key, 0), reverse=True)[:10],
+                    "ust": sorted(kaliteli_havuz, key=lambda x: x['res'].get('total_xg', 0), reverse=True)[:10],
+                    "alt": sorted(kaliteli_havuz, key=lambda x: x['res'].get('total_xg', 0), reverse=False)[:10]
                 }
             
             m_kupon = st.session_state[muhur_anahtari]
