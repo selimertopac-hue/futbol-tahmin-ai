@@ -978,51 +978,25 @@ elif mod == "Global AI":
                         g_l.append(m)
 
         if len(g_l) > 0:
-            st.divider()
-            st.subheader(f"🎯 {filtre} Uzmanlık Konseyi: Haftalık 5'li Kuponlar")
-            
-            # --- BAŞARI KONTROL FONKSİYONU ---
-            def check_hit(liste, tip):
-                hit = 0
-                for m in liste:
-                    if m.get('status') == 'FINISHED':
-                        h_s, a_s = m['score']['fullTime']['home'], m['score']['fullTime']['away']
-                        if h_s is not None:
-                            gw = winner(f"{h_s} - {a_s}")
-                            if tip == "ust" and (h_s + a_s) > 2.5: hit += 1
-                            elif tip == "alt" and (h_s + a_s) < 2.5: hit += 1
-                            elif tip == "banko" or tip == "ideal":
-                                t_skor = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
-                                if winner(t_skor) == gw: hit += 1
-                return hit
-
-            # --- 🛡️ MÜHÜRLEME SİSTEMİ (10'LU VE STRATEJİK) ---
+            # --- 🛡️ MÜHÜRLEME SİSTEMİ (v10) ---
             muhur_anahtari = f"muhur_v10_{s_sec}_{filtre.replace(' ', '_')}"
             
             if muhur_anahtari not in st.session_state:
-                # 1. MS 1 Odaklı Bankolar (Ev Sahibi Galibiyeti - En İyi 10 Maç)
+                # MS 1 ve MS 2 Filtreleri (Banko=1, İdeal=2)
                 banko_adaylar = [m for m in g_l if winner(m['res']['aether'] if "AETHER" in filtre else m['res']['wickham']) == "1"]
-                banko_10 = sorted(banko_adaylar, key=lambda x: x['puan'], reverse=True)[:10] # Burası 10 oldu
-
-                # 2. MS 2 Odaklı İdealler (Deplasman Galibiyeti - En İyi 10 Maç)
                 ideal_adaylar = [m for m in g_l if winner(m['res']['aether'] if "AETHER" in filtre else m['res']['wickham']) == "2"]
-                ideal_10 = sorted(ideal_adaylar, key=lambda x: x['puan'], reverse=True)[:10] # Burası 10 oldu
-
-                # 3. Üst ve Alt (En Yüksek Puanlı 10 Maç)
-                ust_10 = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:10]
-                alt_10 = sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=False)[:10]
-
-                # Mühürü session_state'e işle
+                
                 st.session_state[muhur_anahtari] = {
-                    "banko": banko_10,
-                    "ideal": ideal_10,
-                    "ust": ust_10,
-                    "alt": alt_10
+                    "banko": sorted(banko_adaylar, key=lambda x: x['puan'], reverse=True)[:10],
+                    "ideal": sorted(ideal_adaylar, key=lambda x: x['puan'], reverse=True)[:10],
+                    "ust": sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:10],
+                    "alt": sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=False)[:10]
                 }
-            # --- GLOBAL AI 10'LU KUPON (4 YAN YANA KOLON) ---
+            
             m_kupon = st.session_state[muhur_anahtari]
-            c1, c2, c3, c4 = st.columns(4) # Eski sisteme geri döndük!
-
+            st.subheader(f"🎯 {filtre} Uzmanlık Konseyi: Haftalık 10'lu Kuponlar")
+            
+            c1, c2, c3, c4 = st.columns(4)
             kupon_detay = [
                 ("⭐ BANKO (MS 1)", c1, "banko", "#58A6FF"),
                 ("💎 İDEAL (MS 2)", c2, "ideal", "#3fb950"),
@@ -1030,39 +1004,36 @@ elif mod == "Global AI":
                 ("🛡️ ALT 10", c4, "alt", "#0366d6")
             ]
 
-            # --- KUPONLARI EKRANA BASAN KISIM ---
-for title, col, k_key, color in kupon_detay:
-    with col:
-        matches = m_kupon[k_key]
-        h_skor = check_hit(matches, k_key)
-        
-        # 1. HTML içeriğini biriktiriyoruz (Bu kısım sende zaten var)
-        kart_icerigi = f"""
-            <div class="editor-card" style="border-top: 4px solid {color};">
-                <div class="coupon-title" style="color:{color};">{title} 
-                    <span class="success-badge">{h_skor}/10</span>
-                </div>
-        """
-        
-        for m in matches:
-            t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
-            if k_key == "ust": t = "2.5 ÜST"
-            elif k_key == "alt": t = "2.5 ALT"
-            
-            kart_icerigi += f"""
-                <div class="coupon-item">
-                    <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
-                    <span style="color:{color}; font-weight:bold;">{t}</span>
-                    <span style="float:right; color:#8b949e;">%{int(m['puan'] if 'puan' in m else 80)}</span>
-                </div>
-            """
-        
-        kart_icerigi += "</div>"
-        
-        # 2. İŞTE BURASI ÇOK KRİTİK:
-        # Eğer sondaki virgül ve True kısmını yazmazsan ekranda kodları görürsün.
-        st.markdown(kart_icerigi, unsafe_allow_html=True)
-        else:
+            for title, col, k_key, color in kupon_detay:
+                with col:
+                    matches = m_kupon[k_key]
+                    h_skor = check_hit(matches, k_key)
+                    
+                    # HTML Paketleme (Kutucukların içinde görünmesi için tek string)
+                    kart_icerigi = f"""
+                        <div class="editor-card" style="border-top: 4px solid {color};">
+                            <div class="coupon-title" style="color:{color};">{title} 
+                                <span class="success-badge">{h_skor}/10</span>
+                            </div>
+                    """
+                    
+                    for m in matches:
+                        t = m['res']['wickham'] if "WICKHAM" in filtre else m['res']['aether']
+                        if k_key == "ust": t = "2.5 ÜST"
+                        elif k_key == "alt": t = "2.5 ALT"
+                        
+                        kart_icerigi += f"""
+                            <div class="coupon-item">
+                                <b>{m['homeTeam']['shortName'][0:8]} - {m['awayTeam']['shortName'][0:8]}</b><br>
+                                <span style="color:{color}; font-weight:bold;">{t}</span>
+                                <span style="float:right; color:#8b949e;">%{int(m['puan'])}</span>
+                            </div>
+                        """
+                    kart_icerigi += "</div>"
+                    # BURASI ÇOK ÖNEMLİ: HTML olarak basıyoruz
+                    st.markdown(kart_icerigi, unsafe_allow_html=True)
+
+        else: # <--- İşte 1065. satırdaki hata buradaydı. Şimdi 'if len(g_l) > 0' ile hizalı.
             st.warning(f"⚠️ {s_sec}. hafta için analiz edilecek maç bulunamadı.")
 
         # --- 🎯 VALUE HUNTER: ANLIK ROBOT ANALİZLERİ (GLOBAL AI GÖVDESİNDE) ---
