@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 # --- 1. AYARLAR & API ANAHTARLARI ---
 FS_API_KEY = "3d8f931eb334529f5c171f08dbeed729fe2b0e7f49f717574101ff79225d4aa7"
-FS_BASE_URL = "https://api.footystats.org"
+FS_BASE_URL = "https://api.football-data-api.com"
 SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 ARSIV_DOSYASI = "ai_arsiv.json"
 VERİ_BANKASI_DOSYASI = "msi_futbol_bankasi.json"
@@ -74,65 +74,66 @@ def pazartesi_hasadi():
 
 @st.cache_data(ttl=3600)
 def tum_dunyayi_hasat_et():
-    """FootyStats dokümantasyonuna tam uyumlu, hata bağışıklığı yüksek hasatçı."""
-    # 1. ADIM: Yetkili lig listesini al
-    lig_listesi_res = fs_api_get("league-list")
+    """Dokümantasyona tam uyumlu: Lig -> Sezon -> Maç hiyerarşisiyle hasat eder."""
+    # 1. ADIM: Lig ve Sezon Listesini Al
+    url = f"{FS_BASE_URL}/league-list"
+    params = {'key': FS_API_KEY}
     
-    if not lig_listesi_res or 'data' not in lig_listesi_res:
-        st.sidebar.error("❌ API'den veri akışı sağlanamadı. Bağlantıyı kontrol edin.")
-        return []
-
-    ham_veri = lig_listesi_res['data']
-    yetkili_lig_idleri = []
-
-    # 💡 DOKÜMANTASYON TAMİRİ: Sadece gerçek lig nesnelerini ayıkla
     try:
-        if isinstance(ham_veri, dict):
-            # Sözlük gelirse (Örn: {"2012": {...}, "2013": {...}})
-            for key, lig in ham_veri.items():
-                if isinstance(lig, dict) and 'id' in lig:
-                    yetkili_lig_idleri.append(str(lig['id']))
-        elif isinstance(ham_veri, list):
-            # Liste gelirse (Örn: [{"id": 2012}, {"id": 2013}])
-            for lig in ham_veri:
-                if isinstance(lig, dict) and 'id' in lig:
-                    yetkili_lig_idleri.append(str(lig['id']))
-    except Exception as e:
-        st.sidebar.error(f"⚠️ Ayrıştırma hatası: {e}")
-        return []
-
-    if not yetkili_lig_idleri:
-        st.sidebar.warning("🔎 Yetkiniz dahilinde aktif lig bulunamadı.")
-        return []
-
-    st.sidebar.info(f"📡 {len(yetkili_lig_idleri)} lig mühürlendi. Maçlar toplanıyor...")
-    
-    tum_maclar = []
-    progress_bar = st.sidebar.progress(0)
-    
-    # 2. ADIM: Her ligin gelecek maçlarını (incomplete) hasat et
-    for index, l_id in enumerate(yetkili_lig_idleri):
-        # Dokümantasyondaki 'league-matches' endpoint'ini kullanıyoruz
-        params = {'key': FS_API_KEY, 'league_id': l_id, 'status': 'incomplete'}
-        url = f"{FS_BASE_URL}/league-matches"
-        
-        try:
-            res = requests.get(url, params=params, timeout=10).json()
-            if res and 'data' in res and isinstance(res['data'], list):
-                # Sadece gerçek maç listesini ekle
-                tum_maclar.extend(res['data'])
-        except:
-            continue # Hatalı ligde durma, devam et
+        res = requests.get(url, params=params, timeout=15).json()
+        if not res.get('success'):
+            st.sidebar.error("❌ API Erişimi Başarısız!")
+            return []
             
-        progress_bar.progress((index + 1) / len(yetkili_lig_idleri))
+        ham_veri = res['data']
+        guncel_sezon_idleri = []
 
-    if len(tum_maclar) == 0:
-        # Pazar akşamı boş bülten koruması
-        st.sidebar.warning("⚠️ Bugünlük tüm maçlar bitmiş veya bülten yükleniyor.")
-    else:
-        st.sidebar.success(f"✅ {len(tum_maclar)} Maç Operasyon Merkezine Alındı!")
+        # 2. ADIM: Her ligin içindeki EN SON sezon ID'sini ayıkla
+        for lig in ham_veri:
+            if 'season' in lig and len(lig['season']) > 0:
+                # Sezon listesindeki en son eklenen sezon genellikle en güncelidir
+                # Dokümandaki yapıya göre (id ve year)
+                en_son_sezon = lig['season'][-1] 
+                guncel_sezon_idleri.append({
+                    'id': str(en_son_sezon['id']),
+                    'name': lig['name'],
+                    'year': en_son_sezon['year']
+                })
+
+        st.sidebar.info(f"📡 {len(guncel_sezon_idleri)} güncel sezon saptandı. Hasat başlıyor...")
         
-    return tum_maclar
+        tum_maclar = []
+        p_bar = st.sidebar.progress(0)
+        
+        # 3. ADIM: Sezon ID'leri üzerinden maçları çek
+        for index, sezon in enumerate(guncel_sezon_idleri):
+            # Doküman: Her sezonun kendine ait maç bülteni vardır
+            mac_url = f"{FS_BASE_URL}/league-matches"
+            mac_params = {
+                'key': FS_API_KEY,
+                'league_id': sezon['id'], # Sezon ID'si
+                'status': 'incomplete'
+            }
+            
+            try:
+                m_res = requests.get(mac_url, params=mac_params, timeout=10).json()
+                if m_res and 'data' in m_res:
+                    tum_maclar.extend(m_res['data'])
+            except:
+                continue
+                
+            p_bar.progress((index + 1) / len(guncel_sezon_idleri))
+
+        if not tum_maclar:
+            st.sidebar.warning("⚠️ Bülten şu an boş (Pazar Gecesi Bakımı).")
+        else:
+            st.sidebar.success(f"✅ {len(tum_maclar)} Maç MSI Ambarına Alındı!")
+            
+        return tum_maclar
+
+    except Exception as e:
+        st.sidebar.error(f"📡 Bağlantı Hatası: {e}")
+        return []
 # --- 4. ANALİZ MOTORU & YARDIMCILAR ---
 def analiz_et_v3(ev, dep, xg_h, xg_a):
     try:
