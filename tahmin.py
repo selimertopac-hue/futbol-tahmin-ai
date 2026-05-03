@@ -99,9 +99,10 @@ def pazartesi_hasadi():
             json.dump(mevcut_arsiv, f, ensure_ascii=False, indent=4)
             
     return yeni_eklenen_sayisi
+BULTEN_DOSYASI = "msi_bulten_bankasi.json"
+
 def tum_dunyayi_hasat_et():
-    """Dokümantasyona tam uyumlu: Lig -> Sezon -> Maç hiyerarşisiyle hasat eder."""
-    # 1. ADIM: Lig ve Sezon Listesini Al
+    """Bülten maçlarını (incomplete) doğrudan JSON'a mühürler."""
     url = f"{FS_BASE_URL}/league-list"
     params = {'key': FS_API_KEY}
     
@@ -114,48 +115,48 @@ def tum_dunyayi_hasat_et():
         ham_veri = res['data']
         guncel_sezon_idleri = []
 
-        # 2. ADIM: Her ligin içindeki EN SON sezon ID'sini ayıkla
+        # En güncel sezonları ayıkla
         for lig in ham_veri:
             if 'season' in lig and len(lig['season']) > 0:
-                # Sezon listesindeki en son eklenen sezon genellikle en güncelidir
-                # Dokümandaki yapıya göre (id ve year)
                 en_son_sezon = lig['season'][-1] 
-                guncel_sezon_idleri.append({
-                    'id': str(en_son_sezon['id']),
-                    'name': lig['name'],
-                    'year': en_son_sezon['year']
-                })
+                guncel_sezon_idleri.append({'id': str(en_son_sezon['id'])})
 
-        st.sidebar.info(f"📡 {len(guncel_sezon_idleri)} güncel sezon saptandı. Hasat başlıyor...")
+        st.sidebar.info(f"📡 {len(guncel_sezon_idleri)} lig taranıyor...")
         
-        tum_maclar = []
+        yeni_bulten = []
         p_bar = st.sidebar.progress(0)
         
-        # 3. ADIM: Sezon ID'leri üzerinden maçları çek
         for index, sezon in enumerate(guncel_sezon_idleri):
-            # Doküman: Her sezonun kendine ait maç bülteni vardır
             mac_url = f"{FS_BASE_URL}/league-matches"
-            mac_params = {
-                'key': FS_API_KEY,
-                'league_id': sezon['id'], # Sezon ID'si
-                'status': 'incomplete'
-            }
+            # 'status': 'incomplete' ile sadece gelecek maçları alıyoruz
+            mac_params = {'key': FS_API_KEY, 'league_id': sezon['id'], 'status': 'incomplete'}
             
             try:
                 m_res = requests.get(mac_url, params=mac_params, timeout=10).json()
                 if m_res and 'data' in m_res:
-                    tum_maclar.extend(m_res['data'])
+                    for m in m_res['data']:
+                        # Belleği korumak için sadece gerekli verileri JSON'a mühürleyelim
+                        min_mac = {
+                            'home_name': m.get('home_name'),
+                            'away_name': m.get('away_name'),
+                            'league_name': m.get('league_name'),
+                            'team_a_xg_prematch': m.get('team_a_xg_prematch', 1.5),
+                            'team_b_xg_prematch': m.get('team_b_xg_prematch', 1.2),
+                            'date_unix': m.get('date_unix'),
+                            'id': m.get('id')
+                        }
+                        yeni_bulten.append(min_mac)
             except:
                 continue
-                
             p_bar.progress((index + 1) / len(guncel_sezon_idleri))
 
-        if not tum_maclar:
-            st.sidebar.warning("⚠️ Bülten şu an boş (Pazar Gecesi Bakımı).")
-        else:
-            st.sidebar.success(f"✅ {len(tum_maclar)} Maç MSI Ambarına Alındı!")
-            
-        return tum_maclar
+        # 💾 DOĞRUDAN JSON'A KAYDET (Ambar Kapaklarını Kapat)
+        if yeni_bulten:
+            with open(BULTEN_DOSYASI, "w", encoding="utf-8") as f:
+                json.dump(yeni_bulten, f, ensure_ascii=False, indent=4)
+            st.sidebar.success(f"✅ {len(yeni_bulten)} Maç Bültene Mühürlendi!")
+        
+        return yeni_bulten
 
     except Exception as e:
         st.sidebar.error(f"📡 Bağlantı Hatası: {e}")
@@ -344,48 +345,28 @@ elif mod == "🏆 Onur Listesi":
         arsiv_tablo.append({"Hafta": f"{h}. Hafta", "🧪 WICK": f"%{ozet.get('W',{}).get('p','85')}", "✨ AETH": f"%{ozet.get('A',{}).get('p','88')}", "Durum": "✅ Tamam" if h < site_h_aktif else "⏳ Sürüyor"})
     st.table(pd.DataFrame(arsiv_tablo).set_index("Hafta"))
 elif mod == "📂 Veri Bankası":
-    st.title("🗄️ MSI Futbol Veri Bankası")
+    st.title("🗄️ MSI Operasyon Veri Merkezi")
     
-    if os.path.exists(VERİ_BANKASI_DOSYASI):
-        with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
-            banka_verisi = json.load(f)
-        
-        # MSI İstatistik Kartları
-        c1, c2 = st.columns(2)
-        c1.metric("📦 Toplam Kayıtlı Maç", len(banka_verisi))
-        c2.metric("📁 Dosya Durumu", "Mühürlü ✅")
-        
-        st.markdown("### 📊 Son Hasat Edilen Veriler")
-        
-        df = pd.DataFrame(banka_verisi)
-        
-        # 💡 Sütun Kontrolü: Eğer API'den gelen isimler farklıysa hata almamak için güvenli seçim
-        hedef_sutunlar = {
-            'home_name': 'Ev Sahibi',
-            'away_name': 'Deplasman',
-            'league_name': 'Lig',
-            'homeGoalCount': 'MS-1',
-            'awayGoalCount': 'MS-2',
-            'team_a_xg_prematch': 'xG-1',
-            'team_b_xg_prematch': 'xG-2'
-        }
-        
-        # Sadece var olan sütunları filtrele
-        mevcut_sutunlar = [c for c in hedef_sutunlar.keys() if c in df.columns]
-        
-        if mevcut_sutunlar:
-            display_df = df[mevcut_sutunlar].copy()
-            display_df.rename(columns=hedef_sutunlar, inplace=True)
-            st.dataframe(display_df.tail(100), use_container_width=True) # Son 100 maçı göster
+    tab1, tab2 = st.tabs(["📅 Güncel Bülten", "📚 Geçmiş Arşiv"])
+
+    with tab1:
+        st.subheader("Taze Hasat Edilen Maçlar")
+        if os.path.exists(BULTEN_DOSYASI):
+            with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
+                bulten_verisi = json.load(f)
+            st.metric("📦 Bülten Maç Sayısı", len(bulten_verisi))
+            st.dataframe(pd.DataFrame(bulten_verisi), use_container_width=True)
         else:
-            st.dataframe(df.tail(10)) # Hiçbiri yoksa ham veriyi göster
+            st.warning("Henüz bülten hasat edilmedi.")
+
+    with tab2:
+        st.subheader("Geçmiş Veri Bankası (Pazartesi Hasadı)")
+        if os.path.exists(VERİ_BANKASI_DOSYASI):
+            with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
+                arsiv_verisi = json.load(f)
+            st.metric("📦 Arşivdeki Toplam Maç", len(arsiv_verisi))
+            st.dataframe(pd.DataFrame(arsiv_verisi).tail(100), use_container_width=True)
             
-        st.divider()
-        st.download_button("📥 Tüm Bankayı MSI Laptopuna İndir (JSON)", 
-                           data=json.dumps(banka_verisi, indent=4, ensure_ascii=False), 
-                           file_name="msi_futbol_bankasi.json",
-                           mime="application/json",
-                           use_container_width=True)
-    else:
-        st.warning("⚠️ Veri bankası henüz oluşturulmamış.")
-        st.info("Lütfen sol menüdeki '💾 PAZARTESİ HASADI' butonuna basarak mühürlemeyi başlatın.")
+            st.download_button("📥 Arşivi İndir", 
+                               data=json.dumps(arsiv_verisi, indent=4), 
+                               file_name="msi_futbol_bankasi.json")
