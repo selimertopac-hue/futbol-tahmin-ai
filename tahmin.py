@@ -233,6 +233,46 @@ if mod == "🏠 Canlı Skorlar":
                 </div>
             """, unsafe_allow_html=True)
 
+
+
+if mod == "🏠 Canlı Skorlar":
+    st.title("⚡ Canlı Maç Merkezi")
+    st.markdown("Şu an dünyada oynanan aktif maçlar ve anlık skorlar.")
+    
+    # API'den tüm canlı maçları çekiyoruz
+    live_data = veri_al("matches")
+    matches = live_data.get('matches', [])
+    
+    if not matches:
+        st.info("Şu an sistemde aktif canlı maç bulunmuyor. Bülten saatlerini bekleyin.")
+    else:
+        # Canlı maçları liglerine göre gruplayabilir veya listeleyebiliriz
+        for m in matches:
+            # Maçın durumuna göre (Dakika veya Devre Bilgisi)
+            status = m.get('status', '')
+            minute = m.get('minute', 'devam')
+            
+            # Skor bilgisi
+            h_s = m['score']['fullTime']['home']
+            a_s = m['score']['fullTime']['away']
+            
+            # Görsel Maç Kartı
+            st.markdown(f"""
+                <div class="match-card" style="border-left: 5px solid #3fb950;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #8B949E; margin-bottom: 5px;">
+                        <span>📍 {m['competition']['name']}</span>
+                        <span style="color: #3fb950; font-weight: bold;">● LIVE {minute}'</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="text-align: right; width: 40%;"><b>{m['homeTeam']['name']}</b></div>
+                        <div style="width: 20%; text-align: center; background: #30363d; border-radius: 5px; padding: 5px;">
+                            <h3 style="margin: 0; color: #3fb950;">{h_s} - {a_s}</h3>
+                        </div>
+                        <div style="text-align: left; width: 40%;"><b>{m['awayTeam']['name']}</b></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
 elif mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı & Avrupa Havuzu")
     
