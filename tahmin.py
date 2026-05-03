@@ -41,38 +41,64 @@ def fs_api_get(endpoint, params={}):
         return None
 
 def pazartesi_hasadi():
-    """Biten maçların verisini MSI laptopuna mühürler (Veri Bankası)."""
-    # 1. FootyStats'tan bitmiş (complete) maçları çek
-    raw_data = fs_api_get("matches", {"status": "complete"})
-    
-    if raw_data and 'data' in raw_data:
-        tamamlanan_maclar = raw_data['data']
-        
-        # 2. Dosya Kontrolü
-        if os.path.exists(VERİ_BANKASI_DOSYASI):
-            with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
-                try: mevcut_arsiv = json.load(f)
-                except: mevcut_arsiv = []
-        else:
-            mevcut_arsiv = []
+    """Biten maçların TÜM verilerini (xG, Korner, Kart vb.) MSI Bankasına mühürler."""
+    # 1. Önce Yetkili Ligleri Al
+    lig_res = fs_api_get("league-list")
+    if not lig_res or 'data' not in lig_res:
+        return 0
 
-        # 3. Tekilleştirme (Aynı maçları tekrar ekleme)
-        kayitli_idlar = {m['id'] for m in mevcut_arsiv}
-        yeni_eklenen_sayisi = 0
+    ham_ligler = lig_res['data']
+    sezon_idleri = []
+    
+    # Dokümana göre Sezon ID'lerini ayıkla
+    if isinstance(ham_ligler, list):
+        for lig in ham_ligler:
+            if 'season' in lig and len(lig['season']) > 0:
+                # En güncel sezonun ID'sini alıyoruz
+                sezon_idleri.append(str(lig['season'][-1]['id']))
+
+    # 2. Mevcut Arşivi Dosyadan Oku (Belleği korumak için sadece ID'leri tut)
+    if os.path.exists(VERİ_BANKASI_DOSYASI):
+        with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
+            try: mevcut_arsiv = json.load(f)
+            except: mevcut_arsiv = []
+    else:
+        mevcut_arsiv = []
+
+    kayitli_idlar = {m.get('id') for m in mevcut_arsiv}
+    yeni_eklenen_sayisi = 0
+    
+    p_bar = st.sidebar.progress(0)
+    st.sidebar.info(f"📦 {len(sezon_idleri)} lig derin analize alındı...")
+
+    # 3. Her Sezon İçin Bitmiş Maçları Derinlemesine Çek
+    for index, s_id in enumerate(sezon_idleri):
+        # 'status=complete' ile bitmiş maçların tüm Premium verilerini istiyoruz
+        params = {'key': FS_API_KEY, 'league_id': s_id, 'status': 'complete'}
+        url = f"{FS_BASE_URL}/league-matches"
         
-        for m in tamamlanan_maclar:
-            if m['id'] not in kayitli_idlar:
-                mevcut_arsiv.append(m)
-                yeni_eklenen_sayisi += 1
-        
-        # 4. Kayıt
+        try:
+            res = requests.get(url, params=params, timeout=10).json()
+            if res and 'data' in res and isinstance(res['data'], list):
+                for m in res['data']:
+                    # Tekilleştirme Kontrolü
+                    if m.get('id') not in kayitli_idlar:
+                        # 💡 BURADA HİÇBİR VERİYİ SİLMİYORUZ! 
+                        # Dokümandaki tüm 200 değişken (xG, Korner vb.) JSON'a gidiyor.
+                        mevcut_arsiv.append(m)
+                        kayitli_idlar.add(m.get('id'))
+                        yeni_eklenen_sayisi += 1
+        except:
+            continue
+            
+        p_bar.progress((index + 1) / len(sezon_idleri))
+
+    # 4. MSI Laptopuna Kalıcı Mühür
+    if yeni_eklenen_sayisi > 0:
         with open(VERİ_BANKASI_DOSYASI, "w", encoding="utf-8") as f:
             json.dump(mevcut_arsiv, f, ensure_ascii=False, indent=4)
             
-        return yeni_eklenen_sayisi
-    return 0
-
-@st.cache_data(ttl=3600)
+    return yeni_eklenen_sayisi
 def tum_dunyayi_hasat_et():
     """Dokümantasyona tam uyumlu: Lig -> Sezon -> Maç hiyerarşisiyle hasat eder."""
     # 1. ADIM: Lig ve Sezon Listesini Al
