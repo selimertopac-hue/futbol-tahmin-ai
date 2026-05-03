@@ -8,760 +8,131 @@ import requests
 from datetime import datetime, timedelta
 
 # --- 1. AYARLAR & API ANAHTARLARI ---
+# FootyStats API Anahtarın (Mühürlendi)
 FS_API_KEY = "3d8f931eb334529f5c171f08dbeed729fe2b0e7f49f717574101ff79225d4aa7"
 FS_BASE_URL = "https://api.footystats.org"
 SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
+ARSIV_DOSYASI = "ai_arsiv.json"
 
-st.set_page_config(page_title="UltraSkor Pro: FS Intelligence", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: AETHER FS", page_icon="🎯", layout="wide")
 
-# --- 🛠️ FOOTYSTATS HASAT MAKİNESİ (API) ---
+# --- 2. GÖRSEL STİL (MSI DARK MODE) ---
+st.markdown("""
+    <style>
+    .stApp { background-color: #0D1117; color: #C9D1D9; }
+    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 15px; margin-bottom: 10px; }
+    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 5px; text-align: center; font-size: 0.8rem; }
+    .aether-box { border-color: #8A2BE2; color: #E0B0FF; }
+    h1, h2, h3 { color: #58A6FF !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 3. FOOTYSTATS VERİ MERKEZİ ---
 def fs_api_get(endpoint, params={}):
     params['key'] = FS_API_KEY
     url = f"{FS_BASE_URL}/{endpoint}"
     try:
         response = requests.get(url, params=params, timeout=15)
         return response.json()
-    except Exception as e:
-        st.error(f"📡 API Bağlantı Hatası: {e}")
+    except:
         return None
 
 @st.cache_data(ttl=3600)
-def tum_ligleri_tara_premium():
-    """FootyStats üzerinden yetkili olduğun tüm ligleri ve maçları çeker."""
-    islem_kutusu = st.empty()
-    islem_kutusu.info("🌍 FootyStats üzerinden 39+ lig taranıyor...")
+def tum_dunyayi_tara():
+    """39+ ligi FootyStats üzerinden otonom tarar, isim belirtmeye gerek kalmaz."""
+    # Sadece 'incomplete' (oynanmamış) maçları çekerek geleceği tarıyoruz
+    data = fs_api_get("matches", {"status": "incomplete"})
     
-    # 1. Mevcut Sezondaki Maçları Çek (Haftalık Fikstür)
-    # FootyStats 'todays-matches' veya 'league-matches' kullanır.
-    # Biz genel bir tarama için 'matches' endpoint'ini hedefliyoruz.
-    fikstur_data = fs_api_get("matches", {"status": "incomplete"}) # Gelecek maçlar
-    hafiza_data = fs_api_get("matches", {"status": "complete"})    # Bitmiş maçlar (Analiz için)
-
     tum_fikstur = []
-    if fikstur_data and 'data' in fikstur_data:
-        for m in fikstur_data['data']:
+    if data and 'data' in data:
+        for m in data['data']:
             tum_fikstur.append({
-                'id': m['id'],
                 'home': m['home_name'],
                 'away': m['away_name'],
                 'lig': m['league_name'],
-                'date': m['date_unix'],
-                'xg_home': m.get('team_a_xg_prematch', 0), # Maç öncesi beklenen xG
-                'xg_away': m.get('team_b_xg_prematch', 0)
+                'id': m['id'],
+                'xg_h': m.get('team_a_xg_prematch', 1.5),
+                'xg_a': m.get('team_b_xg_prematch', 1.2),
+                'puan': int(m.get('odds_ft_home_win_prob', 50)) # Olasılık bazlı puan
             })
+    return tum_fikstur
 
-    tum_hafiza = hafiza_data['data'] if hafiza_data and 'data' in hafiza_data else []
-    
-    islem_kutusu.success(f"💎 {len(tum_fikstur)} Maç ve Derin İstatistikler Yüklendi!")
-    return tum_fikstur, tum_hafiza
-
-# --- 🧠 Gelişmiş Analiz Motoru (xG & PPG Destekli) ---
-def analiz_et_v3(ev_adi, dep_adi, hafiza, lig_adi):
+# --- 4. ANALİZ MOTORU ---
+def analiz_et_v3(ev, dep, xg_h, xg_a):
     try:
-        # FootyStats'tan gelen derin verilerle Poisson'u besle
-        # Normalde 'hafiza' içinden o ligin gol ortalamasını hesaplarız
-        # Ancak FootyStats bize 'pre_match_xg' verdiği için çok daha netiz.
-        
-        # Basit Poisson Hesabı (FootyStats verileriyle harmanlanmış)
-        ev_avg = 1.5 # Varsayılan
-        dep_avg = 1.2 # Varsayılan
-
-        # Robot Tahminlerini Oluştur
-        # ex = Ev xG, ax = Deplasman xG
-        ex, ax = ev_avg, dep_avg 
-        
-        def sk_uret(e, a):
+        def sk(e, a):
             m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
             s = np.unravel_index(np.argmax(m), m.shape)
-            conf = min(99, int(m[s[0], s[1]] * 400))
+            conf = min(99, int(m[s[0], s[1]] * 350))
             return f"{s[0]} - {s[1]}", conf
 
+        r_ae = sk(xg_h, xg_a)
+        r_w = sk(xg_h * 1.2, xg_a * 0.8)
+        r_nx = sk(xg_h * 0.8, xg_a * 1.1)
+
         return {
-            "aether": sk_uret(ex, ax)[0], "ae_c": sk_uret(ex, ax)[1],
-            "wickham": sk_uret(ex * 1.2, ax * 0.8)[0], "w_c": sk_uret(ex * 1.2, ax * 0.8)[1],
-            "nexus": sk_uret(ex * 0.9, ax * 1.1)[0], "n_c": sk_uret(ex * 0.9, ax * 1.1)[1],
-            "spec": sk_uret(ex * 1.3, ax * 1.3)[0], "sp_c": sk_uret(ex * 1.3, ax * 1.3)[1],
-            "std": sk_uret(ex, ax)[0], "s_c": sk_uret(ex, ax)[1],
-            "total_xg": round(ex + ax, 2),
-            "note": "✅ FootyStats Premium Analizi"
+            "aether": r_ae[0], "ae_c": r_ae[1],
+            "wickham": r_w[0], "w_c": r_w[1],
+            "nexus": r_nx[0], "n_c": r_nx[1],
+            "std": r_ae[0], "total_xg": xg_h + xg_a
         }
-    except:
-        return None
+    except: return None
 
-# --- 🚀 ANA PROGRAM AKIŞI ---
-simdi = datetime.now()
-site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
-
-mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "Global AI", "🏆 Onur Listesi"])
-
-if mod == "🤖 Tahmin Robotu":
-    st.title("🌍 39 Lig Derin İstihbarat Radarı")
-    
-    if st.button("🚀 TÜM LİGLERİ FOOTYSTATS ÜZERİNDEN HASAT ET"):
-        with st.spinner("💎 Elmas değerinde veriler MSI'a akıyor..."):
-            fikstur, hafiza = tum_ligleri_tara_premium()
-            st.session_state.tr_fikstur = fikstur
-            st.session_state.tr_hafiza = hafiza
-
-    if 'tr_fikstur' in st.session_state:
-        ham_liste = []
-        for f in st.session_state.tr_fikstur:
-            res = analiz_et_v3(f['home'], f['away'], st.session_state.tr_hafiza, f['lig'])
-            if res:
-                ham_liste.append({'ev': f['home'], 'dep': f['away'], 'lig': f['lig'], 'res': res})
-        
-        # Kuponları Görselleştirme (Banko, İdeal, Üst, Alt)
-        # Burası senin mevcut görsel kart sisteminle aynı çalışacak
-        st.success(f"✅ {len(ham_liste)} maç analiz edildi.")
-        
-        # Örnek kart gösterimi
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            st.subheader("⭐ BANKO (39 LİG)")
-            # En yüksek güvenli 10 maçı listele...
-    
-# --- 2. TEMEL HESAP MAKİNESİ (check_hit) ---
-def check_hit(liste, tip):
-    # BURAYA: Daha önce yazdığımız maç sonuçlarını kontrol eden 
-    # o uzun döngüleri ve "skor += 1" mantığını yapıştır.
-    skor = 0
-    # ... senin mevcut kodların ...
-    return skor
-
-# --- 3. OTONOM ARŞİVLEME & KARA KUTU MOTORU ---
-
-import json
-import os
-from datetime import datetime
-
-ARSIV_DOSYASI = "ai_arsiv.json"
-
-# --- 🛠️ TEMEL YAZMA/OKUMA FONKSİYONLARI ---
-def kara_kutu_oku():
-    if os.path.exists(ARSIV_DOSYASI):
-        with open(ARSIV_DOSYASI, "r", encoding="utf-8") as f:
-            try:
-                return json.load(f)
-            except:
-                return {}
-    return {}
-
-def kara_kutu_yaz(veri):
-    with open(ARSIV_DOSYASI, "w", encoding="utf-8") as f:
-        json.dump(veri, f, ensure_ascii=False, indent=4)
-
-# --- 🔐 BETON MÜHÜRLEME (DEĞİŞMEYEN KUPONLAR) ---
-def otomatik_muhur_tetikleyici():
-    """Mühürü hem session_state'e hem de JSON dosyasına kalıcı olarak işler."""
-    simdi = datetime.now()
-    arsiv = kara_kutu_oku()
-    
-    # Cuma 12:00 sonrası mühürleme kontrolü
-    if simdi.weekday() == 4 and simdi.hour >= 12:
-        filtre_anahtar = "AETHER_AI_Master"
-        muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
-        
-        # 1. ÖNCE DOSYADA (JSON) VAR MI BAK? (Varsa oradan çek, asla değiştirme)
-        if f"m_k_{site_h_aktif}" in arsiv:
-            st.session_state[muhur_anahtari] = arsiv[f"m_k_{site_h_aktif}"]
-            return
-
-        # 2. DOSYADA YOKSA VE HAFIZADA VERİ VARSA YENİ MÜHÜR BAS
-        # 'son_bankolar' gibi verilerin dolu olduğundan emin olmalıyız
-        if muhur_anahtari not in st.session_state:
-            guncel_banko = st.session_state.get('son_bankolar', [])
-            
-            if guncel_banko:
-                m_veri = {
-                    "banko": guncel_banko,
-                    "ideal": st.session_state.get('son_idealler', []),
-                    "ust": st.session_state.get('son_ustler', []),
-                    "alt": st.session_state.get('son_altlar', [])
-                }
-                # Hem hafızaya al
-                st.session_state[muhur_anahtari] = m_veri
-                # Hem de JSON'a 'm_k_X' (Mühürlü Kupon) olarak kalıcı işle
-                arsiv[f"m_k_{site_h_aktif}"] = m_veri
-                kara_kutu_yaz(arsiv)
-                st.toast(f"🎯 {site_h_aktif}. Hafta MÜHÜRLENDİ VE ARŞİVLENDİ!")
-
-# --- 🏆 OTONOM BAŞARI ARŞİVLEME ---
-def otonom_arsiv_guncelle():
-    global site_h_aktif  # Dışarıdaki değişkeni içeri çağırıyoruz
-    
-    # 1. Değişkeni en başta tanımlıyoruz (Hata almamak için şart!)
-    guncelleme_var_mi = False 
-    
-    arsiv = kara_kutu_oku()
-    
-    # 2. Bitmiş haftaların sonuçlarını hesapla
+def winner(skor_metni):
     try:
-        for h_no in range(1, site_h_aktif + 1):
-            h_key = str(h_no)
-            m_key = f"m_k_{h_no}" # JSON'daki mühürlü kupon anahtarı
-            
-            # Eğer bu hafta mühürlenmişse ama özeti henüz yazılmamışsa
-            if m_key in arsiv and (h_key not in arsiv or arsiv[h_key].get("durum") != "KAPALİ"):
-                m_kupon = arsiv[m_key]
-                
-                # Haftanın sonuçlarını check_hit ile hesapla
-                b_skor = check_hit(m_kupon.get("banko", []), "banko")
-                i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
-                u_skor = check_hit(m_kupon.get("ust", []), "ust")
-                a_skor = check_hit(m_kupon.get("alt", []), "alt")
-                
-                # Puanlama (20 maç üzerinden % kaç başarı)
-                toplam_isabet = b_skor + i_skor + u_skor + a_skor
-                puan = int((toplam_isabet / 20) * 100) if toplam_isabet > 0 else 0
-                
-                # Arşiv özetini oluştur
-                arsiv[h_key] = {
-                    "W": {"b": f"{b_skor}/5", "i": f"{i_skor}/5", "u": f"{u_skor}/5", "a": f"{a_skor}/5", "p": puan},
-                    "durum": "KAPALİ" if h_no < site_h_aktif else "AÇIK"
-                }
-                guncelleme_var_mi = True
-
-        # 3. Eğer bir güncelleme yapıldıysa dosyaya yaz
-        if guncelleme_var_mi:
-            kara_kutu_yaz(arsiv)
-        
-        # 4. Global erişim için session_state'e aktar
-        st.session_state.otonom_kayitlar = arsiv
-        
-    except Exception as e:
-        st.error(f"Otonom Arşiv Hatası: {e}")
-    
-    st.session_state.otonom_kayitlar = arsiv
-
-# --- 🚀 ÇALIŞTIRMA SIRALAMASI (BURASI ÇOK KRİTİK) ---
-
-# 1. Önce değişkeni hesapla (Her şeyden önce bu gelmeli!)
-simdi = datetime.now()
-site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
-
-# 2. Sonra bu değişkeni kullanan fonksiyonları çağır
-otomatik_muhur_tetikleyici()
-otonom_arsiv_guncelle()
-# --- 2. GÖRSEL STİL ---
-st.markdown("""
-    <style>
-    /* Genel Uygulama Teması */
-    .stApp { background-color: #0D1117; color: #C9D1D9; }
-    
-    /* Maç Kartları (Detaylı Analizler İçin) */
-    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; position: relative; }
-    
-    /* KUPON KARTLARI (10 Maç Sığacak Şekilde Daraltıldı) */
-    .editor-card { 
-        background: linear-gradient(145deg, #1c2128, #0d1117); 
-        border: 1px solid #30363d; 
-        padding: 8px; 
-        border-radius: 10px; 
-        min-height: 750px; /* 10 maç için dikey alan */
-        position: relative; 
-        margin-bottom: 15px;
-    }
-    
-    .coupon-title { 
-        font-weight: bold; 
-        font-size: 0.85rem; 
-        text-align: center; 
-        border-bottom: 1px solid #30363d; 
-        padding-bottom: 5px; 
-        margin-bottom: 8px;
-    }
-    
-    /* KUPON İÇİNDEKİ MAÇ SATIRLARI */
-    .coupon-item { 
-        background: rgba(13, 17, 23, 0.6); 
-        padding: 5px 8px; 
-        margin-top: 5px; 
-        border-radius: 6px; 
-        border: 1px solid #21262d; 
-        font-size: 0.72rem; /* Font biraz küçültüldü ki sığsın */
-        line-height: 1.2;
-    }
-    
-    .success-badge { background: #238636; color: white; padding: 1px 6px; border-radius: 8px; font-size: 0.6rem; font-weight: bold; float: right; }
-    
-    /* Diğer Bileşenler */
-    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 6px; text-align: center; flex: 1; margin: 0 2px; font-size: 0.75rem; }
-    .aether-box { background: rgba(138, 43, 226, 0.1); border: 1px solid #8A2BE2; color: #E0B0FF !important; }
-    .form-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 1px; }
-    .form-W { background-color: #238636; } .form-D { background-color: #9e9e9e; } .form-L { background-color: #f85149; }
-    .lock-box { background: #161b22; border: 2px dashed #f85149; padding: 40px; border-radius: 15px; text-align: center; color: #f85149; }
-    h1, h2, h3 { color: #58A6FF !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 3. ANALİZ VE BAŞARI MOTORU ---
-@st.cache_data(ttl=3600)
-def veri_al(endpoint):
-    try: return requests.get(f"https://api.football-data.org/v4/{endpoint}", headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15).json()
-    except: return {}
-def wickham_psikoloji_analizi(ev_ad, dep_ad, matches, l_ad):
-    # Bu fonksiyon takımların ligdeki konumuna göre motivasyon katsayısı üretir
-    try:
-        # Puan durumunu çekiyoruz
-        l_kodu = LIGLER.get(l_ad, "PL")
-        standings = veri_al(f"competitions/{l_kodu}/standings")
-        table = standings['standings'][0]['table']
-        
-        # Takımların verilerini ayıklıyoruz
-        pos = {t['team']['name']: {'rank': t['position'], 'pts': t['points']} for t in table}
-        
-        e = pos.get(ev_ad)
-        d = pos.get(dep_ad)
-        
-        if not e or not d: return 1.0, "Standart Motivasyon"
-
-        # --- WICKHAM'IN PSİKOLOJİK SENARYOLARI ---
-        
-        # Senaryo A: Şampiyonluk Baskısı (Lider veya Takipçi Evindeyse)
-        if e['rank'] <= 3 and abs(e['pts'] - pos[list(pos.keys())[0]]['pts']) < 6:
-            # Şampiyonluğa oynayan takım hata yapamaz, 'Fire Strike' moduna girer
-            return 1.18, "🔥 ŞAMPİYONLUK BASKISI: Ev sahibi mutlak galibiyet için tüm hatlarıyla saldıracak."
-
-        # Senaryo B: Rahat Orta Sıra Deplasmanı (Bournemouth Etkisi)
-        if 8 <= d['rank'] <= 14:
-            # Hedefsiz takım deplasmanda stres yapmaz, kontra atakla tehlikeli olur
-            return 1.10, "🕵️ RAHAT DEPLASMAN: Konuk ekip hedefsiz olmanın verdiği rahatlıkla sürpriz kovalayabilir."
-
-        # Senaryo C: Küme Düşme Hattı Direnişi
-        if d['rank'] >= 17:
-            # Küme düşmemeye oynayan takım 'Iron Wall' moduna bürünür
-            return 0.85, "🛡️ KÜME HATTI DİRENCİ: Deplasman ekibi ligde kalmak için otobüsü kaleye çekecektir."
-
-        return 1.0, "Dengeli Motivasyon"
-    except:
-        return 1.0, "Veri Kısıtı: Psikolojik analiz yapılamadı."
-def motivasyon_hesapla(ev_ad, dep_ad, l_kodu):
-    # Bu fonksiyon puan durumunu çekip takımların 'Stres/Kaos' katsayısını belirler
-    try:
-        data = veri_al(f"competitions/{l_kodu}/standings")
-        table = data['standings'][0]['table']
-        pos = {t['team']['name']: {'p': t['position'], 'pts': t['points']} for t in table}
-        
-        e_p, d_p = pos[ev_ad]['p'], pos[dep_ad]['p']
-        e_pts, d_pts = pos[ev_ad]['pts'], pos[dep_ad]['pts']
-        
-        kaos = 1.0
-        # SENARYO: Favori şampiyonluk potasında (İlk 3) ve rakibiyle puan farkı çoksa
-        if e_p <= 3 and abs(e_pts - d_pts) > 15:
-            kaos = 1.15 # Şampiyonluk stresi/baskısı (Fire Strike Artar)
-        # SENARYO: Deplasman orta sıralarda (Hedefsiz) ve rahatsa
-        if 7 <= d_p <= 13:
-            kaos *= 1.10 # Kaybedecek bir şeyi yok, daha cesur oynar
-            
-        return kaos
-    except: return 1.0
-def winner(sk):
-    try:
-        p = sk.split(" - ")
+        p = skor_metni.split(" - ")
         if int(p[0]) > int(p[1]): return "1"
         if int(p[1]) > int(p[0]): return "2"
         return "X"
-    except: return "?"
+    except: return "X"
 
-# --- 1. GÖRSEL FORM NOKTALARI ---
-def get_form_dots(team_name, matches):
-    # Status kontrolü ve takım ismi filtreleme
-    finished = [m for m in matches if m.get('status') == 'FINISHED' and (m['homeTeam']['name'] == team_name or m['awayTeam']['name'] == team_name)]
-    # Tarihe göre sırala ve son 5 maçı al
-    finished = sorted(finished, key=lambda x: x.get('utcDate', ''), reverse=True)[:5]
+# --- 5. MENÜ VE GÖVDE ---
+st.sidebar.title("🛡️ MSI Operasyon Merkezi")
+mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "Global AI", "🏆 Onur Listesi"])
+
+simdi = datetime.now()
+site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
+
+if mod == "🤖 Tahmin Robotu":
+    st.title("🌍 Küresel Tahmin Radarı (39+ Lig)")
     
-    dots = ""
-    for m in finished:
-        try:
-            h_s = m['score']['fullTime']['home']
-            a_s = m['score']['fullTime']['away']
-            if m['homeTeam']['name'] == team_name:
-                res = "W" if h_s > a_s else ("L" if a_s > h_s else "D")
-            else:
-                res = "W" if a_s > h_s else ("L" if h_s > a_s else "D")
-            dots += f'<span class="form-dot form-{res}"></span>'
-        except:
-            continue
-    return f'<div style="margin-top:3px;">{dots}</div>'
+    if st.button("🚀 TÜM DÜNYAYI FOOTYSTATS ÜZERİNDEN HASAT ET"):
+        with st.spinner("💎 39+ Ligin derin verileri MSI'a akıyor..."):
+            fikstur = tum_dunyayi_tara()
+            st.session_state.fs_fikstur = fikstur
+            st.success(f"✅ {len(fikstur)} Maç Otonom Olarak Başarıyla Analiz Edildi!")
 
-# --- 🚀 iSPORTS API AYARLARI ---
-ISPORTS_API_KEY = "aG7K4Saw0S7rG40B"
-ISPORTS_BASE_URL = "http://api.isportsapi.com/sport/football"
+    if 'fs_fikstur' in st.session_state:
+        c1, c2, c3, c4 = st.columns(4)
+        kuponlar = {"banko": [], "ideal": [], "ust": [], "alt": []}
 
-def isports_veri_al(endpoint, params={}):
-    """iSportsAPI üzerinden veri çeker."""
-    params['api_key'] = ISPORTS_API_KEY
-    url = f"{ISPORTS_BASE_URL}/{endpoint}"
-    try:
-        response = requests.get(url, params=params, timeout=15)
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except Exception as e:
-        st.error(f"⚠️ iSportsAPI Bağlantı Hatası: {e}")
-        return None
+        for m in st.session_state.fs_fikstur:
+            res = analiz_et_v3(m['home'], m['away'], m['xg_h'], m['xg_a'])
+            if res:
+                m['res'] = res
+                if winner(res['aether']) == "1": kuponlar["banko"].append(m)
+                elif winner(res['aether']) == "2": kuponlar["ideal"].append(m)
+                if res['total_xg'] > 2.8: kuponlar["ust"].append(m)
+                elif res['total_xg'] < 2.1: kuponlar["alt"].append(m)
 
-def tum_ligleri_tara():
-    # football-data.org için lig kodları
-    ligler = {
-        "İngiltere Premier": "PL",
-        "İspanya La Liga": "PD",
-        "İtalya Serie A": "SA",
-        "Almanya Bundesliga": "BL1",
-        "Fransa Ligue 1": "FL1",
-        "Hollanda Eredivisie": "DED",
-        "Portekiz": "PPL"
-    }
-    
-    tum_fikstur = []
-    tum_hafiza = []
-    islem_kutusu = st.empty()
-    headers = {"X-Auth-Token": FOOTBALL_DATA_KEY}
+        col_config = [
+            ("⭐ BANKO", c1, "banko", "#58A6FF"),
+            ("💎 İDEAL", c2, "ideal", "#3fb950"),
+            ("🔥 ÜST", c3, "ust", "#d73a49"),
+            ("🛡️ ALT", c4, "alt", "#0366d6")
+        ]
 
-    for l_ad, l_kod in ligler.items():
-        # 🔥 KRİTİK: Lig ismini burada sabitle
-        aktif_lig = str(l_ad)
-        islem_kutusu.info(f"📡 {aktif_lig} ({l_kod}) verileri çekiliyor...")
-        
-        try:
-            # GELECEK MAÇLAR
-            f_url = f"https://api.football-data.org/v4/competitions/{l_kod}/matches?status=SCHEDULED"
-            f_res = requests.get(f_url, headers=headers, timeout=10).json()
-            
-            if 'matches' in f_res:
-                for m in f_res['matches']:
-                    tum_fikstur.append({
-                        'home': m['homeTeam']['name'],
-                        'away': m['awayTeam']['name'],
-                        'lig': aktif_lig # <--- 'su_anki_lig' değil, 'aktif_lig'
-                    })
-            
-            # GEÇMİŞ MAÇLAR (Analiz hafızası için)
-            h_url = f"https://api.football-data.org/v4/competitions/{l_kod}/matches?status=FINISHED"
-            h_res = requests.get(h_url, headers=headers, timeout=10).json()
-            if 'matches' in h_res:
-                for m in h_res['matches']:
-                    tum_hafiza.append({
-                        'homeTeam': {'name': m['homeTeam']['name']},
-                        'awayTeam': {'name': m['awayTeam']['name']},
-                        'status': 'FINISHED',
-                        'score': {'fullTime': {'home': m['score']['fullTime']['home'], 'away': m['score']['fullTime']['away']}},
-                        'matchday': m.get('matchday', 1)
-                    })
-        except Exception as e:
-            st.error(f"❌ {aktif_lig} hatası: {e}")
-            
-    islem_kutusu.success("🌍 Gerçek Avrupa verileri başarıyla yüklendi!")
-    return tum_fikstur, tum_hafiza
-# --- 3. DÜRÜST ANALİZ MOTORU (POISSON) ---
-def analiz_et(ev, dep, matches, h_no):
-    try:
-        def temizle(metin):
-            if not metin: return ""
-            return str(metin).lower().strip().replace(" ", "").replace("ş", "s").replace("ç", "c").replace("ı", "i").replace("ğ", "g").replace("ö", "o").replace("ü", "u")
-
-        ev_t, dep_t = temizle(ev), temizle(dep)
-        df_raw = []
-        for m in matches:
-            h_hafiza = temizle(m['homeTeam']['name'])
-            a_hafiza = temizle(m['awayTeam']['name'])
-            
-            if h_hafiza == ev_t or a_hafiza == ev_t or h_hafiza == dep_t or a_hafiza == dep_t:
-                if m.get('score') and m['score'].get('fullTime') and m['score']['fullTime']['home'] is not None:
-                    df_raw.append({
-                        'H': m['homeTeam']['name'],
-                        'A': m['awayTeam']['name'],
-                        'HG': m['score']['fullTime']['home'],
-                        'AG': m['score']['fullTime']['away'],
-                        'MD': m.get('matchday', 1)
-                    })
-
-        # --- 🚀 EMNİYET KİLİDİ (Bilmediği Maça Sallamasını Önler) ---
-        if len(df_raw) < 3: 
-            return {
-                "std": "?.?", "s_c": 0, "spec": "?.?", "sp_c": 0,
-                "nexus": "?.?", "n_c": 0, "wickham": "?.?", "w_c": 0,
-                "aether": "?.?", "ae_c": 0, "total_xg": 0, "h_p": 0, "s_p": 0, "note": "❌ Yetersiz Veri"
-            }
-
-        # --- 📊 POISSON MATEMATİK MOTORU ---
-        df = pd.DataFrame(df_raw)
-        l_e, l_d = df['HG'].mean(), df['AG'].mean()
-        if l_e == 0: l_e = 1.0
-        if l_d == 0: l_d = 1.0
-        
-        def get_stats(team_name, is_h):
-            t_clean = temizle(team_name)
-            t_df = df[df.apply(lambda x: temizle(x['H' if is_h else 'A']) == t_clean, axis=1)].copy()
-            if t_df.empty: return l_e, l_d, 1.0
-            max_md = df['MD'].max() if df['MD'].max() > 0 else 1
-            t_df['w'] = 1.0 + (t_df['MD'] / max_md)
-            g = (t_df['HG' if is_h else 'AG'] * t_df['w']).sum() / t_df['w'].sum()
-            y = (t_df['AG' if is_h else 'HG'] * t_df['w']).sum() / t_df['w'].sum()
-            e_rec = t_df.sort_values('MD', ascending=False).head(3)['HG' if is_h else 'AG'].mean()
-            return g, y, e_rec
-
-        e_g, e_y, e_rec = get_stats(ev, True)
-        d_g, d_y, d_rec = get_stats(dep, False)
-        
-        # xG Hesaplamaları
-        ex = (e_g / l_e) * (d_y / l_e) * l_e
-        ax = (d_g / l_d) * (e_y / l_d) * l_d
-        
-        from scipy.stats import poisson
-        import numpy as np # np hatası almamak için
-
-        def sk(e, a):
-            m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
-            s = np.unravel_index(np.argmax(m), m.shape)
-            prob = m[s[0], s[1]] * 100
-            conf = min(99, int(prob * 3 + abs(e-a)*20 + 20))
-            return f"{s[0]} - {s[1]}", conf
-
-        # --- 🤖 ROBOT TAHMİNLERİ ---
-        r_s = sk(ex, ax)           # Standart
-        r_sp = sk(ex * 1.2, ax * 1.2) # Spektrum (Gollü)
-        r_nx = sk(ex * 0.8, ax * 1.1) # Nexus (Savunma/Alt)
-        r_w = sk(ex * 1.3, ax * 0.8) # Wickham (Hücum)
-        r_ae = sk((ex + ex*1.1)/2, (ax + ax*1.1)/2) # Aether (Denge)
-
-        return {
-            "std": r_s[0], "s_c": r_s[1],
-            "spec": r_sp[0], "sp_c": r_sp[1],
-            "nexus": r_nx[0], "n_c": r_nx[1],
-            "wickham": r_w[0], "w_c": r_w[1],
-            "aether": r_ae[0], "ae_c": r_ae[1],
-            "total_xg": round(ex + ax, 2),
-            "h_p": int(min(100, ex*40)), 
-            "s_p": int(min(100, (1/max(0.1, ax))*20)),
-            "note": "✅ Analiz Tamamlandı"
-        }
-
-    except Exception as e:
-        # Tek bir genel hata yakalayıcı yeterlidir
-        return None
-        # --- 📈 4. MATEMATİKSEL MOTOR (Poisson) ---
-        df = pd.DataFrame(df_raw)
-        l_e, l_d = df['HG'].mean(), df['AG'].mean()
-        
-        # Sıfıra bölünme hatası koruması
-        if l_e == 0: l_e = 1.0
-        if l_d == 0: l_d = 1.0
-        
-        def get_stats(team_name, is_h):
-            t_clean = temizle(team_name)
-            # DataFrame içinde temizlenmiş isimlerle filtrele
-            t_df = df[df.apply(lambda x: temizle(x['H' if is_h else 'A']) == t_clean, axis=1)].copy()
-            
-            if t_df.empty: return l_e, l_d, 1.0
-            
-            max_md = df['MD'].max() if df['MD'].max() > 0 else 1
-            t_df['w'] = 1.0 + (t_df['MD'] / max_md)
-            
-            g = (t_df['HG' if is_h else 'AG'] * t_df['w']).sum() / t_df['w'].sum()
-            y = (t_df['AG' if is_h else 'HG'] * t_df['w']).sum() / t_df['w'].sum()
-            
-            # Son form durumu
-            recent = t_df.sort_values('MD', ascending=False).head(3)
-            e_rec = recent['HG' if is_h else 'AG'].mean()
-            return g, y, e_rec
-
-        e_g, e_y, e_rec = get_stats(ev, True)
-        d_g, d_y, d_rec = get_stats(dep, False)
-        
-        # xG Tahminleri (Poisson için temel)
-        ex = (e_g / l_e) * (d_y / l_e) * l_e
-        ax = (d_g / l_d) * (e_y / l_d) * l_d
-        
-        def sk(e, a):
-            m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
-            s = np.unravel_index(np.argmax(m), m.shape)
-            # Güven puanı: Skorun olasılığı ve güç farkı
-            prob = m[s[0], s[1]] * 100
-            conf = min(99, int(prob * 3 + abs(e-a)*20 + 20))
-            return f"{s[0]} - {s[1]}", conf
-
-        # --- 🤖 ROBOT ÇIKTILARINI HAZIRLA ---
-        r_s = sk(ex * 1.05, ax * 0.95)   # Standart
-        r_sp = sk(ex * 1.15, ax * 1.15) # Spektrum
-        r_nx = sk(ex * 0.9, ax * 1.1)   # Nexus
-        r_w = sk(ex * 1.1, ax * 0.8)    # Wickham
-        
-        # Aether Master Sentezi
-        ae_ex, ae_ax = (ex + ex*1.1 + ex*0.9)/3, (ax + ax*1.1 + ax*0.8)/3
-        r_ae = sk(ae_ex, ae_ax)
-
-        return {
-            "std": r_s[0], "s_c": r_s[1],
-            "spec": r_sp[0], "sp_c": r_sp[1],
-            "nexus": r_nx[0], "n_c": r_nx[1],
-            "wickham": r_w[0], "w_c": r_w[1],
-            "aether": r_ae[0], "ae_c": r_ae[1],
-            "total_xg": round(ex + ax, 2),
-            "h_p": int(min(100, ex*40)), "s_p": int(min(100, (1/max(0.1, ax))*20)),
-            "note": "✅ Analiz Tamamlandı"
-        }
-    except Exception as e:
-        # Hata durumunda boş dönme, en azından hatayı logla
-        return None
-
-        # --- STANDART RATIONAL LOGIC (Güvenli Liman Motoru) ---
-        # Standart'ın felsefesi: "İstatistik yalan söylemez, uçlara kaçma"
-        st_ex, st_ax = ex, ax
-        
-        # 🏟️ KURAL 1: "Ev Sahibi Kalesi" 
-        # Ev sahibi avantajını ve ligin iç saha galibiyet eğilimini korur
-        st_ex *= 1.05 
-        st_ax *= 0.95
-        
-        # 📈 KURAL 2: "Regresyon (Ortalamaya Dönüş)"
-        # Eğer bir takım normalden çok sapmışsa (aşırı formda veya formsuz), 
-        # Standart AI onu lig ortalamasına doğru biraz 'terbiye' eder.
-        if e_rec > 2.0: st_ex *= 0.90 # Aşırı gaza gelme
-        if d_rec < 0.5: st_ax *= 1.10 # Deplasmanı o kadar da ezme
-        
-        # 🎯 KURAL 3: "Düşük Varyans"
-        # Skor tahminlerinde 4-0, 5-1 gibi uçuk skorlar yerine 
-        # en yüksek olasılıklı (1-0, 2-1, 1-1) skorları tercih eder.
-        r_s = sk(st_ex, st_ax) # Standart'ın nihai rasyonel skoru
-
-       # --- SPEKTRUM CHAOS & FLOW LOGIC (Gol ve Tempo Motoru) ---
-        # Spektrum'un felsefesi: "Gol golü çeker" veya "Savunma savunmayı kilitler"
-        sp_ex, sp_ax = ex, ax
-        
-        # 🔥 SENARYO 1: "Yüksek Volatilite" (Açık Futbol)
-        # Eğer her iki takım da son 3 maçta hem atıp hem yemişse (Yüksek Tempo)
-        if e_rec > 1.2 and d_rec > 1.2:
-            sp_ex *= 1.18  # Maçın kopma ihtimali çok yüksek
-            sp_ax *= 1.18  # Karşılıklı gol (KG VAR) kokusu
-            
-        # ❄️ SENARYO 2: "Negatif Akış" (Düşük Tempo)
-        # Eğer takımlardan biri 'otobüsü çekiyorsa' (Çok az gol yiyorsa)
-        elif e_rec < 0.8 or d_rec < 0.8:
-            sp_ex *= 0.85  # Pozisyon bulmak samanlıkta iğne aramak gibi olacak
-            sp_ax *= 0.85  # Skor 0-0 veya 1-0'a hapsolur
-            
-        # ⚡ SENARYO 3: "Baskın Karakter" 
-        # Eğer ev sahibi çok formda, deplasman ise çok formsuzsa
-        if e_rec > 1.5 and d_rec < 0.7:
-            sp_ex *= 1.25  # Ev sahibi silindir gibi geçebilir
-            sp_ax *= 0.75  # Deplasman gol atamaz
-            
-        r_sp = sk(sp_ex, sp_ax) # Spektrum'un nihai gol odaklı skoru
-
-       # --- NEXUS STRATEGIC LOGIC (Sürpriz Analiz Motoru) ---
-        # Nexus'un temeli: Favorinin formsuzluğu + Deplasmanın direnci
-        nx_ex, nx_ax = ex, ax
-        
-        # 🛡️ STRATEJİ 1: "Yorgun Dev" Analizi
-        # Eğer ev sahibi (favori) son 3 maçta beklenen golün (e_g) altında kaldıysa (e_rec)
-        if e_rec < e_g * 0.9:
-            nx_ex *= 0.88  # Ev sahibinin bitiriciliğine güvenme
-            nx_ax *= 1.12  # Deplasmanın iştahını artır
-            
-        # 🛡️ STRATEJİ 2: "Otobüsü Çeken Deplasman"
-        # Eğer deplasman takımı son 3 maçta kalesini iyi savunduysa (d_rec < 1.0)
-        if d_rec < 1.05:
-            nx_ex *= 0.92  # Gol bulmak zorlaşacak
-            nx_ax *= 1.05  # Kontratakla bir tane atabilir
-            
-        # 🛡️ STRATEJİ 3: "Denge ve Kaos"
-        # Eğer iki takımın gücü birbirine çok yakınsa, Nexus 'Beraberlik' sürprizine odaklanır
-        if abs(ex - ax) < 0.3:
-            nx_ex *= 0.95
-            nx_ax *= 0.95 # Skorları 0-0 veya 1-1'e yaklaştırır
-            
-        r_nx = sk(nx_ex, nx_ax) # Nexus'un nihai sürpriz skoru
-
-        # --- WICKHAM v3: BITIRICILIK & LIG ANALIZ MOTORU ---
-        # Wickham'ın felsefesi: "Ligin karakteri ve takımların bitiriciliği skoru belirler"
-        wx_ex, wx_ax = ex, ax
-        
-        # 🧪 WICKHAM ADIM 1: "Fire Strike" (Hücum Gücü) Uygulaması
-        # Eğer hücum gücü yüksekse ve lig Hollanda/Almanya gibi 'açık' bir ligse skoru yukarı iter
-        h_p = ((ex + ax) * 25) + (e_rec * 10) # Formülün temeli
-        if l_ad in ["Hollanda", "Almanya"]: 
-            h_p *= 1.10
-            if h_p > 75:
-                wx_ex *= 1.22
-                wx_ax *= 1.22 # Wickham burada 'bol gollü' bir senaryo yazar
-
-        # 🧪 WICKHAM ADIM 2: "Iron Wall" (Savunma Sertliği) Uygulaması
-        # Eğer savunma puanı yüksekse ve lig İtalya/Fransa gibi 'kapalı' bir ligse skoru aşağı çeker
-        s_p = 100 - ((ex + ax) * 15) - (e_y * 10)
-        if l_ad in ["İtalya", "Fransa"]: 
-            s_p *= 1.15
-            if s_p > 75:
-                wx_ex *= 0.78
-                wx_ax *= 0.78 # Wickham burada 'beton' bir senaryo yazar
-
-        # 🧪 WICKHAM ADIM 3: "Bitiricilik Formu" Kontrolü
-        # Eğer ev sahibi son maçlarda xG'sinin çok üstünde atıyorsa (e_rec yüksek), 
-        # Wickham bunu bir 'over-performance' olarak değil, 'momentum' olarak görür.
-        if e_rec > 1.8: wx_ex *= 1.12
-        if d_rec > 1.8: wx_ax *= 1.12
-
-        r_w = sk(wx_ex, wx_ax) # Wickham'ın nihai teknik skoru
-        # --- WICKHAM v3.5: PUAN DURUMU PSİKOLOJİSİ (KAOS FİLTRESİ) ---
-        kaos_carpan, psikoloji_notu = wickham_psikoloji_analizi(ev, dep, matches, l_ad)
-        
-        # Wickham burada skoru psikolojiye göre yeniden yoğuruyor
-        if kaos_carpan != 1.0:
-            wx_ex *= kaos_carpan
-            # Eğer şampiyonluk baskısı varsa deplasman da kontradan atabilir
-            if kaos_carpan > 1.1: wx_ax *= 1.05 
-            
-            # Wickham'ın nihai teknik skorunu güncelle
-            r_w = sk(wx_ex, wx_ax) 
-            # Konsey notunu psikolojik analizle zenginleştir
-            comment = psikoloji_notu
-        # --- WICKHAM v3.5: KAOS VE MOTİVASYON FİLTRESİ ---
-        # Az önce yukarıda tanımladığımız fonksiyonu çağırıyoruz
-        # Not: LIGLER sözlüğünden o anki ligin kodunu alıyoruz
-        l_kodu = LIGLER.get(l_ad, "PL") 
-        kaos_faktoru = motivasyon_hesapla(ev, dep, l_kodu)
-        
-        if kaos_faktoru > 1.0:
-            # Wickham burada fısıldıyor: "Sıralama farkı büyük, favori stresli!"
-            wx_ex *= kaos_faktoru 
-            wx_ax *= (kaos_faktoru * 0.9) # Karşılıklı gol ihtimalini de tetikler
-            r_w = sk(wx_ex, wx_ax) # Teknik skoru kaosla güncelliyoruz
-            
-        # Yorumu (comment) güncelleyelim
-        if kaos_faktoru > 1.1:
-            comment = f"⚠️ WICKHAM KAOS UYARISI: {ev} şampiyonluk/hedef baskısı altında! Sıralama farkı Wickham'ın v3.5 algoritmasında 'Fire Strike' etkisini tetikledi."
-
-        # --- 4. AETHER MASTER SYNTHESIS (Geliştirilmiş 4'lü Sentez) ---
-        # Aether artık 4 farklı robotun vizyonunu birleştiriyor.
-        # Ağırlıklar: Standart(%30), Spektrum(%20), Nexus(%20), Wickham(%30)
-        aether_ex = (st_ex * 0.3) + (sp_ex * 0.2) + (nx_ex * 0.2) + (wx_ex * 0.3)
-        aether_ax = (st_ax * 0.3) + (sp_ax * 0.2) + (nx_ax * 0.2) + (wx_ax * 0.3)
-        
-        # Aether Master Süzgeci: Eğer Wickham 'Beton' (Iron Wall) veya 'Ateş' (Fire Strike) 
-        # uyarısı verdiyse, Aether bu uyarının ağırlığını son kararda %50'ye çıkarır.
-        if h_p > 85 or s_p > 85:
-            aether_ex = (aether_ex * 0.5) + (wx_ex * 0.5)
-            aether_ax = (aether_ax * 0.5) + (wx_ax * 0.5)
-        
-        r_ae = sk(aether_ex, aether_ax)
-        # --- 5. SONUÇLARI DÖNDÜR ---
-        total_xg = ex + ax
-        comment = "📈 İstatistiksel trendler dengeli bir mücadele öngörüyor."
-        if total_xg > 3.0: comment = "🔥 Yüksek tempo ve bol pozisyonlu bir maç bekleniyor."
-        elif total_xg < 2.0: comment = "🛡️ Savunmaların ön planda olacağı, kısır bir mücadele."
-
-        return {
-            "std": r_s[0], "s_c": r_s[1], 
-            "spec": r_sp[0], "sp_c": r_sp[1], 
-            "nexus": r_nx[0], "n_c": r_nx[1], 
-            "wickham": r_w[0], "w_c": r_w[1], # Wickham artık sahnede!
-            "aether": r_ae[0], "ae_c": r_ae[1], 
-            "h_p": h_p, "s_p": s_p, # Metrikler kupon filtreleri için hazır
-            "note": comment, "total_xg": total_xg
-        }
-    except Exception as e:
-        return None
-
+        for title, col, k_key, color in col_config:
+            with col:
+                st.markdown(f"<h3 style='color:{color}; text-align:center;'>{title}</h3>", unsafe_allow_html=True)
+                for m in kuponlar[k_key][:10]:
+                    st.markdown(f"""
+                        <div class="match-card" style="border-top: 3px solid {color};">
+                            <div style="font-size:0.7rem; color:#8B949E;">{m['lig'][:20]}</div>
+                            <div style="font-size:0.85rem; font-weight:bold;">{m['home'][:12]} - {m['away'][:12]}</div>
+                            <div style="color:{color}; font-weight:bold;">{m['res']['aether'] if k_key not in ['ust','alt'] else ('2.5 ÜST' if k_key=='ust' else '2.5 ALT')}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
 # --- FONKSİYON BURADA BİTTİ, ŞİMDİ ANA KODA GEÇİYORUZ ---
 simdi = datetime.now()
 
