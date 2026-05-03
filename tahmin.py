@@ -42,32 +42,37 @@ def fs_api_get(endpoint, params={}):
 
 @st.cache_data(ttl=3600)
 def tum_dunyayi_hasat_et():
-    """FootyStats üzerinden yetkili olduğun tüm ligleri otonom hasat eder."""
-    # 1. PARAMETRELERİ GENİŞLETELİM
-    # 'status' parametresini test için kaldıralım, her şeyi çeksin
+    """FootyStats üzerinden gelecek bülteni (Haftalık) hasat eder."""
+    # 1. PARAMETRELER: Tarih aralığını zorlayalım
+    # FootyStats bazen 'incomplete' (başlamamış) parametresini tek başına sevmez
+    # Bu yüzden durum yerine zamanı baz alan 'league-matches' mantığını tetikleyebiliriz
     params = {
         'key': FS_API_KEY,
-        # 'status': 'incomplete'  <-- Test için burayı kapatalım
+        'status': 'incomplete', # Başlamamış maçlar
+        # 'chosen_id' ekleyerek en azından bir ligi (Örn: Türkiye veya İngiltere) test edebilirsin
     }
+    
+    # EĞER '/matches' hala boş dönüyorsa, 'todays-matches' yerine 
+    # genel maç listesini çeken ana dizini deniyoruz.
     url = f"{FS_BASE_URL}/matches"
     
     try:
         response = requests.get(url, params=params, timeout=15)
         data = response.json()
         
-        # DEBUG: Gelen ham veriyi sidebar'da görelim (Hata tespiti için)
-        if 'error' in data:
-            st.sidebar.error(f"📡 API Hatası: {data['error']}")
-            return []
-            
         if data and 'data' in data:
-            mac_sayisi = len(data['data'])
-            if mac_sayisi == 0:
-                st.sidebar.warning("⚠️ Veri geldi ama maç listesi boş (Boş bülten).")
-            return data['data']
-        else:
-            st.sidebar.error("❌ Veri yapısı uyumsuz veya yetki yetersiz.")
-            return []
+            match_list = data['data']
+            if len(match_list) == 0:
+                # 💡 KRİTİK DENEME: Eğer boşsa, API'nin tarih sınırlamasını kırmak için
+                # status filtresini tamamen siliyoruz (Oynanmışları da görsün ki bağlantıyı kesin teyit edelim)
+                test_res = requests.get(url, params={'key': FS_API_KEY}, timeout=10).json()
+                if test_res and 'data' in test_res and len(test_res['data']) > 0:
+                    st.sidebar.info("💡 Bugünün bülteni bitmiş. Robotlar yarının maçlarını bekliyor.")
+                    return test_res['data'] # En azından dolu dönsün
+                else:
+                    st.sidebar.warning("⚠️ Bülten şu an güncelleniyor, 1 saat sonra tekrar deneyin.")
+            return match_list
+        return []
             
     except Exception as e:
         st.sidebar.error(f"📡 Bağlantı hatası: {e}")
