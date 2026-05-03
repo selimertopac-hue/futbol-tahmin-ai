@@ -42,22 +42,36 @@ def fs_api_get(endpoint, params={}):
 
 @st.cache_data(ttl=3600)
 def tum_dunyayi_hasat_et():
-    """39+ ligi FootyStats üzerinden otonom tarar."""
-    data = fs_api_get("matches", {"status": "incomplete"})
-    tum_fikstur = []
-    if data and 'data' in data:
-        for m in data['data']:
-            tum_fikstur.append({
-                'home': m['home_name'],
-                'away': m['away_name'],
-                'lig': m['league_name'],
-                'id': m['id'],
-                'xg_h': m.get('team_a_xg_prematch', 1.5),
-                'xg_a': m.get('team_b_xg_prematch', 1.2),
-                'puan': int(m.get('odds_ft_home_win_prob', 50))
-            })
-    return tum_fikstur
-
+    """FootyStats üzerinden yetkili olduğun tüm ligleri otonom hasat eder."""
+    # 1. PARAMETRELERİ GENİŞLETELİM
+    # 'status' parametresini test için kaldıralım, her şeyi çeksin
+    params = {
+        'key': FS_API_KEY,
+        # 'status': 'incomplete'  <-- Test için burayı kapatalım
+    }
+    url = f"{FS_BASE_URL}/matches"
+    
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        data = response.json()
+        
+        # DEBUG: Gelen ham veriyi sidebar'da görelim (Hata tespiti için)
+        if 'error' in data:
+            st.sidebar.error(f"📡 API Hatası: {data['error']}")
+            return []
+            
+        if data and 'data' in data:
+            mac_sayisi = len(data['data'])
+            if mac_sayisi == 0:
+                st.sidebar.warning("⚠️ Veri geldi ama maç listesi boş (Boş bülten).")
+            return data['data']
+        else:
+            st.sidebar.error("❌ Veri yapısı uyumsuz veya yetki yetersiz.")
+            return []
+            
+    except Exception as e:
+        st.sidebar.error(f"📡 Bağlantı hatası: {e}")
+        return []
 # --- 4. ANALİZ MOTORU & YARDIMCILAR ---
 def analiz_et_v3(ev, dep, xg_h, xg_a):
     try:
