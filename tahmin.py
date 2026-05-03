@@ -197,12 +197,26 @@ if mod == "🤖 Tahmin Robotu":
     else:
         c1, c2, c3, c4 = st.columns(4)
         kuponlar = {"banko": [], "ideal": [], "ust": [], "alt": []}
+        
         for m in st.session_state.fs_data:
-            res = analiz_et_v3(m['home'], m['away'], m['xg_h'], m['xg_a'])
+            # 💡 KRİTİK TAMİR: API'den gelen anahtar isimlerini (home_name, away_name) kullanıyoruz
+            ev_adi = m.get('home_name', 'Bilinmeyen Ev')
+            dep_adi = m.get('away_name', 'Bilinmeyen Deplasman')
+            # xG verileri için de API anahtarlarını kontrol edelim
+            xg_h = m.get('team_a_xg_prematch', 1.5)
+            xg_a = m.get('team_b_xg_prematch', 1.2)
+            
+            res = analiz_et_v3(ev_adi, dep_adi, xg_h, xg_a)
+            
             if res:
                 m['res'] = res
+                # Analiz motoruna gönderdiğimiz isimleri m içine de mühürleyelim ki kartlarda hata çıkmasın
+                m['home_display'] = ev_adi
+                m['away_display'] = dep_adi
+                
                 if winner(res['aether']) == "1": kuponlar["banko"].append(m)
                 elif winner(res['aether']) == "2": kuponlar["ideal"].append(m)
+                
                 if res['total_xg'] > 2.8: kuponlar["ust"].append(m)
                 elif res['total_xg'] < 2.1: kuponlar["alt"].append(m)
 
@@ -215,8 +229,8 @@ if mod == "🤖 Tahmin Robotu":
                 for m in kuponlar[k_key][:10]:
                     t_val = m['res']['aether'] if k_key in ['banko', 'ideal'] else ('2.5 ÜST' if k_key=='ust' else '2.5 ALT')
                     st.markdown(f"""<div class="match-card" style="border-top: 3px solid {color};">
-                        <div style="font-size:0.7rem; color:#8B949E;">{m['lig'][:20]}</div>
-                        <div style="font-size:0.85rem; font-weight:bold;">{m['home'][:12]} - {m['away'][:12]}</div>
+                        <div style="font-size:0.7rem; color:#8B949E;">{m.get('league_name', 'Lig')}</div>
+                        <div style="font-size:0.85rem; font-weight:bold;">{m['home_display'][:12]} - {m['away_display'][:12]}</div>
                         <div style="color:{color}; font-weight:bold;">{t_val}</div></div>""", unsafe_allow_html=True)
 
 elif mod == "🏠 Canlı Skorlar":
