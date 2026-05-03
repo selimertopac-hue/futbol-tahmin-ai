@@ -954,7 +954,7 @@ elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", 
                                ["AETHER AI Master", "Standart AI", "Spektrum AI", "Nexus AI", "WICKHAM AI v3"])
     
-    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=site_h_aktif-1, key="global_hafta_unique_key")
+    s_sec = st.sidebar.selectbox("📅 Sitemiz: Hafta", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], index=site_h_aktif-1, key="global_hafta_unique_key")
 
     # 2. Seçilen Haftanın Tarih Aralığı
     h_baslangic = SİTE_DOGUM_TARİHİ + timedelta(weeks=s_sec - 1)
