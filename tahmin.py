@@ -219,47 +219,60 @@ if st.sidebar.button("💾 PAZARTESİ HASADI (Geçmiş)"):
 # --- 6. SAYFA MODLARI ---
 
 if mod == "🤖 Tahmin Robotu":
-    st.title("🌍 Küresel Tahmin Radarı (39+ Lig)")
-    if not st.session_state.fs_data:
-        st.info("Lütfen sol menüdeki 'BÜLTENİ HASAT ET' butonuna basarak Premium verileri çekin.")
-    else:
-        c1, c2, c3, c4 = st.columns(4)
-        kuponlar = {"banko": [], "ideal": [], "ust": [], "alt": []}
+    st.title("🚀 Robotik Karma Kuponlar")
+    
+    if os.path.exists(BULTEN_DOSYASI):
+        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
+            bulten_data = json.load(f)
         
-        for m in st.session_state.fs_data:
-            # 💡 KRİTİK TAMİR: API'den gelen anahtar isimlerini (home_name, away_name) kullanıyoruz
-            ev_adi = m.get('home_name', 'Bilinmeyen Ev')
-            dep_adi = m.get('away_name', 'Bilinmeyen Deplasman')
-            # xG verileri için de API anahtarlarını kontrol edelim
-            xg_h = m.get('team_a_xg_prematch', 1.5)
-            xg_a = m.get('team_b_xg_prematch', 1.2)
-            
-            res = analiz_et_v3(ev_adi, dep_adi, xg_h, xg_a)
-            
+        # --- 1. ROBOTLARIN ELİT SEÇİMLERİNİ TOPLA ---
+        elit_havuz = []
+        for m in bulten_data:
+            res = analiz_et_v3(m['home_name'], m['away_name'], m['team_a_xg_prematch'], m['team_b_xg_prematch'])
             if res:
                 m['res'] = res
-                # Analiz motoruna gönderdiğimiz isimleri m içine de mühürleyelim ki kartlarda hata çıkmasın
-                m['home_display'] = ev_adi
-                m['away_display'] = dep_adi
-                
-                if winner(res['aether']) == "1": kuponlar["banko"].append(m)
-                elif winner(res['aether']) == "2": kuponlar["ideal"].append(m)
-                
-                if res['total_xg'] > 2.8: kuponlar["ust"].append(m)
-                elif res['total_xg'] < 2.1: kuponlar["alt"].append(m)
+                # Güven skoru en yüksek olanları havuza al (%70+ barajı)
+                if res['ae_c'] >= 70 or res['w_c'] >= 70 or res['n_c'] >= 70:
+                    # Tahmin tipini belirle
+                    if res['total_xg'] > 2.8: m['pick'] = "2.5 ÜST"; m['conf'] = res['w_c']
+                    elif res['total_xg'] < 2.1: m['pick'] = "2.5 ALT"; m['conf'] = res['n_c']
+                    elif winner(res['aether']) == "1": m['pick'] = "MS 1"; m['conf'] = res['ae_c']
+                    elif winner(res['aether']) == "2": m['pick'] = "MS 2"; m['conf'] = res['ae_c']
+                    else: m['pick'] = "KG VAR"; m['conf'] = (res['w_c'] + res['ae_c']) / 2
+                    
+                    elit_havuz.append(m)
 
-        col_cfg = [("⭐ BANKO", c1, "banko", "#58A6FF"), ("💎 İDEAL", c2, "ideal", "#3fb950"), 
-                   ("🔥 ÜST", c3, "ust", "#d73a49"), ("🛡️ ALT", c4, "alt", "#0366d6")]
+        # En güvenilir olanları en üste çek
+        elit_havuz = sorted(elit_havuz, key=lambda x: x['conf'], reverse=True)
 
-        for title, col, k_key, color in col_cfg:
-            with col:
-                st.markdown(f"<h3 style='color:{color}; text-align:center;'>{title}</h3>", unsafe_allow_html=True)
-                for m in kuponlar[k_key][:10]:
-                    t_val = m['res']['aether'] if k_key in ['banko', 'ideal'] else ('2.5 ÜST' if k_key=='ust' else '2.5 ALT')
-                    st.markdown(f"""<div class="match-card" style="border-top: 3px solid {color};">
-                        <div style="font-size:0.7rem; color:#8B949E;">{m.get('league_name', 'Lig')}</div>
-                        <div style="font-size:0.85rem; font-weight:bold;">{m['home_display'][:12]} - {m['away_display'][:12]}</div>
-                        <div style="color:{color}; font-weight:bold;">{t_val}</div></div>""", unsafe_allow_html=True)
+        # --- 2. 5 MAÇLIK 4 KESİN KUPON OLUŞTUR ---
+        if len(elit_havuz) >= 20:
+            k_cols = st.columns(4)
+            renkler = ["#FFD700", "#C0C0C0", "#CD7F32", "#8A2BE2"] # Altın, Gümüş, Bronz, Elit
+            isimler = ["🏆 ELMAS KUPON", "🥇 ALTIN KUPON", "🥈 GÜMÜŞ KUPON", "🎖️ BRONZ KUPON"]
+
+            for i in range(4):
+                with k_cols[i]:
+                    st.markdown(f"<h3 style='color:{renkler[i]}; text-align:center;'>{isimler[i]}</h3>", unsafe_allow_html=True)
+                    # Havuzdan sırayla 5 maç al (i*5'ten (i+1)*5'e kadar)
+                    kupon_maclari = elit_havuz[i*5 : (i+1)*5]
+                    
+                    for m in kupon_maclari:
+                        st.markdown(f"""
+                            <div class="match-card" style="border-right: 4px solid {renkler[i]};">
+                                <small style="color:#8B949E;">{m['league_name'][:15]}</small><br>
+                                <b style="font-size:0.8rem;">{m['home_name'][:10]} - {m['away_name'][:10]}</b><br>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:{renkler[i]}; font-weight:bold;">{m['pick']}</span>
+                                    <span style="font-size:0.7rem; background:#30363d; padding:2px 5px; border-radius:4px;">%{int(m['conf'])}</span>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    st.button(f"Kuponu {i+1} Mühürle", key=f"btn_{i}")
+        else:
+            st.warning(f"⚠️ Yeterli elit maç bulunamadı (Mevcut: {len(elit_havuz)}). Bülteni tazelemeniz gerekebilir.")
+    else:
+        st.info("🔎 Ambar dosyası eksik. Lütfen hasat yapın.")
 
 elif mod == "🏠 Canlı Skorlar":
     st.title("⚡ Canlı Harekat Merkezi")
