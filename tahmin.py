@@ -177,32 +177,23 @@ def otonom_arsiv_guncelle():
 # Fonksiyonu burada çalıştırıyoruz
 otonom_arsiv_guncelle()
 
-# --- 5. ANA MENÜ ---
-mod = st.sidebar.radio("🚀 Menü", ["🏠 Canlı Skorlar","🤖 Tahmin Robotu", "Global AI", "Lig Odaklı","💎 Value Hunter", "🏆 Onur Listesi"])
-all_d = {lig: veri_al(f"competitions/{kod}/matches") for lig, kod in LIGLER.items()}
+# --- 🚀 YENİ NESİL ANA MENÜ VE OTONOM HASAT ---
+st.sidebar.title("🛡️ MSI Operasyon Merkezi")
+mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "Global AI", "🏆 Onur Listesi"])
 
-if mod == "🏠 Canlı Skorlar":
-    st.title("⚡ Canlı Maç Merkezi")
-    live_data = veri_al("matches")
-    matches = live_data.get('matches', [])
-    
-    if not matches:
-        st.info("Şu an aktif maç bulunmuyor.")
-    else:
-        for m in matches:
-            h_s = m['score']['fullTime']['home']
-            a_s = m['score']['fullTime']['away']
-            st.markdown(f"""
-                <div class="match-card" style="border-left: 5px solid #3fb950;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="text-align: right; width: 40%;"><b>{m['homeTeam']['name']}</b></div>
-                        <div style="width: 20%; text-align: center; background: #30363d; border-radius: 5px; padding: 5px;">
-                            <h3 style="margin: 0; color: #3fb950;">{h_s if h_s is not None else 0} - {a_s if a_s is not None else 0}</h3>
-                        </div>
-                        <div style="text-align: left; width: 40%;"><b>{m['awayTeam']['name']}</b></div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+# Eski 'all_d' döngüsü yerine bu güvenli yapıyı kullanıyoruz:
+if 'fs_data' not in st.session_state:
+    st.session_state.fs_data = []
+
+# Buton Sidebar'da (Menü altında) dursun:
+if st.sidebar.button("🚀 39 LİGİ TARAMAYA BAŞLA"):
+    with st.spinner("🌍 FootyStats üzerinden dev veri çekiliyor..."):
+        # Yukarıda tanımladığımız o yeni fonksiyonu çağırıyoruz
+        istihbarat_havuzu = tum_dunyayi_hasat_et() 
+        st.session_state.fs_data = istihbarat_havuzu
+        st.sidebar.success(f"✅ {len(istihbarat_havuzu)} Maç Ambarlandı!")
+
+
 
 if mod == "🏠 Canlı Skorlar":
     st.title("⚡ Canlı Maç Merkezi")
