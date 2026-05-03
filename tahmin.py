@@ -193,9 +193,10 @@ def winner(skor_metni):
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 
-# --- 🚀 ANA SIDEBAR ---
+# --- 🚀 ANA SIDEBAR (MENÜ GÜNCELLEME) ---
 st.sidebar.title("🛡️ MSI Operasyon Merkezi")
-mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "🏠 Canlı Skorlar", "Global AI", "🏆 Onur Listesi"], key="main_menu")
+# Buraya "📂 Veri Bankası" seçeneğini ekledik:
+mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "🏠 Canlı Skorlar", "Global AI", "🏆 Onur Listesi", "📂 Veri Bankası"], key="main_menu")
 
 if 'fs_data' not in st.session_state:
     st.session_state.fs_data = []
@@ -349,16 +350,42 @@ elif mod == "📂 Veri Bankası":
         with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
             banka_verisi = json.load(f)
         
-        st.metric("📦 Toplam Kayıtlı Maç", len(banka_verisi))
+        # MSI İstatistik Kartları
+        c1, c2 = st.columns(2)
+        c1.metric("📦 Toplam Kayıtlı Maç", len(banka_verisi))
+        c2.metric("📁 Dosya Durumu", "Mühürlü ✅")
         
-        # Verileri tablo olarak göster (Pandas ile)
+        st.markdown("### 📊 Son Hasat Edilen Veriler")
+        
         df = pd.DataFrame(banka_verisi)
-        # Sadece en önemli sütunları seçip gösterelim ki ekran şişmesin
-        cols = ['home_name', 'away_name', 'league_name', 'homeGoalCount', 'awayGoalCount', 'team_a_xg_prematch', 'team_b_xg_prematch']
-        st.dataframe(df[cols].tail(50)) # Son 50 maçı göster
         
-        st.download_button("📥 Tüm Bankayı İndir (JSON)", 
-                           data=json.dumps(banka_verisi, indent=4), 
-                           file_name="msi_futbol_bankasi.json")
+        # 💡 Sütun Kontrolü: Eğer API'den gelen isimler farklıysa hata almamak için güvenli seçim
+        hedef_sutunlar = {
+            'home_name': 'Ev Sahibi',
+            'away_name': 'Deplasman',
+            'league_name': 'Lig',
+            'homeGoalCount': 'MS-1',
+            'awayGoalCount': 'MS-2',
+            'team_a_xg_prematch': 'xG-1',
+            'team_b_xg_prematch': 'xG-2'
+        }
+        
+        # Sadece var olan sütunları filtrele
+        mevcut_sutunlar = [c for c in hedef_sutunlar.keys() if c in df.columns]
+        
+        if mevcut_sutunlar:
+            display_df = df[mevcut_sutunlar].copy()
+            display_df.rename(columns=hedef_sutunlar, inplace=True)
+            st.dataframe(display_df.tail(100), use_container_width=True) # Son 100 maçı göster
+        else:
+            st.dataframe(df.tail(10)) # Hiçbiri yoksa ham veriyi göster
+            
+        st.divider()
+        st.download_button("📥 Tüm Bankayı MSI Laptopuna İndir (JSON)", 
+                           data=json.dumps(banka_verisi, indent=4, ensure_ascii=False), 
+                           file_name="msi_futbol_bankasi.json",
+                           mime="application/json",
+                           use_container_width=True)
     else:
-        st.warning("⚠️ Veri bankası henüz oluşturulmamış. Lütfen hasat yapın.")
+        st.warning("⚠️ Veri bankası henüz oluşturulmamış.")
+        st.info("Lütfen sol menüdeki '💾 PAZARTESİ HASADI' butonuna basarak mühürlemeyi başlatın.")
