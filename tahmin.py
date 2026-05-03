@@ -284,37 +284,82 @@ elif mod == "🏠 Canlı Skorlar":
                 </div>""", unsafe_allow_html=True)
 
 elif mod == "Global AI":
-    filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI Master", "WICKHAM AI v3", "Nexus AI"], key="global_algo")
-    s_sec = st.sidebar.selectbox("📅 Hafta", list(range(1, 13)), index=site_h_aktif-1, key="global_hafta")
-    st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
-    if not st.session_state.fs_data:
-        st.warning("⚠️ Önce bülteni hasat etmelisiniz.")
-        elit_havuz = []
-        for m in st.session_state.fs_data:
-            res = analiz_et_v3(m['home'], m['away'], m['xg_h'], m['xg_a'])
+    st.title("🤖 Global AI Harekat Planı")
+    
+    if os.path.exists(BULTEN_DOSYASI):
+        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
+            bulten_data = json.load(f)
+            
+        # --- 1. ALGORİTMİK SÜZGEÇ (GÜVEN EŞİĞİ %75) ---
+        kuponlar = {"Banko (MS1)": [], "İdeal (MS2)": [], "2.5 Üst": [], "2.5 Alt": []}
+        deneme_bolgesi = []
+        
+        for m in bulten_data:
+            # Robotların analizi
+            res = analiz_et_v3(m['home_name'], m['away_name'], m['team_a_xg_prematch'], m['team_b_xg_prematch'])
             if res:
-                p_key = "ae_c" if "AETHER" in filtre else "w_c" if "WICKHAM" in filtre else "n_c"
-                if res.get(p_key, 0) >= 70:
-                    m.update({'res': res, 'puan': res.get(p_key, 0)})
-                    elit_havuz.append(m)
-        
-        c1, c2, c3, c4 = st.columns(4)
-        titles = [("⭐ BANKO", "banko", "#58A6FF"), ("💎 İDEAL", "ideal", "#3fb950"), ("🔥 ÜST 10", "ust", "#d73a49"), ("🛡️ ALT 10", "alt", "#0366d6")]
-        
-        for t_label, k_key, t_color in titles:
-            with vars()[f"c{titles.index((t_label, k_key, t_color)) + 1}"]:
-                html_kod = f'<div style="background:#0d1117; padding:10px; border-radius:10px; border-top:4px solid {t_color}; border:1px solid #30363d;">'
-                html_kod += f'<div style="color:{t_color}; font-weight:bold; text-align:center; margin-bottom:10px; border-bottom:1px solid #30363d;">{t_label}</div>'
+                m['res'] = res
+                eklendi = False
                 
-                # Basit filtreleme
-                matches = elit_havuz[:10] # Gerçek mühürleme mantığı burada
-                for m in matches:
-                    t_text = m['res']['aether'] if k_key in ['banko','ideal'] else '2.5 ÜST'
-                    html_kod += f'<div style="background:#161b22; padding:6px; margin-top:5px; border-radius:5px; font-size:11px; border:1px solid #21262d;">'
-                    html_kod += f'<b>{m['home'][:10]} - {m['away'][:10]}</b><br><span style="color:{t_color};">{t_text}</span>'
-                    html_kod += f'<span style="float:right; color:#8b949e;">%{m['puan']}</span></div>'
-                html_kod += '</div>'
-                st.components.v1.html(html_kod, height=500, scrolling=True)
+                # Güven skoru kontrolü (Her robotun kendi uzmanlık alanı)
+                # Aether (Banko/İdeal), Wickham (Üst/Kaos), Nexus (Alt/Defans)
+                
+                # MS1 - Banko (Aether Güveni > 75)
+                if winner(res['aether']) == "1" and res['ae_c'] >= 75 and len(kuponlar["Banko (MS1)"]) < 10:
+                    kuponlar["Banko (MS1)"].append(m)
+                    eklendi = True
+                
+                # MS2 - İdeal (Aether Güveni > 75)
+                elif winner(res['aether']) == "2" and res['ae_c'] >= 75 and len(kuponlar["İdeal (MS2)"]) < 10:
+                    kuponlar["İdeal (MS2)"].append(m)
+                    eklendi = True
+                
+                # 2.5 ÜST (Wickham Güveni > 75)
+                elif res['total_xg'] > 2.8 and res['w_c'] >= 75 and len(kuponlar["2.5 Üst"]) < 10:
+                    kuponlar["2.5 Üst"].append(m)
+                    eklendi = True
+                
+                # 2.5 ALT (Nexus Güveni > 75)
+                elif res['total_xg'] < 2.2 and res['n_c'] >= 75 and len(kuponlar["2.5 Alt"]) < 10:
+                    kuponlar["2.5 Alt"].append(m)
+                    eklendi = True
+                
+                # DENEME BÖLGESİ (Kuponlara sığmayan ama %75+ güvenli maçlar)
+                elif (res['ae_c'] >= 75 or res['w_c'] >= 75 or res['n_c'] >= 75) and len(deneme_bolgesi) < 20:
+                    deneme_bolgesi.append(m)
+
+        # --- 2. GÖRSELLEŞTİRME (KUPONLAR) ---
+        cols = st.columns(4)
+        renkler = ["#58A6FF", "#3fb950", "#d73a49", "#0366d6"]
+        
+        for i, (k_ad, k_maclar) in enumerate(kuponlar.items()):
+            with cols[i]:
+                st.markdown(f"<h3 style='color:{renkler[i]}; text-align:center;'>{k_ad}</h3>", unsafe_allow_html=True)
+                for m in k_maclar:
+                    tahmin_ozet = m['res']['aether'] if "MS" in k_ad else ("2.5 ÜST" if "Üst" in k_ad else "2.5 ALT")
+                    st.markdown(f"""
+                        <div class="match-card" style="border-left: 3px solid {renkler[i]}; padding:10px; margin-bottom:5px;">
+                            <small>{m['league_name'][:15]}</small><br>
+                            <b>{m['home_name'][:12]} - {m['away_name'][:12]}</b><br>
+                            <span style="color:{renkler[i]};">🎯 {tahmin_ozet}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+        
+        # --- 3. DENEME BÖLGESİ ---
+        st.divider()
+        st.subheader("🔬 Deneme Bölgesi (Yüksek Güvenli Ek Maçlar)")
+        d_cols = st.columns(2)
+        for idx, m in enumerate(deneme_bolgesi):
+            with d_cols[idx % 2]:
+                st.markdown(f"""
+                    <div class="match-card" style="background: rgba(48, 54, 61, 0.3); border: 1px dashed #8B949E;">
+                        <b>{m['home_name']} - {m['away_name']}</b> | {m['league_name']} <br>
+                        <small>Aether: %{m['res']['ae_c']} | Wickham: %{m['res']['w_c']} | Nexus: %{m['res']['n_c']}</small>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+    else:
+        st.warning("⚠️ Önce bülteni hasat etmelisiniz.")
 
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
