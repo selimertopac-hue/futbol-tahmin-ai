@@ -235,44 +235,75 @@ if mod == "🏠 Canlı Skorlar":
 
 
 
-if mod == "🏠 Canlı Skorlar":
-    st.title("⚡ Canlı Maç Merkezi")
-    st.markdown("Şu an dünyada oynanan aktif maçlar ve anlık skorlar.")
+elif mod == "🏠 Canlı Skorlar":
+    st.title("⚡ Canlı Harekat Merkezi")
+    st.markdown("FootyStats Live API üzerinden sahadaki robotik analizler.")
+
+    # 1. CANLI VERİYİ ÇEK
+    live_data = fs_api_get("live-matches") # FootyStats Live Endpoint
     
-    # API'den tüm canlı maçları çekiyoruz
-    live_data = veri_al("matches")
-    matches = live_data.get('matches', [])
-    
-    if not matches:
-        st.info("Şu an sistemde aktif canlı maç bulunmuyor. Bülten saatlerini bekleyin.")
+    if not live_data or 'data' not in live_data or len(live_data['data']) == 0:
+        st.info("📡 Şu an dünyada aktif robotik veri akışı yok. Maç saatlerini bekleyin.")
     else:
-        # Canlı maçları liglerine göre gruplayabilir veya listeleyebiliriz
-        for m in matches:
-            # Maçın durumuna göre (Dakika veya Devre Bilgisi)
-            status = m.get('status', '')
-            minute = m.get('minute', 'devam')
+        live_matches = live_data['data']
+        st.success(f"🎮 Şu an {len(live_matches)} maç robotlar tarafından canlı izleniyor!")
+
+        for m in live_matches:
+            # Kritik Canlı Metrikler
+            dk = m.get('currentTime', 0)
+            h_score = m.get('homeGoalCount', 0)
+            a_score = m.get('awayGoalCount', 0)
             
-            # Skor bilgisi
-            h_s = m['score']['fullTime']['home']
-            a_s = m['score']['fullTime']['away']
+            # Robotların en sevdiği 'Canlı Baskı' verileri
+            h_att = m.get('home_dangerous_attacks', 0)
+            a_att = m.get('away_dangerous_attacks', 0)
+            h_shots = m.get('home_shotsOnTarget', 0)
+            a_shots = m.get('away_shotsOnTarget', 0)
+
+            # --- 🧠 CANLI ROBOT ANALİZİ ---
+            # Wickham: Maçın tansiyonuna bakar
+            tansiyon = "Normal"
+            if h_att > 50 or a_att > 50: tansiyon = "🔥 YÜKSEK BASKI"
             
-            # Görsel Maç Kartı
+            # Aether: Canlı xG ve dakikaya göre 'Sıradaki Gol' tahmini yapar
+            siradaki_gol = "Bekleniyor..."
+            if h_shots > (a_shots + 3): siradaki_gol = f"✨ AETHER: {m['home_name']} Baskısı Artıyor!"
+            elif a_shots > (h_shots + 3): siradaki_gol = f"✨ AETHER: {m['away_name']} Gol Geliyor!"
+
+            # --- 🎨 GÖRSEL CANLI KART ---
             st.markdown(f"""
-                <div class="match-card" style="border-left: 5px solid #3fb950;">
+                <div class="match-card" style="border-left: 5px solid #3fb950; position: relative;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #8B949E; margin-bottom: 5px;">
-                        <span>📍 {m['competition']['name']}</span>
-                        <span style="color: #3fb950; font-weight: bold;">● LIVE {minute}'</span>
+                        <span>📍 {m['league_name']}</span>
+                        <span style="color: #f85149; font-weight: bold; animation: blink 1s infinite;">● CANLI {dk}'</span>
                     </div>
+                    
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="text-align: right; width: 40%;"><b>{m['homeTeam']['name']}</b></div>
-                        <div style="width: 20%; text-align: center; background: #30363d; border-radius: 5px; padding: 5px;">
-                            <h3 style="margin: 0; color: #3fb950;">{h_s} - {a_s}</h3>
+                        <div style="text-align: right; width: 35%;">
+                            <b style="font-size: 1.1rem;">{m['home_name']}</b><br>
+                            <small>🎯 Şut: {h_shots} | ⚡ Atak: {h_att}</small>
                         </div>
-                        <div style="text-align: left; width: 40%;"><b>{m['awayTeam']['name']}</b></div>
+                        
+                        <div style="width: 30%; text-align: center; background: #0d1117; border-radius: 10px; padding: 10px; border: 1px solid #30363d;">
+                            <h2 style="margin: 0; color: #3fb950;">{h_score} - {a_score}</h2>
+                            <div style="font-size: 0.6rem; color: #8B949E;">{tansiyon}</div>
+                        </div>
+                        
+                        <div style="text-align: left; width: 35%;">
+                            <b style="font-size: 1.1rem;">{m['away_name']}</b><br>
+                            <small>🎯 Şut: {a_shots} | ⚡ Atak: {a_att}</small>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 8px; background: rgba(138, 43, 226, 0.1); border-radius: 5px; border: 1px dashed #8A2BE2; text-align: center;">
+                        <span style="color: #E0B0FF; font-size: 0.85rem; font-weight: bold;">{siradaki_gol}</span>
                     </div>
                 </div>
+                
+                <style>
+                @keyframes blink {{ 0% {{ opacity: 1; }} 50% {{ opacity: 0.4; }} 100% {{ opacity: 1; }} }}
+                </style>
             """, unsafe_allow_html=True)
-
 elif mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı & Avrupa Havuzu")
     
