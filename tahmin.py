@@ -74,48 +74,51 @@ def pazartesi_hasadi():
 
 @st.cache_data(ttl=3600)
 def tum_dunyayi_hasat_et():
-    """Önce ligleri bulur, sonra o liglerdeki tüm maçları hasat eder."""
-    # 1. ADIM: Senin yetkin olan liglerin ID listesini al
+    """Ligleri liste veya sözlük yapısına göre otonom algılayıp hasat eder."""
+    # 1. ADIM: Lig listesini al
     lig_listesi_res = fs_api_get("league-list")
     
     if not lig_listesi_res or 'data' not in lig_listesi_res:
-        st.sidebar.error("❌ Lig listesi alınamadı. API anahtarını kontrol edin.")
+        st.sidebar.error("❌ Lig listesi alınamadı.")
         return []
 
-    # Yetkili olduğun liglerin ID'lerini topla
-    yetkili_lig_idleri = [str(lig['id']) for m_key, lig in lig_listesi_res['data'].items()]
-    
-    st.sidebar.info(f"🔎 {len(yetkili_lig_idleri)} farklı lig ID'si saptandı. Hasat başlıyor...")
+    # 💡 KRİTİK TAMİR: Veri bazen liste [] bazen sözlük {} olarak gelir.
+    # Her iki duruma da uyumlu hale getiriyoruz:
+    ham_veri = lig_listesi_res['data']
+    yetkili_lig_idleri = []
+
+    if isinstance(ham_veri, dict):
+        # Sözlük gelirse (eski yapı)
+        yetkili_lig_idleri = [str(lig['id']) for lig in ham_veri.values()]
+    elif isinstance(ham_veri, list):
+        # Liste gelirse (yeni yapı)
+        yetkili_lig_idleri = [str(lig['id']) for lig in ham_veri]
+
+    st.sidebar.info(f"🔎 {len(yetkili_lig_idleri)} lig saptandı. Maçlar toplanıyor...")
     
     tum_maclar = []
     progress_bar = st.sidebar.progress(0)
     
-    # 2. ADIM: Her ligin maçlarını tek tek topla
+    # 2. ADIM: Her ligin maçlarını çek
     for index, l_id in enumerate(yetkili_lig_idleri):
-        # API'ye spesifik lig ID'si ile soruyoruz
-        params = {
-            'key': FS_API_KEY,
-            'league_id': l_id,
-            'status': 'incomplete' # Sadece oynanmamış gelecek maçlar
-        }
-        
-        # 'league-matches' endpoint'i ID ile çalışmak için en garantisidir
+        params = {'key': FS_API_KEY, 'league_id': l_id, 'status': 'incomplete'}
         url = f"{FS_BASE_URL}/league-matches"
         
         try:
             res = requests.get(url, params=params, timeout=10).json()
             if res and 'data' in res:
-                tum_maclar.extend(res['data'])
+                # Gelen veri liste ise doğrudan ekle, boşsa pas geç
+                if isinstance(res['data'], list):
+                    tum_maclar.extend(res['data'])
         except:
             continue
             
-        # MSI ilerleme çubuğunu güncelle
         progress_bar.progress((index + 1) / len(yetkili_lig_idleri))
 
     if len(tum_maclar) == 0:
-        st.sidebar.warning("⚠️ Ligler bulundu ama içinde 'incomplete' (başlamamış) maç yok.")
+        st.sidebar.warning("⚠️ Ligler tarandı ama gelecek maç bulunamadı.")
     else:
-        st.sidebar.success(f"✅ {len(tum_maclar)} Maç Ambarlandı!")
+        st.sidebar.success(f"✅ {len(tum_maclar)} Maç Mühürlendi!")
         
     return tum_maclar
 
