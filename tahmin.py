@@ -74,7 +74,7 @@ def pazartesi_hasadi():
 
 @st.cache_data(ttl=3600)
 def tum_dunyayi_hasat_et():
-    """Ligleri liste veya sözlük yapısına göre otonom algılayıp hasat eder."""
+    """Lig verilerini hata korumalı şekilde hasat eder."""
     # 1. ADIM: Lig listesini al
     lig_listesi_res = fs_api_get("league-list")
     
@@ -82,43 +82,52 @@ def tum_dunyayi_hasat_et():
         st.sidebar.error("❌ Lig listesi alınamadı.")
         return []
 
-    # 💡 KRİTİK TAMİR: Veri bazen liste [] bazen sözlük {} olarak gelir.
-    # Her iki duruma da uyumlu hale getiriyoruz:
     ham_veri = lig_listesi_res['data']
     yetkili_lig_idleri = []
 
-    if isinstance(ham_veri, dict):
-        # Sözlük gelirse (eski yapı)
-        yetkili_lig_idleri = [str(lig['id']) for lig in ham_veri.values()]
-    elif isinstance(ham_veri, list):
-        # Liste gelirse (yeni yapı)
-        yetkili_lig_idleri = [str(lig['id']) for lig in ham_veri]
+    # 💡 KRİTİK TAMİR: 'id' anahtarı olup olmadığını kontrol ederek ilerle
+    try:
+        if isinstance(ham_veri, dict):
+            # Sözlük ise değerleri tara
+            for lig in ham_veri.values():
+                if isinstance(lig, dict) and 'id' in lig:
+                    yetkili_lig_idleri.append(str(lig['id']))
+        elif isinstance(ham_veri, list):
+            # Liste ise her bir elemanı tara
+            for lig in ham_veri:
+                if isinstance(lig, dict) and 'id' in lig:
+                    yetkili_lig_idleri.append(str(lig['id']))
+    except Exception as e:
+        st.sidebar.error(f"⚠️ Veri ayrıştırma hatası: {e}")
+        return []
 
-    st.sidebar.info(f"🔎 {len(yetkili_lig_idleri)} lig saptandı. Maçlar toplanıyor...")
+    if not yetkili_lig_idleri:
+        st.sidebar.warning("🔎 Yetkili lig ID'si bulunamadı.")
+        return []
+
+    st.sidebar.info(f"🔎 {len(yetkili_lig_idleri)} geçerli lig mühürlendi. Maçlar toplanıyor...")
     
     tum_maclar = []
     progress_bar = st.sidebar.progress(0)
     
-    # 2. ADIM: Her ligin maçlarını çek
+    # 2. ADIM: Her ligin maçlarını güvenli çek
     for index, l_id in enumerate(yetkili_lig_idleri):
         params = {'key': FS_API_KEY, 'league_id': l_id, 'status': 'incomplete'}
         url = f"{FS_BASE_URL}/league-matches"
         
         try:
             res = requests.get(url, params=params, timeout=10).json()
-            if res and 'data' in res:
-                # Gelen veri liste ise doğrudan ekle, boşsa pas geç
-                if isinstance(res['data'], list):
-                    tum_maclar.extend(res['data'])
+            if res and 'data' in res and isinstance(res['data'], list):
+                tum_maclar.extend(res['data'])
         except:
-            continue
+            continue # Hatalı ligi pas geç, operasyonu durdurma
             
         progress_bar.progress((index + 1) / len(yetkili_lig_idleri))
 
     if len(tum_maclar) == 0:
-        st.sidebar.warning("⚠️ Ligler tarandı ama gelecek maç bulunamadı.")
+        st.sidebar.warning("⚠️ Bülten şu an boş veya güncelleniyor.")
     else:
-        st.sidebar.success(f"✅ {len(tum_maclar)} Maç Mühürlendi!")
+        st.sidebar.success(f"✅ {len(tum_maclar)} Maç MSI Ambarına Alındı!")
         
     return tum_maclar
 
