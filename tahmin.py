@@ -342,3 +342,23 @@ elif mod == "🏆 Onur Listesi":
         ozet = final_arsiv.get(h, {})
         arsiv_tablo.append({"Hafta": f"{h}. Hafta", "🧪 WICK": f"%{ozet.get('W',{}).get('p','85')}", "✨ AETH": f"%{ozet.get('A',{}).get('p','88')}", "Durum": "✅ Tamam" if h < site_h_aktif else "⏳ Sürüyor"})
     st.table(pd.DataFrame(arsiv_tablo).set_index("Hafta"))
+elif mod == "📂 Veri Bankası":
+    st.title("🗄️ MSI Futbol Veri Bankası")
+    
+    if os.path.exists(VERİ_BANKASI_DOSYASI):
+        with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
+            banka_verisi = json.load(f)
+        
+        st.metric("📦 Toplam Kayıtlı Maç", len(banka_verisi))
+        
+        # Verileri tablo olarak göster (Pandas ile)
+        df = pd.DataFrame(banka_verisi)
+        # Sadece en önemli sütunları seçip gösterelim ki ekran şişmesin
+        cols = ['home_name', 'away_name', 'league_name', 'homeGoalCount', 'awayGoalCount', 'team_a_xg_prematch', 'team_b_xg_prematch']
+        st.dataframe(df[cols].tail(50)) # Son 50 maçı göster
+        
+        st.download_button("📥 Tüm Bankayı İndir (JSON)", 
+                           data=json.dumps(banka_verisi, indent=4), 
+                           file_name="msi_futbol_bankasi.json")
+    else:
+        st.warning("⚠️ Veri bankası henüz oluşturulmamış. Lütfen hasat yapın.")
