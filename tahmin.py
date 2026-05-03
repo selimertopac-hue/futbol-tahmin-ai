@@ -100,7 +100,17 @@ def pazartesi_hasadi():
             
     return yeni_eklenen_sayisi
 BULTEN_DOSYASI = "msi_bulten_bankasi.json"
-
+    # --- 🧠 4. AKILLI AMBAR KONTROLÜ (OTOMATİK ROBOT UYANDIRICI) ---
+# Bu blok, site her açıldığında JSON dosyasına bakar ve robotları hazıra getirir.
+if 'fs_data' not in st.session_state:
+    if os.path.exists(BULTEN_DOSYASI):
+        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
+            try:
+                st.session_state.fs_data = json.load(f)
+            except:
+                st.session_state.fs_data = []
+    else:
+        st.session_state.fs_data = []
 def tum_dunyayi_hasat_et():
     """Bülten maçlarını (incomplete) doğrudan JSON'a mühürler."""
     url = f"{FS_BASE_URL}/league-list"
