@@ -74,63 +74,65 @@ def pazartesi_hasadi():
 
 @st.cache_data(ttl=3600)
 def tum_dunyayi_hasat_et():
-    """Lig verilerini hata korumalı şekilde hasat eder."""
-    # 1. ADIM: Lig listesini al
+    """FootyStats dokümantasyonuna tam uyumlu, hata bağışıklığı yüksek hasatçı."""
+    # 1. ADIM: Yetkili lig listesini al
     lig_listesi_res = fs_api_get("league-list")
     
     if not lig_listesi_res or 'data' not in lig_listesi_res:
-        st.sidebar.error("❌ Lig listesi alınamadı.")
+        st.sidebar.error("❌ API'den veri akışı sağlanamadı. Bağlantıyı kontrol edin.")
         return []
 
     ham_veri = lig_listesi_res['data']
     yetkili_lig_idleri = []
 
-    # 💡 KRİTİK TAMİR: 'id' anahtarı olup olmadığını kontrol ederek ilerle
+    # 💡 DOKÜMANTASYON TAMİRİ: Sadece gerçek lig nesnelerini ayıkla
     try:
         if isinstance(ham_veri, dict):
-            # Sözlük ise değerleri tara
-            for lig in ham_veri.values():
+            # Sözlük gelirse (Örn: {"2012": {...}, "2013": {...}})
+            for key, lig in ham_veri.items():
                 if isinstance(lig, dict) and 'id' in lig:
                     yetkili_lig_idleri.append(str(lig['id']))
         elif isinstance(ham_veri, list):
-            # Liste ise her bir elemanı tara
+            # Liste gelirse (Örn: [{"id": 2012}, {"id": 2013}])
             for lig in ham_veri:
                 if isinstance(lig, dict) and 'id' in lig:
                     yetkili_lig_idleri.append(str(lig['id']))
     except Exception as e:
-        st.sidebar.error(f"⚠️ Veri ayrıştırma hatası: {e}")
+        st.sidebar.error(f"⚠️ Ayrıştırma hatası: {e}")
         return []
 
     if not yetkili_lig_idleri:
-        st.sidebar.warning("🔎 Yetkili lig ID'si bulunamadı.")
+        st.sidebar.warning("🔎 Yetkiniz dahilinde aktif lig bulunamadı.")
         return []
 
-    st.sidebar.info(f"🔎 {len(yetkili_lig_idleri)} geçerli lig mühürlendi. Maçlar toplanıyor...")
+    st.sidebar.info(f"📡 {len(yetkili_lig_idleri)} lig mühürlendi. Maçlar toplanıyor...")
     
     tum_maclar = []
     progress_bar = st.sidebar.progress(0)
     
-    # 2. ADIM: Her ligin maçlarını güvenli çek
+    # 2. ADIM: Her ligin gelecek maçlarını (incomplete) hasat et
     for index, l_id in enumerate(yetkili_lig_idleri):
+        # Dokümantasyondaki 'league-matches' endpoint'ini kullanıyoruz
         params = {'key': FS_API_KEY, 'league_id': l_id, 'status': 'incomplete'}
         url = f"{FS_BASE_URL}/league-matches"
         
         try:
             res = requests.get(url, params=params, timeout=10).json()
             if res and 'data' in res and isinstance(res['data'], list):
+                # Sadece gerçek maç listesini ekle
                 tum_maclar.extend(res['data'])
         except:
-            continue # Hatalı ligi pas geç, operasyonu durdurma
+            continue # Hatalı ligde durma, devam et
             
         progress_bar.progress((index + 1) / len(yetkili_lig_idleri))
 
     if len(tum_maclar) == 0:
-        st.sidebar.warning("⚠️ Bülten şu an boş veya güncelleniyor.")
+        # Pazar akşamı boş bülten koruması
+        st.sidebar.warning("⚠️ Bugünlük tüm maçlar bitmiş veya bülten yükleniyor.")
     else:
-        st.sidebar.success(f"✅ {len(tum_maclar)} Maç MSI Ambarına Alındı!")
+        st.sidebar.success(f"✅ {len(tum_maclar)} Maç Operasyon Merkezine Alındı!")
         
     return tum_maclar
-
 # --- 4. ANALİZ MOTORU & YARDIMCILAR ---
 def analiz_et_v3(ev, dep, xg_h, xg_a):
     try:
