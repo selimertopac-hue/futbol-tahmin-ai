@@ -8,11 +8,11 @@ import requests
 from datetime import datetime, timedelta
 
 # --- 1. AYARLAR & API ANAHTARLARI ---
-# FootyStats API Anahtarın (Mühürlendi)
 FS_API_KEY = "3d8f931eb334529f5c171f08dbeed729fe2b0e7f49f717574101ff79225d4aa7"
 FS_BASE_URL = "https://api.footystats.org"
 SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 ARSIV_DOSYASI = "ai_arsiv.json"
+VERİ_BANKASI_DOSYASI = "msi_futbol_bankasi.json"
 
 st.set_page_config(page_title="UltraSkor Pro: AETHER FS", page_icon="🎯", layout="wide")
 
@@ -40,43 +40,57 @@ def fs_api_get(endpoint, params={}):
         st.error(f"📡 API Hatası: {e}")
         return None
 
+def pazartesi_hasadi():
+    """Biten maçların verisini MSI laptopuna mühürler (Veri Bankası)."""
+    # 1. FootyStats'tan bitmiş (complete) maçları çek
+    raw_data = fs_api_get("matches", {"status": "complete"})
+    
+    if raw_data and 'data' in raw_data:
+        tamamlanan_maclar = raw_data['data']
+        
+        # 2. Dosya Kontrolü
+        if os.path.exists(VERİ_BANKASI_DOSYASI):
+            with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
+                try: mevcut_arsiv = json.load(f)
+                except: mevcut_arsiv = []
+        else:
+            mevcut_arsiv = []
+
+        # 3. Tekilleştirme (Aynı maçları tekrar ekleme)
+        kayitli_idlar = {m['id'] for m in mevcut_arsiv}
+        yeni_eklenen_sayisi = 0
+        
+        for m in tamamlanan_maclar:
+            if m['id'] not in kayitli_idlar:
+                mevcut_arsiv.append(m)
+                yeni_eklenen_sayisi += 1
+        
+        # 4. Kayıt
+        with open(VERİ_BANKASI_DOSYASI, "w", encoding="utf-8") as f:
+            json.dump(mevcut_arsiv, f, ensure_ascii=False, indent=4)
+            
+        return yeni_eklenen_sayisi
+    return 0
+
 @st.cache_data(ttl=3600)
 def tum_dunyayi_hasat_et():
     """FootyStats üzerinden gelecek bülteni (Haftalık) hasat eder."""
-    # 1. PARAMETRELER: Tarih aralığını zorlayalım
-    # FootyStats bazen 'incomplete' (başlamamış) parametresini tek başına sevmez
-    # Bu yüzden durum yerine zamanı baz alan 'league-matches' mantığını tetikleyebiliriz
-    params = {
-        'key': FS_API_KEY,
-        'status': 'incomplete', # Başlamamış maçlar
-        # 'chosen_id' ekleyerek en azından bir ligi (Örn: Türkiye veya İngiltere) test edebilirsin
-    }
-    
-    # EĞER '/matches' hala boş dönüyorsa, 'todays-matches' yerine 
-    # genel maç listesini çeken ana dizini deniyoruz.
+    params = {'key': FS_API_KEY, 'status': 'incomplete'}
     url = f"{FS_BASE_URL}/matches"
     
     try:
         response = requests.get(url, params=params, timeout=15)
         data = response.json()
-        
         if data and 'data' in data:
             match_list = data['data']
             if len(match_list) == 0:
-                # 💡 KRİTİK DENEME: Eğer boşsa, API'nin tarih sınırlamasını kırmak için
-                # status filtresini tamamen siliyoruz (Oynanmışları da görsün ki bağlantıyı kesin teyit edelim)
                 test_res = requests.get(url, params={'key': FS_API_KEY}, timeout=10).json()
-                if test_res and 'data' in test_res and len(test_res['data']) > 0:
-                    st.sidebar.info("💡 Bugünün bülteni bitmiş. Robotlar yarının maçlarını bekliyor.")
-                    return test_res['data'] # En azından dolu dönsün
-                else:
-                    st.sidebar.warning("⚠️ Bülten şu an güncelleniyor, 1 saat sonra tekrar deneyin.")
+                if test_res and 'data' in test_res: return test_res['data']
             return match_list
         return []
-            
-    except Exception as e:
-        st.sidebar.error(f"📡 Bağlantı hatası: {e}")
+    except:
         return []
+
 # --- 4. ANALİZ MOTORU & YARDIMCILAR ---
 def analiz_et_v3(ev, dep, xg_h, xg_a):
     try:
@@ -87,8 +101,8 @@ def analiz_et_v3(ev, dep, xg_h, xg_a):
             return f"{s[0]} - {s[1]}", conf
 
         r_ae = sk(xg_h, xg_a)
-        r_w = sk(xg_h * 1.2, xg_a * 0.8) # Wickham Kaos
-        r_nx = sk(xg_h * 0.8, xg_a * 1.1) # Nexus Defans
+        r_w = sk(xg_h * 1.2, xg_a * 0.8) 
+        r_nx = sk(xg_h * 0.8, xg_a * 1.1)
 
         return {
             "aether": r_ae[0], "ae_c": r_ae[1],
@@ -110,29 +124,36 @@ def winner(skor_metni):
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 
-# --- 🚀 ANA SIDEBAR (MENÜ TEK BURADA OLMALI) ---
+# --- 🚀 ANA SIDEBAR ---
 st.sidebar.title("🛡️ MSI Operasyon Merkezi")
 mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "🏠 Canlı Skorlar", "Global AI", "🏆 Onur Listesi"], key="main_menu")
 
 if 'fs_data' not in st.session_state:
     st.session_state.fs_data = []
 
-# Hasat Butonu Sidebar'da Sabit
-if st.sidebar.button("📡 39 LİGİ TARAMAYA BAŞLA"):
+# --- VERİ İSTİHBARAT BUTONLARI ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("📦 Veri İstihbaratı")
+
+if st.sidebar.button("📡 BÜLTENİ HASAT ET (Gelecek)"):
     with st.spinner("🌍 FootyStats Ambarı Boşaltılıyor..."):
         st.session_state.fs_data = tum_dunyayi_hasat_et()
         st.sidebar.success(f"✅ {len(st.session_state.fs_data)} Maç Mühürlendi!")
+
+if st.sidebar.button("💾 PAZARTESİ HASADI (Geçmiş)"):
+    with st.spinner("📥 Biten maçlar MSI Bankasına aktarılıyor..."):
+        sayi = pazartesi_hasadi()
+        st.sidebar.success(f"📦 {sayi} Yeni Maç Arşivlendi!")
 
 # --- 6. SAYFA MODLARI ---
 
 if mod == "🤖 Tahmin Robotu":
     st.title("🌍 Küresel Tahmin Radarı (39+ Lig)")
     if not st.session_state.fs_data:
-        st.info("Lütfen sol menüdeki 'TARAMAYA BAŞLA' butonuna basarak Premium verileri çekin.")
+        st.info("Lütfen sol menüdeki 'BÜLTENİ HASAT ET' butonuna basarak Premium verileri çekin.")
     else:
         c1, c2, c3, c4 = st.columns(4)
         kuponlar = {"banko": [], "ideal": [], "ust": [], "alt": []}
-
         for m in st.session_state.fs_data:
             res = analiz_et_v3(m['home'], m['away'], m['xg_h'], m['xg_a'])
             if res:
@@ -180,11 +201,9 @@ elif mod == "🏠 Canlı Skorlar":
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma", ["AETHER AI Master", "WICKHAM AI v3", "Nexus AI"], key="global_algo")
     s_sec = st.sidebar.selectbox("📅 Hafta", list(range(1, 13)), index=site_h_aktif-1, key="global_hafta")
-    
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Analizi")
     if not st.session_state.fs_data:
-        st.warning("⚠️ Önce verileri hasat etmelisiniz.")
-    else:
+        st.warning("⚠️ Önce bülteni hasat etmelisiniz.")
         elit_havuz = []
         for m in st.session_state.fs_data:
             res = analiz_et_v3(m['home'], m['away'], m['xg_h'], m['xg_a'])
