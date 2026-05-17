@@ -8,7 +8,6 @@ import requests
 from datetime import datetime, timedelta
 
 # --- 1. AYARLAR & API-FOOTBALL MİHRAKI ---
-# Yeni stabil API anahtarı ve base URL mühürlendi
 API_KEY = "ca7daa2cfcc7e961d66ba734bd2080d6"
 BASE_URL = "https://v3.football.api-sports.io"
 
@@ -20,7 +19,6 @@ st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="�
 
 # --- 2. API-FOOTBALL STANDART GET MOTORU ---
 def api_get(endpoint, params={}):
-    """API-Football v3 için header doğrulamalı istek motoru"""
     headers = {
         'x-apisports-key': API_KEY,
         'Accept': 'application/json'
@@ -57,8 +55,7 @@ else:
 def check_hit(liste, tip):
     hit = 0
     for m in liste:
-        # Maç tamamlandıysa ve skorlar mevcutsa kontrol et
-        if m.get('status') == 'FINISHED' or m.get('status') == 'FT':
+        if m.get('status') in ['FINISHED', 'FT']:
             h_s = m.get('home_score')
             a_s = m.get('away_score')
             if h_s is not None and a_s is not None:
@@ -91,7 +88,7 @@ def kara_kutu_yaz(veri):
 
 def otomatik_muhur_tetikleyici():
     simdi = datetime.now()
-    if simdi.weekday() == 4 and simdi.hour >= 12: # Cuma 12:00 sonrası
+    if simdi.weekday() == 4 and simdi.hour >= 12:
         filtre_anahtar = "AETHER_AI_Master"
         muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
         
@@ -143,6 +140,11 @@ def otonom_arsiv_guncelle():
 
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
+
+# 🧠 KRİTİK DOKUNUŞ 1: selectbox çökmesini önlemek için dinamik indeks hesabı koruması
+hafta_listesi = list(range(1, max(12, site_h_aktif + 2)))
+default_index = min(site_h_aktif - 1, len(hafta_listesi) - 1)
+
 otomatik_muhur_tetikleyici()
 otonom_arsiv_guncelle()
 
@@ -171,23 +173,19 @@ def analiz_et(ex, ax, ev_ad, dep_ad, league_name):
             s = np.unravel_index(np.argmax(m), m.shape)
             return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
 
-        # Standart Rasyonel Motor
         st_ex, st_ax = ex * 1.05, ax * 0.95
         r_s = sk(st_ex, st_ax)
 
-        # Spektrum Kaos / Gol Motoru
         sp_ex, sp_ax = ex, ax
         if (ex + ax) > 2.8:
             sp_ex *= 1.15; sp_ax *= 1.15
         r_sp = sk(sp_ex, sp_ax)
 
-        # Nexus Sürpriz/Denge Motoru
         nx_ex, nx_ax = ex, ax
         if abs(ex - ax) < 0.3:
             nx_ex *= 0.90; nx_ax *= 0.90
         r_nx = sk(nx_ex, nx_ax)
 
-        # Wickham v3.5 Psikoloji Motoru Simülasyonu
         wx_ex, wx_ax = ex, ax
         h_p = (ex + ax) * 25
         s_p = 100 - (ex + ax) * 15
@@ -196,7 +194,6 @@ def analiz_et(ex, ax, ev_ad, dep_ad, league_name):
             wx_ex *= 1.15; wx_ax *= 1.15
         r_w = sk(wx_ex, wx_ax)
 
-        # Aether Sentezi
         aether_ex = (st_ex * 0.3) + (sp_ex * 0.2) + (nx_ex * 0.2) + (wx_ex * 0.3)
         aether_ax = (st_ax * 0.3) + (sp_ax * 0.2) + (nx_ax * 0.2) + (wx_ax * 0.3)
         r_ae = sk(aether_ex, aether_ax)
@@ -212,7 +209,6 @@ def analiz_et(ex, ax, ev_ad, dep_ad, league_name):
     except: return None
 
 def bulten_hasat_et():
-    """Gelecek maç bültenini çeker"""
     today = datetime.now().strftime('%Y-%m-%d')
     res = api_get("fixtures", params={"date": today})
     if not res or "response" not in res: return []
@@ -225,10 +221,10 @@ def bulten_hasat_et():
         
         yeni_bulten.append({
             'id': fix.get('id'),
-            'league_name': lg.get('name'),
-            'home_name': tms.get('home', {}).get('name'),
-            'away_name': tms.get('away', {}).get('name'),
-            'ex': 1.5, 'ax': 1.2, # Varsayılan Poisson temelleri
+            'league_name': lg.get('name', 'Bilinmeyen Lig'),
+            'home_name': tms.get('home', {}).get('name', 'Ev Sahibi'),
+            'away_name': tms.get('away', {}).get('name', 'Deplasman'),
+            'ex': 1.5, 'ax': 1.2, 
             'date_unix': fix.get('timestamp'),
             'status': fix.get('status', {}).get('short', 'NS'),
             'home_score': item.get('goals', {}).get('home'),
@@ -287,32 +283,40 @@ elif mod == "🤖 Tahmin Robotu":
             
         gunun_maclari = []
         for m in bulten_data:
-            res = analiz_et(m['ex'], m['ax'], m['home_name'], m['away_name'], m['league_name'])
+            # 🧠 KRİTİK DOKUNUŞ 2: KeyError fırlamaması için .get() metoduyla güvenli veri okuma
+            ex_val = m.get('ex', 1.5)
+            ax_val = m.get('ax', 1.2)
+            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
             if res:
                 m['res'] = res
                 gunun_maclari.append(m)
                 
-        c1, c2, c3 = st.columns(3)
-        robotlar = [("AETHER ✨", c1, "ae_c", "aether"), ("NEXUS 🛡️", c2, "n_c", "nexus"), ("WICKHAM 🧪", c3, "w_c", "wickham")]
-        
-        for r_ad, r_col, r_pk, r_tk in robotlar:
-            with r_col:
-                st.subheader(f"{r_ad} Radarı")
-                top_r = sorted(gunun_maclari, key=lambda x: x['res'].get(r_pk, 0), reverse=True)[:3]
-                for m in top_r:
-                    st.markdown(f"""
-                    <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #58A6FF; margin-bottom:10px;">
-                        <small>{m['league_name']}</small><br>
-                        <b>{m['home_name']} - {m['away_name']}</b><br>
-                        <span style="color:#238636;">Öneri: {m['res'][r_tk]}</span> | <small>Güven: %{int(m['res'][r_pk])}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
+        if gunun_maclari:
+            c1, c2, c3 = st.columns(3)
+            robotlar = [("AETHER ✨", c1, "ae_c", "aether"), ("NEXUS 🛡️", c2, "n_c", "nexus"), ("WICKHAM 🧪", c3, "w_c", "wickham")]
+            
+            for r_ad, r_col, r_pk, r_tk in robotlar:
+                with r_col:
+                    st.subheader(f"{r_ad} Radarı")
+                    top_r = sorted(gunun_maclari, key=lambda x: x['res'].get(r_pk, 0), reverse=True)[:3]
+                    for m in top_r:
+                        st.markdown(f"""
+                        <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #58A6FF; margin-bottom:10px;">
+                            <small>{m.get('league_name')}</small><br>
+                            <b>{m.get('home_name')} - {m.get('away_name')}</b><br>
+                            <span style="color:#238636;">Öneri: {m['res'][r_tk]}</span> | <small>Güven: %{int(m['res'][r_pk])}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+        else:
+            st.warning("Bültende analiz edilebilir maç kalmadı.")
     else:
-        st.info("Lütfen önce bülteni hasat edin.")
+        st.info("Lütfen önce sol panelden bülteni hasat edin.")
 
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI Master", "Standart AI", "Spektrum AI", "Nexus AI", "WICKHAM AI v3"])
-    s_sec = st.sidebar.selectbox("📅 Hafta", list(range(1, 11)), index=site_h_aktif-1)
+    
+    # 🧠 selectbox'a güvenli dinamik liste ve indeks sağlandı
+    s_sec = st.sidebar.selectbox("📅 Hafta", hafta_listesi, index=default_index)
     
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Düzeni")
     
@@ -322,7 +326,9 @@ elif mod == "Global AI":
             
         g_l = []
         for m in b_data:
-            res = analiz_et(m['ex'], m['ax'], m['home_name'], m['away_name'], m['league_name'])
+            ex_val = m.get('ex', 1.5)
+            ax_val = m.get('ax', 1.2)
+            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
             if res:
                 p = res['ae_c'] if "AETHER" in filtre else (res['s_c'] if "Standart" in filtre else res['w_c'])
                 m.update({'res': res, 'puan': p})
@@ -344,23 +350,27 @@ elif mod == "Global AI":
             with c1:
                 st.markdown(f'<div class="editor-card"><div class="coupon-title">⭐ BANKO ({filtre[:3]})</div>', unsafe_allow_html=True)
                 for b in m_kupon["banko"]:
-                    st.markdown(f'<div class="coupon-item"><b>{b["home_name"]} - {b["away_name"]}</b><br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{b.get("home_name")} - {b.get("away_name")}</b><br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             with c2:
                 st.markdown(f'<div class="editor-card"><div class="coupon-title">💎 İDEAL ({filtre[:3]})</div>', unsafe_allow_html=True)
                 for i in m_kupon["ideal"]:
-                    st.markdown(f'<div class="coupon-item"><b>{i["home_name"]} - {i["away_name"]}</b><br>Tahmin: {i["res"]["wickham"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{i.get("home_name")} - {i.get("away_name")}</b><br>Tahmin: {i["res"]["wickham"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             with c3:
                 st.markdown(f'<div class="editor-card"><div class="coupon-title">🔥 ÜST ({filtre[:3]})</div>', unsafe_allow_html=True)
                 for u in m_kupon["ust"]:
-                    st.markdown(f'<div class="coupon-item"><b>{u["home_name"]} - {u["away_name"]}</b><br>xG: {u["res"]["total_xg"]:.2f} | 2.5 ÜST</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{u.get("home_name")} - {u.get("away_name")}</b><br>xG: {u["res"]["total_xg"]:.2f} | 2.5 ÜST</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             with c4:
                 st.markdown(f'<div class="editor-card"><div class="coupon-title">🛡️ ALT ({filtre[:3]})</div>', unsafe_allow_html=True)
                 for a in m_kupon["alt"]:
-                    st.markdown(f'<div class="coupon-item"><b>{a["home_name"]} - {a["away_name"]}</b><br>xG: {a["res"]["total_xg"]:.2f} | 2.5 ALT</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{a.get("home_name")} - {a.get("away_name")}</b><br>xG: {a["res"]["total_xg"]:.2f} | 2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.warning("Gösterilecek maç bulunamadı.")
+    else:
+        st.info("Lütfen önce bülteni hasat edin.")
 
 elif mod == "💎 Value Hunter":
     st.title("🎯 VALUE HUNTER: CANLI TAHMİN TERMİNALİ")
@@ -370,26 +380,31 @@ elif mod == "💎 Value Hunter":
             
         g_l = []
         for m in b_data:
-            res = analiz_et(m['ex'], m['ax'], m['home_name'], m['away_name'], m['league_name'])
+            ex_val = m.get('ex', 1.5)
+            ax_val = m.get('ax', 1.2)
+            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
             if res:
                 m['res'] = res
                 g_l.append(m)
                 
-        v_tabs = st.tabs(["🧪 WICKHAM", "✨ AETHER", "🛡️ NEXUS"])
-        rb_cfg = [("w_c", "wickham", v_tabs[0], "🧪 Wickham"), ("ae_c", "aether", v_tabs[1], "✨ Aether"), ("n_c", "nexus", v_tabs[2], "🛡️ Nexus")]
-        
-        for p_k, t_k, tab, name in rb_cfg:
-            with tab:
-                st.markdown(f"### {name} Fırsat Akışı")
-                top_v = sorted(g_l, key=lambda x: x['res'].get(p_k, 0), reverse=True)[:10]
-                for m in top_v:
-                    st.markdown(f"""
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.5); border-radius: 8px; margin-bottom: 5px;">
-                        <div><b>{m['home_name']} - {m['away_name']}</b><br><small>📍 {m['league_name']}</small></div>
-                        <div><span style="background:#1f6feb; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold;">{m['res'][t_k]}</span></div>
-                        <div style="color:#58A6FF; font-weight:bold;">%{int(m['res'][p_k])} <br><small style="color:#8B949E;">Güven</small></div>
-                    </div>
-                    """, unsafe_allow_html=True)
+        if g_l:
+            v_tabs = st.tabs(["🧪 WICKHAM", "✨ AETHER", "🛡️ NEXUS"])
+            rb_cfg = [("w_c", "wickham", v_tabs[0], "🧪 Wickham"), ("ae_c", "aether", v_tabs[1], "✨ Aether"), ("n_c", "nexus", v_tabs[2], "🛡️ Nexus")]
+            
+            for p_k, t_k, tab, name in rb_cfg:
+                with tab:
+                    st.markdown(f"### {name} Fırsat Akışı")
+                    top_v = sorted(g_l, key=lambda x: x['res'].get(p_k, 0), reverse=True)[:10]
+                    for m in top_v:
+                        st.markdown(f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.5); border-radius: 8px; margin-bottom: 5px;">
+                            <div><b>{m.get('home_name')} - {m.get('away_name')}</b><br><small>📍 {m.get('league_name')}</small></div>
+                            <div><span style="background:#1f6feb; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold;">{m['res'][t_k]}</span></div>
+                            <div style="color:#58A6FF; font-weight:bold;">%{int(m['res'][p_k])} <br><small style="color:#8B949E;">Güven</small></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+        else:
+            st.warning("Analiz edilecek canlı akış verisi yok.")
 
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
