@@ -7,454 +7,604 @@ from scipy.stats import poisson
 import requests
 from datetime import datetime, timedelta
 
-# --- 1. AYARLAR & API-FOOTBALL MİHRAKI ---
-API_KEY = "ca7daa2cfcc7e961d66ba734bd2080d6"
-BASE_URL = "https://v3.football.api-sports.io"
-
-SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20) 
+# --- 1. AYARLAR & API ANAHTARLARI ---
+FS_API_KEY = "3d8f931eb334529f5c171f08dbeed729fe2b0e7f49f717574101ff79225d4aa7"
+FS_BASE_URL = "https://api.football-data-api.com"
+SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20)
 ARSIV_DOSYASI = "ai_arsiv.json"
+VERİ_BANKASI_DOSYASI = "msi_futbol_bankasi.json"
 BULTEN_DOSYASI = "msi_bulten_bankasi.json"
 
-st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="UltraSkor Pro: Titan v19.7", page_icon="🎯", layout="wide")
 
-# --- 2. API-FOOTBALL STANDART GET MOTORU ---
-def api_get(endpoint, params={}):
-    headers = {
-        'x-apisports-key': API_KEY,
-        'Accept': 'application/json'
-    }
-    url = f"{BASE_URL}/{endpoint}"
+# --- 🏗️ YARDIMCI ARAÇLAR ---
+def winner(skor_metni):
+    """Skor metnini analiz edip kazananı döndürür (1, X, 2)."""
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=15)
-        if response.status_code == 200:
-            return response.json()
-        return {"errors": [f"HTTP {response.status_code}"]}
-    except Exception as e:
-        return {"errors": [str(e)]}
+        if not skor_metni or " - " not in skor_metni: return "X"
+        parcalar = skor_metni.split(" - ")
+        ev, dep = int(parcalar[0]), int(parcalar[1])
+        if ev > dep: return "1"
+        if dep > ev: return "2"
+        return "X"
+    except: return "X"
 
-# --- 🛰️ OPERASYON MERKEZİ & KİMLİK DOĞRULAMA ---
-st.sidebar.title("🛡️ MSI Operasyon Merkezi")
-st.sidebar.markdown("### 📡 API Durum Testi")
+# --- ⚡ HIZLANDIRILMIŞ AMBAR KONTROLÜ (Nitro) ---
+if 'bulten_hazir' not in st.session_state:
+    if os.path.exists(BULTEN_DOSYASI):
+        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
+            try:
+                st.session_state.fs_data = json.load(f)
+                st.session_state.bulten_hazir = True
+            except:
+                st.session_state.fs_data = []
+    else:
+        st.session_state.fs_data = []
 
-with st.sidebar.spinner("API Sağlık Kontrolü yapılıyor..."):
-    status_check = api_get("status")
-    
-if status_check and not status_check.get("errors"):
-    account_info = status_check.get("response", {}).get("account", {})
-    st.sidebar.success("✅ API Bağlantısı Başarılı!")
-    st.sidebar.caption(f"Kullanıcı: {account_info.get('firstname', 'selim')} {account_info.get('lastname', 'mert')}")
-    
-    requests_made = status_check.get("response", {}).get("requests", {}).get("current", 0)
-    requests_limit = status_check.get("response", {}).get("requests", {}).get("limit", 100)
-    st.sidebar.progress(min(1.0, requests_made / max(1, requests_limit)))
-    st.sidebar.caption(f"Bugünkü İstek Tüketimi: {requests_made} / {requests_limit}")
-else:
-    st.sidebar.error("❌ API Bağlantı Hatası!")
-
-# --- 3. TEMEL HESAP MAKİNESİ (check_hit) ---
-def check_hit(liste, tip, filtre_turu="AETHER"):
-    hit = 0
-    if not liste: return 0
-    for m in liste:
-        if m.get('status') in ['FINISHED', 'FT']:
-            h_s = m.get('home_score')
-            a_s = m.get('away_score')
-            if h_s is not None and a_s is not None:
-                if h_s > a_s: gw = "1"
-                elif a_s > h_s: gw = "2"
-                else: gw = "X"
-                
-                if tip == "ust" and (h_s + a_s) > 2.5: hit += 1
-                elif tip == "alt" and (h_s + a_s) < 2.5: hit += 1
-                elif tip in ["banko", "ideal"]:
-                    res = m.get('res', {})
-                    t_skor = res.get('wickham' if "WICKHAM" in filtre_turu else 'aether', '0 - 0')
-                    try:
-                        p_split = t_skor.split(" - ")
-                        p_w = "1" if int(p_split[0]) > int(p_split[1]) else ("2" if int(p_split[1]) > int(p_split[0]) else "X")
-                        if p_w == gw: hit += 1
-                    except: pass
-    return hit
-
-# --- 4. OTONOM ARŞİVLEME & KARA KUTU MOTORU ---
-def kara_kutu_oku():
-    if os.path.exists(ARSIV_DOSYASI):
-        with open(ARSIV_DOSYASI, "r", encoding="utf-8") as f:
-            try: return json.load(f)
-            except: return {}
-    return {}
-
-def kara_kutu_yaz(veri):
-    with open(ARSIV_DOSYASI, "w", encoding="utf-8") as f:
-        json.dump(veri, f, ensure_ascii=False, indent=4)
-
-def otomatik_muhur_tetikleyici():
-    simdi = datetime.now()
-    if simdi.weekday() == 4 and simdi.hour >= 12:
-        filtre_anahtar = "AETHER_AI_Master"
-        muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
-        
-        if muhur_anahtari not in st.session_state:
-            st.session_state[muhur_anahtari] = {
-                "banko": st.session_state.get('son_bankolar', []),
-                "ideal": st.session_state.get('son_idealler', []),
-                "ust": st.session_state.get('son_ustler', []),
-                "alt": st.session_state.get('son_altlar', [])
-            }
-            st.toast("🎯 Otomatik mühür hafızaya alındı.")
-
-def otonom_arsiv_guncelle():
-    arsiv = kara_kutu_oku()
-    guncelleme_var_mi = False
-    
-    for h_no in range(1, site_h_aktif):
-        h_key = str(h_no)
-        if h_key not in arsiv:
-            filtre_anahtar = "AETHER_AI_Master" 
-            muhur_anahtari = f"muhur_{h_no}_{filtre_anahtar}"
-            
-            if muhur_anahtari in st.session_state:
-                m_kupon = st.session_state[muhur_anahtari]
-                haftalik_ozet = {}
-                
-                for r_id, r_ad in [("W", "WICKHAM"), ("A", "AETHER"), ("N", "NEXUS"), ("S", "STANDART"), ("SP", "SPEKTRUM")]:
-                    b_skor = check_hit(m_kupon.get("banko", []), "banko", r_ad)
-                    i_skor = check_hit(m_kupon.get("ideal", []), "ideal", r_ad)
-                    u_skor = check_hit(m_kupon.get("ust", []), "ust", r_ad)
-                    a_skor = check_hit(m_kupon.get("alt", []), "alt", r_ad)
-                    
-                    p = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
-                    
-                    haftalik_ozet[r_id] = {
-                        "b": f"✅ {b_skor}/5" if b_skor < 5 else "🏆 5/5 FULL",
-                        "i": f"✅ {i_skor}/5" if i_skor < 5 else "💎 5/5 FULL",
-                        "u": f"✅ {u_skor}/5" if u_skor < 5 else "🔥 5/5 FULL",
-                        "a": f"✅ {a_skor}/5" if a_skor < 5 else "🛡️ 5/5 FULL",
-                        "p": p,
-                        "t": "Kara Kutu Kaydı ✅"
-                    }
-                arsiv[h_key] = haftalik_ozet
-                guncelleme_var_mi = True
-
-    if guncelleme_var_mi:
-        kara_kutu_yaz(arsiv)
-    st.session_state.otonom_kayitlar = arsiv
-
-simdi = datetime.now()
-site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
-
-hafta_listesi = list(range(1, max(12, site_h_aktif + 2)))
-default_index = min(site_h_aktif - 1, len(hafta_listesi) - 1)
-
-# --- 5. GÖRSEL STİL (MSI DARK) ---
+# --- 2. GÖRSEL STİL (MSI DARK MODE) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0D1117; color: #C9D1D9; }
-    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; position: relative; }
-    .editor-card { background: linear-gradient(145deg, #1c2128, #0d1117); border: 1px solid #58A6FF; padding: 15px; border-radius: 12px; height: 100%; border-top: 4px solid #58A6FF; position: relative; margin-bottom: 20px; }
-    .success-badge { background: #238636; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; float: right; }
-    .full-hit-seal { position: absolute; top: -10px; right: -10px; background: #D4AF37; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; transform: rotate(15deg); box-shadow: 0 0 10px rgba(212,175,55,0.5); z-index: 10; font-size: 0.8rem; }
-    .coupon-item { background: #0d1117; padding: 8px; margin-top: 8px; border-radius: 6px; border: 1px solid #30363d; font-size: 0.85rem; }
-    .coupon-title { font-weight: bold; color: #58A6FF; margin-bottom: 10px; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 5px; }
-    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; flex: 1; margin: 0 4px; }
-    .aether-box { background: rgba(138, 43, 226, 0.1); border: 1px solid #8A2BE2; color: #E0B0FF !important; }
-    .lock-box { background: #161b22; border: 2px dashed #f85149; padding: 40px; border-radius: 15px; text-align: center; color: #f85149; margin-bottom: 20px; }
+    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 15px; margin-bottom: 10px; }
+    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; font-size: 0.8rem; }
+    .aether-box { border: 1px solid #8A2BE2; color: #E0B0FF; background: rgba(138, 43, 226, 0.1); }
     h1, h2, h3 { color: #58A6FF !important; }
+    .live-badge { color: #f85149; font-weight: bold; animation: blink 1s infinite; }
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 6. POISSON ANALİZ VE PSİKOLOJİ MOTORU ---
-def analiz_et(ex, ax, ev_ad, dep_ad, league_name):
+# --- 3. FOOTYSTATS VERİ MERKEZİ ---
+def fs_api_get(endpoint, params={}):
+    params['key'] = FS_API_KEY
+    url = f"{FS_BASE_URL}/{endpoint}"
     try:
-        def sk(e, a):
-            m = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
-            s = np.unravel_index(np.argmax(m), m.shape)
-            return f"{s[0]} - {s[1]}", min(99, int(abs(e-a)*45 + 25))
+        response = requests.get(url, params=params, timeout=15)
+        return response.json()
+    except Exception as e:
+        st.error(f"📡 API Hatası: {e}")
+        return None
 
-        st_ex, st_ax = ex * 1.05, ax * 0.95
-        r_s = sk(st_ex, st_ax)
+# --- 🏆 50 ELİT & PROFESYONEL LİG: KESİN LİSTE ---
+HEDEF_LIGLER = [
+    "Austria Bundesliga", "Austria 2. Liga", 
+    "Belgium Pro League", "Belgium First Division B",
+    "Bosnia and Herzegovina Premier League", "Bosnia and Herzegovina First League",
+    "China Chinese Super League", 
+    "Croatia Prva HNL", 
+    "Czech Republic First League", "Czech Republic FNL",
+    "Denmark Superliga", "Denmark 1st Division",
+    "England Premier League", "England Championship", "England EFL League One", "England EFL League Two",
+    "Finland Veikkausliiga", "Finland Ykkösliiga",
+    "France Ligue 1", "France Ligue 2",
+    "Germany Bundesliga", "Germany 2. Bundesliga",
+    "Hungary NB I", 
+    "Italy Serie A", "Italy Serie B",
+    "Netherlands Eredivisie", "Netherlands Eerste Divisie",
+    "Norway Eliteserien", "Norway First Division",
+    "Poland Ekstraklasa", "Poland 1. Liga",
+    "Portugal Liga NOS", "Portugal LigaPro",
+    "Romania Liga I", 
+    "Scotland Premiership", 
+    "Serbia SuperLiga", 
+    "Slovakia Super Liga", "Slovakia 2. Liga",
+    "Slovenia PrvaLiga", "Slovenia 2. SNL",
+    "Spain La Liga", "Spain Segunda División",
+    "Sweden Allsvenskan", "Sweden Superettan",
+    "Switzerland Super League", "Switzerland Challenge League",
+    "Turkey Süper Lig", "Turkey 1. Lig",
+    "USA MLS", "USA USL Championship"
+]
 
-        sp_ex, sp_ax = ex, ax
-        if (ex + ax) > 2.8:
-            sp_ex *= 1.15; sp_ax *= 1.15
-        r_sp = sk(sp_ex, sp_ax)
+def lig_bilgi_bankasi_olustur():
+    url = f"{FS_BASE_URL}/league-list"
+    params = {'key': FS_API_KEY}
+    try:
+        res = requests.get(url, params=params, timeout=15).json()
+        if not res or not res.get('success'): return {}
+        ligler = {}
+        for lig in res['data']:
+            c_ad = lig.get('country', '')
+            l_ad = lig.get('league_name') or lig.get('name', '')
+            tam_ad = f"{c_ad} {l_ad}"
+            if any(hedef.lower() in tam_ad.lower() for hedef in HEDEF_LIGLER):
+                if 'season' in lig and len(lig['season']) > 0:
+                    en_son = lig['season'][-1]
+                    s_id = str(en_son['id'])
+                    ligler[s_id] = tam_ad
+        return ligler
+    except: return {}
 
-        nx_ex, nx_ax = ex, ax
-        if abs(ex - ax) < 0.3:
-            nx_ex *= 0.90; nx_ax *= 0.90
-        r_nx = sk(nx_ex, nx_ax)
+def pazartesi_hasadi():
+    lig_sozlugu = lig_bilgi_bankasi_olustur() 
+    if not lig_sozlugu: return 0
+    if os.path.exists(VERİ_BANKASI_DOSYASI):
+        with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
+            try: mevcut_arsiv = json.load(f)
+            except: mevcut_arsiv = []
+    else: mevcut_arsiv = []
+    kayitli_idlar = {m.get('id') for m in mevcut_arsiv}
+    yeni_eklenen_sayisi = 0
+    p_bar = st.sidebar.progress(0)
+    for index, (s_id, l_tam_ad) in enumerate(lig_sozlugu.items()):
+        yasakli = ["women", "u19", "u21", "u23", "youth", "reserve", "kadın", "friendly", "cup", "kupa"]
+        if any(y in l_tam_ad.lower() for y in yasakli): continue
+        if not any(hedef.lower() in l_tam_ad.lower() for hedef in HEDEF_LIGLER): continue
+        params = {'key': FS_API_KEY, 'league_id': s_id, 'status': 'complete'}
+        try:
+            res = requests.get(f"{FS_BASE_URL}/league-matches", params=params, timeout=10).json()
+            if res and 'data' in res:
+                for m in res['data']:
+                    if m.get('id') not in kayitli_idlar:
+                        m_arsiv = {
+                            'id': m.get('id'),
+                            'home_name': m.get('home_name'),
+                            'away_name': m.get('away_name'),
+                            'league_name': l_tam_ad,
+                            'date_unix': m.get('date_unix'),
+                            'result': f"{m.get('homeGoalCount')} - {m.get('awayGoalCount')}",
+                            'team_a_xg_prematch': m.get('team_a_xg_prematch'),
+                            'team_b_xg_prematch': m.get('team_b_xg_prematch'),
+                            'shot_conversion_rate_home': m.get('shot_conversion_rate_home'),
+                            'shot_conversion_rate_away': m.get('shot_conversion_rate_away'),
+                            'homeAttackAdvantagePercentage': m.get('homeAttackAdvantagePercentage'),
+                            'homeDefenceAdvantagePercentage': m.get('homeDefenceAdvantagePercentage'),
+                            'points_dropped_from_winning_positions_home': m.get('points_dropped_from_winning_positions_home'),
+                            'seasonAVG_away': m.get('seasonAVG_away'),
+                            'seasonConcededAVG_away': m.get('seasonConcededAVG_away'),
+                            'pre_match_teamA_overall_ppg': m.get('pre_match_teamA_overall_ppg'),
+                            'pre_match_teamB_overall_ppg': m.get('pre_match_teamB_overall_ppg'),
+                            'actual_home_goals': m.get('homeGoalCount'),
+                            'actual_away_goals': m.get('awayGoalCount'),
+                            'total_goals': (m.get('homeGoalCount', 0) or 0) + (m.get('awayGoalCount', 0) or 0),
+                            'actual_btts': (m.get('homeGoalCount', 0) > 0 and m.get('awayGoalCount', 0) > 0),
+                            'total_shots_on_target': (m.get('home_shotsOnTarget', 0) or 0) + (m.get('away_shotsOnTarget', 0) or 0)
+                        }
+                        mevcut_arsiv.append(m_arsiv)
+                        kayitli_idlar.add(m.get('id'))
+                        yeni_eklenen_sayisi += 1
+        except: continue
+        p_bar.progress((index + 1) / len(lig_sozlugu))
+    if yeni_eklenen_sayisi > 0:
+        with open(VERİ_BANKASI_DOSYASI, "w", encoding="utf-8") as f:
+            json.dump(mevcut_arsiv, f, ensure_ascii=False, indent=4)
+    return yeni_eklenen_sayisi
 
-        wx_ex, wx_ax = ex, ax
-        h_p = (ex + ax) * 25
-        s_p = 100 - (ex + ax) * 15
-        
-        if league_name in ["Bundesliga", "Eredivisie"]:
-            wx_ex *= 1.15; wx_ax *= 1.15
-        r_w = sk(wx_ex, wx_ax)
+# --- AYARLAR & ZAMAN MOTORU (v18.0) ---
+def hafta_bilgisi_getir(hafta_kaydirma=0):
+    tarih = datetime.now() + timedelta(weeks=hafta_kaydirma)
+    bugun_no = tarih.weekday() 
+    cuma = tarih - timedelta(days=bugun_no - 4)
+    cuma = cuma.replace(hour=0, minute=0, second=0, microsecond=0)
+    pazartesi = cuma + timedelta(days=3, hours=23, minutes=59, seconds=59)
+    return cuma.timestamp(), pazartesi.timestamp(), cuma.strftime("%d %b")
 
-        aether_ex = (st_ex * 0.3) + (sp_ex * 0.2) + (nx_ex * 0.2) + (wx_ex * 0.3)
-        aether_ax = (st_ax * 0.3) + (sp_ax * 0.2) + (nx_ax * 0.2) + (wx_ax * 0.3)
-        r_ae = sk(aether_ex, aether_ax)
+# --- SIDEBAR HAFTA SEÇİCİ ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("📅 Analiz Vizörü")
+hafta_secim = st.sidebar.selectbox("Tahmin Haftası", ["Bu Hafta (Cuma-Paz)", "Gelecek Hafta", "Tüm Maçları Göster"], index=0)
 
-        return {
-            "std": r_s[0], "s_c": r_s[1], 
-            "spec": r_sp[0], "sp_c": r_sp[1], 
-            "nexus": r_nx[0], "n_c": r_nx[1], 
-            "wickham": r_w[0], "w_c": r_w[1], 
-            "aether": r_ae[0], "ae_c": r_ae[1], 
-            "h_p": h_p, "s_p": s_p, "total_xg": ex + ax
-        }
-    except: return None
+if hafta_secim == "Bu Hafta (Cuma-Paz)":
+    CUMA_SINIR, PAZARTESI_SINIR, HAFTA_ETIKET = hafta_bilgisi_getir(0)
+elif hafta_secim == "Gelecek Hafta":
+    CUMA_SINIR, PAZARTESI_SINIR, HAFTA_ETIKET = hafta_bilgisi_getir(1)
+else:
+    CUMA_SINIR, PAZARTESI_SINIR = 0, 4000000000
 
-def bulten_hasat_et():
-    today = datetime.now().strftime('%Y-%m-%d')
-    res = api_get("fixtures", params={"date": today})
-    if not res or "response" not in res: return []
-    
+def tum_dunyayi_hasat_et():
+    lig_sozlugu = lig_bilgi_bankasi_olustur()
+    if not lig_sozlugu:
+        st.sidebar.error("❌ Elit lig listesi alınamadı!")
+        return []
     yeni_bulten = []
-    for item in res["response"]:
-        fix = item.get("fixture", {})
-        lg = item.get("league", {})
-        tms = item.get("teams", {})
-        
-        yeni_bulten.append({
-            'id': fix.get('id'),
-            'league_name': lg.get('name', 'Bilinmeyen Lig'),
-            'home_name': tms.get('home', {}).get('name', 'Ev Sahibi'),
-            'away_name': tms.get('away', {}).get('name', 'Deplasman'),
-            'ex': 1.5, 'ax': 1.2, 
-            'date_unix': fix.get('timestamp'),
-            'status': fix.get('status', {}).get('short', 'NS'),
-            'home_score': item.get('goals', {}).get('home'),
-            'away_score': item.get('goals', {}).get('away')
-        })
+    p_bar = st.sidebar.progress(0)
+    yasakli = ["women", "u19", "u21", "u23", "youth", "reserve", "kadın", "friendly", "cup", "kupa"]
+    for index, (s_id, l_tam_ad) in enumerate(lig_sozlugu.items()):
+        if any(y in l_tam_ad.lower() for y in yasakli): continue
+        if not any(hedef.lower() in l_tam_ad.lower() for hedef in HEDEF_LIGLER): continue
+        url = f"{FS_BASE_URL}/league-matches"
+        params = {'key': FS_API_KEY, 'league_id': s_id, 'status': 'incomplete'}
+        try:
+            response = requests.get(url, params=params, timeout=12)
+            m_res = response.json()
+            if m_res and 'data' in m_res:
+                for m in m_res['data']:
+                    mac_tarihi = m.get('date_unix', 0)
+                    if CUMA_SINIR <= mac_tarihi <= PAZARTESI_SINIR:
+                        yeni_bulten.append({
+                            'id': m.get('id'),
+                            'home_name': m.get('home_name'),
+                            'away_name': m.get('away_name'),
+                            'league_name': l_tam_ad,
+                            'date_unix': mac_tarihi,
+                            'team_a_xg_prematch': m.get('team_a_xg_prematch'),
+                            'team_b_xg_prematch': m.get('team_b_xg_prematch'),
+                            'pre_match_teamA_overall_ppg': m.get('pre_match_teamA_overall_ppg'),
+                            'pre_match_teamB_overall_ppg': m.get('pre_match_teamB_overall_ppg'),
+                            'shot_conversion_rate_home': m.get('shot_conversion_rate_home'),
+                            'homeAttackAdvantagePercentage': m.get('homeAttackAdvantagePercentage'),
+                            'seasonConcededAVG_away': m.get('seasonConcededAVG_away'),
+                            'o25_potential': m.get('o25_potential'),
+                            'btts_potential': m.get('btts_potential')
+                        })
+        except: continue
+        p_bar.progress((index + 1) / len(lig_sozlugu))
     if yeni_bulten:
         with open(BULTEN_DOSYASI, "w", encoding="utf-8") as f:
             json.dump(yeni_bulten, f, ensure_ascii=False, indent=4)
     return yeni_bulten
 
-# --- 🧠 OTONOM HASAT KONTROLÜ (BUTONSUZ TETİKLEME) ---
-def otonom_bulten_kontrolu():
-    dosya_yenile = False
-    if not os.path.exists(BULTEN_DOSYASI):
-        dosya_yenile = True
-    else:
-        dosya_yasi = datetime.now() - datetime.fromtimestamp(os.path.getmtime(BULTEN_DOSYASI))
-        if dosya_yasi > timedelta(hours=6):
-            dosya_yenile = True
+# --- 🏗️ TITAN COUNCIL v19.5 ---
+def skor_olasigi_hesapla(e, a, carpan=400):
+    matrix = np.outer([poisson.pmf(i, max(0.1, e)) for i in range(6)], [poisson.pmf(i, max(0.1, a)) for i in range(6)])
+    s = np.unravel_index(np.argmax(matrix), matrix.shape)
+    conf = int(matrix[s] * carpan)
+    return {"skor": f"{s[0]} - {s[1]}", "conf": conf}
+
+@st.cache_data(ttl=3600)
+def titan_council_v19_5(m):
+    try:
+        h_xg = float(m.get('team_a_xg_prematch') or 1.45)
+        a_xg = float(m.get('team_b_xg_prematch') or 1.15)
+        h_ppg = float(m.get('pre_match_teamA_overall_ppg') or 1.2)
+        a_ppg = float(m.get('pre_match_teamB_overall_ppg') or 1.1)
+        h_conv = float(m.get('shot_conversion_rate_home') or 10.0)
+        h_att_adv = float(m.get('homeAttackAdvantagePercentage') or 5.0)
+        a_conceded = float(m.get('seasonConcededAVG_away') or 1.3)
+        yorgunluk_h = 0.92 if m.get('is_fatigued_home') else 1.0
+
+        st_h = h_xg * (1 + (h_att_adv / 150)) * h_ppg
+        st_a = a_xg * 0.95
+        res_st = skor_olasigi_hesapla(st_h, st_a, 380)
+
+        sp_h, sp_a = h_xg, a_xg
+        if (h_xg + a_xg) > 2.7: sp_h *= 1.22; sp_a *= 1.18
+        res_sp = skor_olasigi_hesapla(sp_h, sp_a, 350)
+
+        nx_h, nx_a = h_xg, a_xg
+        if h_ppg > 1.9: nx_h *= 0.88; nx_a *= 1.15
+        res_nx = skor_olasigi_hesapla(nx_h, nx_a, 360)
+
+        wx_h = (h_xg * (15 / max(5, h_conv))) * yorgunluk_h
+        wx_a = a_xg * (a_ppg / 1.1)
+        res_wx = skor_olasigi_hesapla(wx_h, wx_a, 420)
+
+        ae_h = (st_h * 0.30) + (wx_h * 0.40) + (sp_h * 0.15) + (nx_h * 0.15)
+        ae_a = (st_a * 0.30) + (wx_a * 0.40) + (sp_a * 0.15) + (nx_a * 0.15)
+        res_ae = skor_olasigi_hesapla(ae_h, ae_a, 400)
+
+        return {
+            "skor": res_ae['skor'], "guven": res_ae['conf'], "xg": ae_h + ae_a,
+            "st_res": res_st, "sp_res": res_sp, "nx_res": res_nx, "wx_res": res_wx, "ae_res": res_ae,
+            "o25_pot": float(m.get('o25_potential') or 50.0), "btts_pot": float(m.get('btts_potential') or 50.0)
+        }
+    except: return None
+
+# --- MÜHÜRLENEN KUPONLARI DOSYAYA YAZMA FONKSİYONU ---
+def kuponu_arsive_kilitle(kupon_adi, maclar, filtre_adi):
+    arsiv_verisi = []
+    if os.path.exists(ARSIV_DOSYASI):
+        with open(ARSIV_DOSYASI, "r", encoding="utf-8") as f:
+            try: arsiv_verisi = json.load(f)
+            except: arsiv_verisi = []
             
-    if dosya_yenile:
-        bulten_hasat_et()
+    yeni_kayit = {
+        "tarih": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "kupon_adi": kupon_adi,
+        "filtre": filtre_adi,
+        "maclar": []
+    }
+    for m in maclar:
+        karar = "2.5 ÜST" if m['c_res']['xg'] > 2.6 else f"MS {winner(m['c_res']['skor'])}"
+        yeni_kayit["maclar"].append({
+            "lig": m.get('league_name'),
+            "karsilasma": f"{m.get('home_name')} - {m.get('away_name')}",
+            "tahmin": karar,
+            "beklenen_skor": m['c_res']['skor'],
+            "guven": m['avg_conf']
+        })
+    arsiv_verisi.append(yeni_kayit)
+    with open(ARSIV_DOSYASI, "w", encoding="utf-8") as f:
+        json.dump(arsiv_verisi, f, ensure_ascii=False, indent=4)
+    st.toast(f"🎯 {kupon_adi} Başarıyla ai_arsiv.json Dosyasına Mühürlendi!")
 
-# Uygulama açılışında otomatik tetikleme ve arşiv güncellemeleri
-otonom_bulten_kontrolu()
-otomatik_muhur_tetikleyici()
-otonom_arsiv_guncelle()
+# --- 5. ZAMAN VE HAFTA HESABI ---
+simdi = datetime.now()
+site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 
-# --- 7. MENÜ MODLARI ---
-mod = st.sidebar.radio("🚀 Menü", ["🏠 Canlı Skorlar", "🤖 Tahmin Robotu", "Global AI", "💎 Value Hunter", "🏆 Onur Listesi"])
+# --- 🚀 ANA SIDEBAR ---
+mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "🏠 Canlı Skorlar", "Global AI", "📚 Kupon Arşivi", "📂 Veri Bankası"], key="main_menu")
 
+# --- VERİ İSTİHBARAT BUTONLARI ---
 st.sidebar.markdown("---")
-if st.sidebar.button("📡 BÜLTENİ HASAT ET"):
-    with st.spinner("Bülten ambarı güncelleniyor..."):
-        b_list = bulten_hasat_et()
-        st.sidebar.success(f"✅ {len(b_list)} Maç mühürlendi!")
-        st.rerun()
+st.sidebar.subheader("📦 Veri İstihbaratı")
+if st.sidebar.button("📡 BÜLTENİ HASAT ET (Gelecek)"):
+    with st.spinner("🌍 FootyStats Ambarı Boşaltılıyor..."):
+        st.session_state.fs_data = tum_dunyayi_hasat_et()
+        st.sidebar.success(f"✅ {len(st.session_state.fs_data)} Maç Mühürlendi!")
+if st.sidebar.button("💾 PAZARTESİ HASADI (Geçmiş)"):
+    with st.spinner("📥 Biten maçlar MSI Bankasına aktarılıyor..."):
+        sayi = pazartesi_hasadi()
+        st.sidebar.success(f"📦 {sayi} Yeni Maç Arşivlendi!")
 
-if mod == "🏠 Canlı Skorlar":
-    st.title("⚡ Canlı Maç Merkezi")
-    live_data = api_get("fixtures", params={"live": "all"})
-    matches = live_data.get('response', [])
-    
-    if not matches:
-        st.info("Şu an aktif canlı maç bulunmuyor.")
-    else:
-        for item in matches:
-            fix = item.get("fixture", {})
-            lg = item.get("league", {})
-            tms = item.get("teams", {})
-            gls = item.get("goals", {})
+# --- 6. SAYFA MODLARI ---
+if mod == "🤖 Tahmin Robotu":
+    st.title("🚀 Titan v19.7: Konsey Mühürlü Kuponlar")
+    if hafta_secim == "Bu Hafta (Cuma-Paz)": BAS_L, BIT_L, _ = hafta_bilgisi_getir(0)
+    elif hafta_secim == "Gelecek Hafta": BAS_L, BIT_L, _ = hafta_bilgisi_getir(1)
+    else: BAS_L, BIT_L = 0, 4000000000
+
+    bulten = st.session_state.fs_data if st.session_state.get('fs_data') else []
+    if bulten:
+        konsey_havuzu = []
+        for m in bulten:
+            lig_adi = m.get('league_name', '')
+            if not any(hedef.lower() in lig_adi.lower() for hedef in HEDEF_LIGLER): continue
+            mac_zamani = m.get('date_unix', 0)
+            if BAS_L <= mac_zamani <= BIT_L:
+                res = titan_council_v19_5(m)
+                if res:
+                    m['c_res'] = res
+                    m['avg_conf'] = res['guven']
+                    konsey_havuzu.append(m)
+
+        if konsey_havuzu:
+            sirali_havuz = sorted(konsey_havuzu, key=lambda x: x['avg_conf'], reverse=True)
             
+            # --- 🏆 A. ROBOTİK KARMA KUPONLAR (5 ELEMANLI 4 KESİN KUPON) ---
+            st.subheader("📋 Robotik Karma Kuponlar (5'er Maçlık)")
+            k_cols = st.columns(4)
+            kupon_tipleri = [
+                {"ad": "💎 ELMAS KUPON", "renk": "#FFD700"},
+                {"ad": "🥇 ALTIN KUPON", "renk": "#C0C0C0"},
+                {"ad": "🥈 GÜMÜŞ KUPON", "renk": "#CD7F32"},
+                {"ad": "🎖️ BRONZ KUPON", "renk": "#8A2BE2"}
+            ]
+            for i, k_ayar in enumerate(kupon_tipleri):
+                with k_cols[i]:
+                    st.markdown(f"<h4 style='color:{k_ayar['renk']}; text-align:center;'>{k_ayar['ad']}</h4>", unsafe_allow_html=True)
+                    kupon_maclari = sirali_havuz[i*5 : (i+1)*5]
+                    for match in kupon_maclari:
+                        karar = "2.5 ÜST" if match['c_res']['xg'] > 2.6 else f"MS {winner(match['c_res']['skor'])}"
+                        st.markdown(f"""
+                            <div class="match-card" style="border-right: 4px solid {k_ayar['renk']}; padding:10px; margin-bottom:5px; font-size:0.8rem; background:#0d1117;">
+                                <small style='color:#8B949E;'>{match.get('league_name', '')[:18]}</small><br>
+                                <b>{match['home_name'][:12]} - {match['away_name'][:12]}</b><br>
+                                <span style='color:{k_ayar['renk']}; font-weight:bold;'>{karar}</span> (%{int(match['avg_conf'])})
+                            </div>
+                        """, unsafe_allow_html=True)
+                    # MÜHÜRLEME BUTONU AKTİFLEŞTİRİLDİ (JSON'a Kalıcı Yazar)
+                    if st.button(f"{k_ayar['ad']} Mühürle", key=f"btn_k_{i}"):
+                        kuponu_arsive_kilitle(k_ayar['ad'], kupon_maclari, "Titan Council v19.5")
+
+            st.divider()
+
+            # --- 📊 B. GLOBAL COUNCİL LİSTELERİ (20 MAÇ TERMİNALİ MANTIĞI) ---
+            st.subheader("🌐 Konsey Ortak Karar Terminali (Top 20 Fırsat)")
+            tab_taraf, tab_gol = st.tabs(["🎯 En İyi 20 Taraf Bahsi (1X2)", "⚽ En İyi 20 Alt/Üst Bahsi"])
+
+            with tab_taraf:
+                taraf_20 = sorted(konsey_havuzu, key=lambda x: x['avg_conf'], reverse=True)[:20]
+                t_col1, t_col2 = st.columns(2)
+                for idx, m in enumerate(taraf_20):
+                    with t_col1 if idx % 2 == 0 else t_col2:
+                        ms_karar = winner(m['c_res']['skor'])
+                        st.markdown(f"""
+                            <div class="match-card" style="border-left: 4px solid #58A6FF; padding:10px;">
+                                <small style='color:#8B949E;'>{m.get('league_name')}</small>
+                                <div style="display:flex; justify-content:space-between; margin-top:2px;">
+                                    <b>{m['home_name']} - {m['away_name']}</b>
+                                    <span style="color:#58A6FF; font-weight:bold;">{m['c_res']['skor']}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                                    <span style="font-size:0.9rem; font-weight:bold; background:rgba(88,166,255,0.1); padding:2px 6px; border-radius:4px; color:#58A6FF;">🎯 MS {ms_karar}</span>
+                                    <small style="color:#8B949E;">Konsey Güven Endeksi: %{int(m['avg_conf'])}</small>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+            with tab_gol:
+                gol_20 = sorted(konsey_havuzu, key=lambda x: abs(x['c_res']['xg'] - 2.5), reverse=True)[:20]
+                g_col1, g_col2 = st.columns(2)
+                for idx, m in enumerate(gol_20):
+                    with g_col1 if idx % 2 == 0 else g_col2:
+                        gol_tip = "2.5 ÜST" if m['c_res']['xg'] > 2.5 else "2.5 ALT"
+                        g_renk = "#3fb950" if "ÜST" in gol_tip else "#d73a49"
+                        st.markdown(f"""
+                            <div class="match-card" style="border-right: 4px solid {g_renk}; padding:10px;">
+                                <small style='color:#8B949E;'>{m.get('league_name')}</small>
+                                <div style="display:flex; justify-content:space-between; margin-top:2px;">
+                                    <b>{m['home_name']} - {m['away_name']}</b>
+                                    <span style="color:{g_renk}; font-weight:bold;">xG: {m['c_res']['xg']:.2f}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                                    <span style="color:{g_renk}; font-weight:bold;">⚽ {gol_tip}</span>
+                                    <small style="color:#8B949E;">Konsey Önerisi: {m['c_res']['skor']}</small>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Seçili vizörde elit lig maçı bulunamadı.")
+    else:
+        st.info("🔎 Ambar dosyası bulunamadı. Lütfen önce hasat yapın.")
+
+elif mod == "🏠 Canlı Skorlar":
+    st.title("⚡ Canlı Harekat Merkezi")
+    live_data = fs_api_get("live-matches")
+    if not live_data or 'data' not in live_data or len(live_data['data']) == 0:
+        st.info("📡 Şu an dünyada aktif robotik veri akışı yok.")
+    else:
+        for m in live_data['data']:
             st.markdown(f"""
                 <div class="match-card" style="border-left: 5px solid #3fb950;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #8B949E; margin-bottom: 5px;">
-                        <span>📍 {lg.get('name')}</span>
-                        <span style="color: #3fb950; font-weight: bold;">● LIVE {fix.get('status', {}).get('elapsed', 0)}'</span>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <span style="font-size:0.8rem;">📍 {m.get('league_name', 'Bilinmeyen Lig')}</span>
+                        <span class="live-badge">● CANLI {m.get('currentTime', 0)}'</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="text-align: right; width: 40%;"><b>{tms.get('home',{}).get('name')}</b></div>
-                        <div style="width: 20%; text-align: center; background: #30363d; border-radius: 5px; padding: 5px;">
-                            <h3 style="margin: 0; color: #3fb950;">{gls.get('home', 0)} - {gls.get('away', 0)}</h3>
+                    <div style="display:flex; justify-content:space-around; align-items:center; text-align:center;">
+                        <div style="width:35%;"><b>{m['home_name']}</b><br><small>🎯 Şut: {m.get('home_shotsOnTarget',0)}</small></div>
+                        <div style="width:30%; background:#0d1117; border-radius:10px; padding:5px;">
+                            <h2 style="margin:0; color:#3fb950;">{m.get('homeGoalCount',0)} - {m.get('awayGoalCount',0)}</h2>
                         </div>
-                        <div style="text-align: left; width: 40%;"><b>{tms.get('away',{}).get('name')}</b></div>
+                        <div style="width:35%;"><b>{m['away_name']}</b><br><small>🎯 Şut: {m.get('away_shotsOnTarget',0)}</small></div>
                     </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-elif mod == "🤖 Tahmin Robotu":
-    st.title("🤖 Günlük Tahmin Robotu")
-    if os.path.exists(BULTEN_DOSYASI):
-        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
-            bulten_data = json.load(f)
-            
-        gunun_maclari = []
-        for m in bulten_data:
-            ex_val = m.get('ex', 1.5)
-            ax_val = m.get('ax', 1.2)
-            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
-            if res:
-                m['res'] = res
-                gunun_maclari.append(m)
-                
-        if gunun_maclari:
-            c1, c2, c3 = st.columns(3)
-            robotlar = [("AETHER ✨", c1, "ae_c", "aether"), ("NEXUS 🛡️", c2, "n_c", "nexus"), ("WICKHAM 🧪", c3, "w_c", "wickham")]
-            
-            for r_ad, r_col, r_pk, r_tk in robotlar:
-                with r_col:
-                    st.subheader(f"{r_ad} Radarı")
-                    top_r = sorted(gunun_maclari, key=lambda x: x['res'].get(r_pk, 0), reverse=True)[:3]
-                    for m in top_r:
-                        st.markdown(f"""
-                        <div style="background:#1e222d; padding:10px; border-radius:10px; border-left:4px solid #58A6FF; margin-bottom:10px;">
-                            <small>{m.get('league_name')}</small><br>
-                            <b>{m.get('home_name')} - {m.get('away_name')}</b><br>
-                            <span style="color:#238636;">Öneri: {m['res'][r_tk]}</span> | <small>Güven: %{int(m['res'][r_pk])}</small>
-                        </div>
-                        """, unsafe_allow_html=True)
-        else:
-            st.warning("Bültende analiz edilebilir maç kalmadı.")
-    else:
-        st.info("Lütfen önce sol panelden bülteni hasat edin.")
+                </div>""", unsafe_allow_html=True)
 
 elif mod == "Global AI":
-    filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI Master", "Standart AI", "Spektrum AI", "Nexus AI", "WICKHAM AI v3"])
-    s_sec = st.sidebar.selectbox("📅 Hafta", hafta_listesi, index=default_index)
+    st.title("🤖 Titan Konseyi: Global Harekat Planı v19.6")
+    bulten_kaynagi = st.session_state.fs_data if st.session_state.get('fs_data') else []
     
-    st.title(f"🚀 {filtre} - {s_sec}. Hafta Düzeni")
-    
-    if os.path.exists(BULTEN_DOSYASI):
-        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
-            b_data = json.load(f)
-            
-        g_l = []
-        for m in b_data:
-            ex_val = m.get('ex', 1.5)
-            ax_val = m.get('ax', 1.2)
-            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
-            if res:
-                p = res['ae_c'] if "AETHER" in filtre else (res['s_c'] if "Standart" in filtre else res['w_c'])
-                m.update({'res': res, 'puan': p})
-                g_l.append(m)
+    if bulten_kaynagi:
+        robot_isimleri = ["💎 AETHER", "📊 STANDART", "🔥 SPEKTRUM", "🛡️ NEXUS", "🧪 WICKHAM"]
+        robot_ayarlar = [
+            {"key": "ae_res", "renk": "#FFD700"},
+            {"key": "st_res", "renk": "#58A6FF"},
+            {"key": "sp_res", "renk": "#FF7B72"},
+            {"key": "nx_res", "renk": "#79C0FF"},
+            {"key": "wx_res", "renk": "#D2A8FF"}
+        ]
+        
+        tabs = st.tabs(robot_isimleri)
+        for i, r_info in enumerate(robot_ayarlar):
+            with tabs[i]:
+                r_key = r_info["key"]
+                r_renk = r_info["renk"]
                 
-        if g_l:
-            muhur_anahtari = f"muhur_{s_sec}_{filtre.replace(' ', '_')}"
-            if muhur_anahtari not in st.session_state:
-                st.session_state[muhur_anahtari] = {
-                    "banko": sorted(g_l, key=lambda x: x['puan'], reverse=True)[:5],
-                    "ideal": sorted(g_l, key=lambda x: x['puan'], reverse=True)[5:10] if len(g_l) > 10 else g_l[:5],
-                    "ust": sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=True)[:5],
-                    "alt": sorted(g_l, key=lambda x: x['res']['total_xg'], reverse=False)[:5]
-                }
-            
-            m_kupon = st.session_state[muhur_anahtari]
-            
-            # 📊 OTONOM BAŞARI HESAPLAYICISI (Skorlar Bittikçe Tetiklenir)
-            h_b = check_hit(m_kupon["banko"], "banko", filtre)
-            h_i = check_hit(m_kupon["ideal"], "ideal", filtre)
-            h_u = check_hit(m_kupon["ust"], "ust", filtre)
-            h_a = check_hit(m_kupon["alt"], "alt", filtre)
-            
-            c1, c2, c3, c4 = st.columns(4)
-            
-            with c1:
-                seal = '<div class="full-hit-seal">🏆 5/5 FULL</div>' if h_b == 5 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO ({filtre[:3]}) <span class="success-badge">{h_b}/5</span></div>', unsafe_allow_html=True)
-                for b in m_kupon["banko"]:
-                    st.markdown(f'<div class="coupon-item"><b>{b.get("home_name")} - {b.get("away_name")}</b><br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c2:
-                seal = '<div class="full-hit-seal" style="background:#58A6FF; color:white;">💎 FULL</div>' if h_i == 5 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">💎 İDEAL ({filtre[:3]}) <span class="success-badge">{h_i}/5</span></div>', unsafe_allow_html=True)
-                for i in m_kupon["ideal"]:
-                    st.markdown(f'<div class="coupon-item"><b>{i.get("home_name")} - {i.get("away_name")}</b><br>Tahmin: {i["res"]["wickham"]}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c3:
-                seal = '<div class="full-hit-seal" style="background:#d73a49; color:white;">🔥 FULL</div>' if h_u == 5 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">🔥 ÜST ({filtre[:3]}) <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
-                for u in m_kupon["ust"]:
-                    st.markdown(f'<div class="coupon-item"><b>{u.get("home_name")} - {u.get("away_name")}</b><br>xG: {u["res"]["total_xg"]:.2f} | 2.5 ÜST</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c4:
-                seal = '<div class="full-hit-seal" style="background:#0366d6; color:white;">🛡️ FULL</div>' if h_a == 5 else ""
-                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">🛡️ ALT ({filtre[:3]}) <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
-                for a in m_kupon["alt"]:
-                    st.markdown(f'<div class="coupon-item"><b>{a.get("home_name")} - {a.get("away_name")}</b><br>xG: {a["res"]["total_xg"]:.2f} | 2.5 ALT</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.warning("Gösterilecek maç bulunamadı.")
+                analizli_bulten = []
+                deneme_bolgesi = [] # --- DENEME BÖLGESİ LİSTESİ ---
+                
+                if hafta_secim == "Bu Hafta (Cuma-Paz)": BAS_L, BIT_L, _ = hafta_bilgisi_getir(0)
+                elif hafta_secim == "Gelecek Hafta": BAS_L, BIT_L, _ = hafta_bilgisi_getir(1)
+                else: BAS_L, BIT_L = 0, 4000000000
+
+                for m in bulten_kaynagi:
+                    lig_adi = m.get('league_name', '')
+                    if not any(hedef.lower() in lig_adi.lower() for hedef in HEDEF_LIGLER): continue
+                    mac_zamani = m.get('date_unix', 0)
+                    
+                    if BAS_L <= mac_zamani <= BIT_L:
+                        res = titan_council_v19_5(m)
+                        if res:
+                            m_copy = m.copy()
+                            m_copy['tmp_res'] = res[r_key]
+                            m_copy['tmp_xg'] = res['xg']
+                            m_copy['full_res'] = res
+                            
+                            # Güven barajı %75+ olanları süz
+                            if res[r_key]['conf'] >= 75:
+                                analizli_bulten.append(m_copy)
+                            else:
+                                # Ana kuponlara giremeyen ama yüksek potansiyelli ek maçları havuza at
+                                deneme_bolgesi.append(m_copy)
+
+                if analizli_bulten or deneme_bolgesi:
+                    # --- A. EN İYİ 10 TARAF BAHSİ ---
+                    st.subheader(f"🏆 {robot_isimleri[i]} - Ana 1X2 Taraf Tahminleri")
+                    taraf_listesi = sorted(analizli_bulten, key=lambda x: x['tmp_res']['conf'], reverse=True)[:10]
+                    
+                    if taraf_listesi:
+                        col1, col2 = st.columns(2)
+                        for idx, match in enumerate(taraf_listesi):
+                            with col1 if idx % 2 == 0 else col2:
+                                t_ms = winner(match['tmp_res']['skor'])
+                                st.markdown(f"""
+                                    <div class="match-card" style="border-left: 4px solid {r_renk}; padding:10px; margin-bottom:10px;">
+                                        <div style="display:flex; justify-content:space-between;">
+                                            <b>{match['home_name']} - {match['away_name']}</b>
+                                            <span style="color:{r_renk}; font-weight:bold;">{match['tmp_res']['skor']}</span>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                                            <span style="font-size:0.9rem; color:#58A6FF; font-weight:bold;">🎯 MS {t_ms}</span>
+                                            <span style="background:{r_renk}33; color:{r_renk}; padding:2px 8px; border-radius:5px; font-weight:bold;">%{match['tmp_res']['conf']}</span>
+                                        </div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                    else:
+                        st.info("Bu robot için %75 güven barajını geçen ana taraf bahsi bulunamadı.")
+
+                    st.divider()
+
+                    # --- B. EN İYİ 10 GOL BAHSİ ---
+                    st.subheader(f"⚽ {robot_isimleri[i]} - Ana Alt/Üst Tahminleri")
+                    gol_listesi = sorted(analizli_bulten, key=lambda x: abs(x['tmp_xg'] - 2.5), reverse=True)[:10]
+                    
+                    if gol_listesi:
+                        col3, col4 = st.columns(2)
+                        for idx, match in enumerate(gol_listesi):
+                            with col3 if idx % 2 == 0 else col4:
+                                t_gol = "2.5 ÜST" if match['tmp_xg'] > 2.5 else "2.5 ALT"
+                                g_renk = "#3fb950" if "ÜST" in t_gol else "#d73a49"
+                                st.markdown(f"""
+                                    <div class="match-card" style="border-right: 4px solid {g_renk}; padding:10px; margin-bottom:10px;">
+                                        <div style="display:flex; justify-content:space-between;">
+                                            <b>{match['home_name']} - {match['away_name']}</b>
+                                            <small style="color:#8B949E;">xG: {match['tmp_xg']:.2f}</small>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                                            <span style="color:{g_renk}; font-weight:bold;">🔥 {t_gol}</span>
+                                            <span style="font-size:0.8rem; background:#30363d; padding:2px 6px; border-radius:4px;">Skor: {match['tmp_res']['skor']}</span>
+                                        </div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                    else:
+                        st.info("Bu robot için ana gol tahmini saptanamadı.")
+
+                    # --- 🔬 C. ENTEGRE EDİLEN DENEME BÖLGESİ (EK MAÇLAR) ---
+                    st.divider()
+                    st.subheader(f"🔬 Deneme Bölgesi ({robot_isimleri[i]} Ek Maç Havuzu)")
+                    
+                    ek_maclar = sorted(deneme_bolgesi, key=lambda x: x['tmp_res']['conf'], reverse=True)[:10]
+                    if ek_maclar:
+                        d_cols = st.columns(2)
+                        for idx, match in enumerate(ek_maclar):
+                            with d_cols[idx % 2]:
+                                st.markdown(f"""
+                                    <div class="match-card" style="background: rgba(48, 54, 61, 0.2); border: 1px dashed #8B949E; padding: 10px;">
+                                        <div style="display:flex; justify-content:space-between;">
+                                            <b>{match['home_name']} - {match['away_name']}</b>
+                                            <small style="color:#8B949E;">{match.get('league_name')[:20]}</small>
+                                        </div>
+                                        <div style="margin-top:5px; font-size:0.75rem; color:#C9D1D9;">
+                                            Aether: {match['full_res']['ae_res']['skor']} (%{match['full_res']['ae_res']['conf']}) | 
+                                            Wickham: {match['full_res']['wx_res']['skor']} (%{match['full_res']['wx_res']['conf']}) | 
+                                            Nexus: {match['full_res']['nx_res']['skor']} (%{match['full_res']['nx_res']['conf']})
+                                        </div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                    else:
+                        st.caption("Filtrelere takılan ek deneme maçı bulunmuyor.")
+                else:
+                    st.info(f"{robot_isimleri[i]} vizöründe bu hafta elit lig maçı bulunamadı.")
     else:
-        st.info("Lütfen önce bülteni hasat edin.")
+        st.warning("⚠️ Ambar boş. Lütfen önce hasat yapın.")
 
-elif mod == "💎 Value Hunter":
-    st.title("🎯 VALUE HUNTER: CANLI TAHMİN TERMİNALİ")
-    if os.path.exists(BULTEN_DOSYASI):
-        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
-            b_data = json.load(f)
-            
-        g_l = []
-        for m in b_data:
-            ex_val = m.get('ex', 1.5)
-            ax_val = m.get('ax', 1.2)
-            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
-            if res:
-                m['res'] = res
-                g_l.append(m)
-                
-        if g_l:
-            v_tabs = st.tabs(["🧪 WICKHAM", "✨ AETHER", "🛡️ NEXUS"])
-            rb_cfg = [("w_c", "wickham", v_tabs[0], "🧪 Wickham"), ("ae_c", "aether", v_tabs[1], "✨ Aether"), ("n_c", "nexus", v_tabs[2], "🛡️ Nexus")]
-            
-            for p_k, t_k, tab, name in rb_cfg:
-                with tab:
-                    st.markdown(f"### {name} Fırsat Akışı")
-                    top_v = sorted(g_l, key=lambda x: x['res'].get(p_k, 0), reverse=True)[:10]
-                    for m in top_v:
-                        st.markdown(f"""
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #30363d; background: rgba(22, 27, 34, 0.5); border-radius: 8px; margin-bottom: 5px;">
-                            <div><b>{m.get('home_name')} - {m.get('away_name')}</b><br><small>📍 {m.get('league_name')}</small></div>
-                            <div><span style="background:#1f6feb; color:white; padding:4px 8px; border-radius:5px; font-size:0.75rem; font-weight:bold;">{m['res'][t_k]}</span></div>
-                            <div style="color:#58A6FF; font-weight:bold;">%{int(m['res'][p_k])} <br><small style="color:#8B949E;">Güven</small></div>
-                        </div>
-                        """, unsafe_allow_html=True)
+elif mod == "📚 Kupon Arşivi":
+    st.title("📂 Mühürlü Kupon Geçmişi")
+    if os.path.exists(ARSIV_DOSYASI):
+        with open(ARSIV_DOSYASI, "r", encoding="utf-8") as f:
+            arsiv_verisi = json.load(f)
+        st.info("Daha önce 'Mühürle' dediğin tüm kuponlar burada saklanır.")
+        st.json(arsiv_verisi) 
+    else:
+        st.warning("Henüz mühürlenmiş bir kupon bulunamadı.")
+
+elif mod == "📂 Veri Bankası":
+    st.title("🗄️ MSI Operasyon Veri Merkezi")
+    tab1, tab2 = st.tabs(["📅 Güncel Bülten", "📚 Geçmiş Arşiv"])
+    with tab1:
+        st.subheader("Taze Hasat Edilen Maçlar")
+        if os.path.exists(BULTEN_DOSYASI):
+            with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
+                bulten_verisi = json.load(f)
+            st.metric("📦 Bülten Maç Sayısı", len(bulten_verisi))
+            st.dataframe(pd.DataFrame(bulten_verisi), use_container_width=True)
         else:
-            st.warning("Analiz edilecek canlı akış verisi yok.")
-
-elif mod == "🏆 Onur Listesi":
-    st.title("🏆 Yapay Zeka Onur Listesi")
-    
-    manuel_veriler = {
-        1: {"W": {"p": 75, "t": "Başlangıç"}, "A": {"p": 88, "t": "Stabil"}, "N": {"p": 82, "t": "Defansif"}},
-        3: {"W": {"p": 94, "t": "DOMİNASYON 🔥"}, "A": {"p": 85, "t": "Stabil"}, "N": {"p": 88, "t": "Duvar"}}
-    }
-    
-    otonom = {int(k): v for k, v in st.session_state.get('otonom_kayitlar', {}).items()}
-    kupon_sonuclari = {**manuel_veriler, **otonom}
-    
-    secilen_h = st.select_slider("⚙️ İncele", options=list(range(1, site_h_aktif + 1)), value=max(1, site_h_aktif - 1))
-    h_detay = kupon_sonuclari.get(secilen_h, {})
-    
-    cols = st.columns(3)
-    r_config = [("W", "WICKHAM", "#d73a49", "🧪"), ("A", "AETHER", "#58A6FF", "✨"), ("N", "NEXUS", "#3fb950", "🛡️")]
-    
-    for i, (r_id, r_name, color, emoji) in enumerate(r_config):
-        data = h_detay.get(r_id, {"p": 0, "t": "İşlem Bekliyor ⏳"})
-        with cols[i]:
-            st.markdown(f"""
-            <div style="background: rgba(22, 27, 34, 0.6); padding: 10px; border-radius: 10px; border-top: 4px solid {color}; text-align: center;">
-                <h3 style="margin:0; color:{color}; font-size: 0.9rem;">{emoji} {r_name}</h3>
-                <h2 style="margin:5px 0; color: white; font-size: 1.5rem;">%{data['p']}</h2>
-                <div style="font-size: 0.7rem; color:{color}; font-weight: bold;">{data['t']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.progress(data['p'] / 100)
+            st.warning("Henüz bülten hasat edilmedi.")
+    with tab2:
+        st.subheader("Geçmiş Veri Bankası (Pazartesi Hasadı)")
+        if os.path.exists(VERİ_BANKASI_DOSYASI):
+            with open(VERİ_BANKASI_DOSYASI, "r", encoding="utf-8") as f:
+                arsiv_verisi = json.load(f)
+            st.metric("📦 Arşivdeki Toplam Maç", len(arsiv_verisi))
+            st.dataframe(pd.DataFrame(arsiv_verisi).tail(100), use_container_width=True)
+            st.download_button("📥 Arşivi İndir", data=json.dumps(arsiv_verisi, indent=4), file_name="msi_futbol_bankasi.json")
