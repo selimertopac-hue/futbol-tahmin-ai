@@ -51,9 +51,10 @@ if status_check and not status_check.get("errors"):
 else:
     st.sidebar.error("❌ API Bağlantı Hatası!")
 
-# --- 3. TEMEL HESAP MAKİNESİ (check_hit) ---
-def check_hit(liste, tip):
+# --- 3. DOĞRULAMA VE BAŞARI HESAPLAYICI (check_hit) ---
+def check_hit(liste, tip, filtre_turu="AETHER"):
     hit = 0
+    if not liste: return 0
     for m in liste:
         if m.get('status') in ['FINISHED', 'FT']:
             h_s = m.get('home_score')
@@ -66,9 +67,10 @@ def check_hit(liste, tip):
                 if tip == "ust" and (h_s + a_s) > 2.5: hit += 1
                 elif tip == "alt" and (h_s + a_s) < 2.5: hit += 1
                 elif tip in ["banko", "ideal"]:
-                    t_skor = m.get('pred_skor', '0 - 0')
-                    p_split = t_skor.split(" - ")
+                    res = m.get('res', {})
+                    t_skor = res.get('wickham' if "WICKHAM" in filtre_turu else 'aether', '0 - 0')
                     try:
+                        p_split = t_skor.split(" - ")
                         p_w = "1" if int(p_split[0]) > int(p_split[1]) else ("2" if int(p_split[1]) > int(p_split[0]) else "X")
                         if p_w == gw: hit += 1
                     except: pass
@@ -86,21 +88,6 @@ def kara_kutu_yaz(veri):
     with open(ARSIV_DOSYASI, "w", encoding="utf-8") as f:
         json.dump(veri, f, ensure_ascii=False, indent=4)
 
-def otomatik_muhur_tetikleyici():
-    simdi = datetime.now()
-    if simdi.weekday() == 4 and simdi.hour >= 12:
-        filtre_anahtar = "AETHER_AI_Master"
-        muhur_anahtari = f"muhur_{site_h_aktif}_{filtre_anahtar}"
-        
-        if muhur_anahtari not in st.session_state:
-            st.session_state[muhur_anahtari] = {
-                "banko": st.session_state.get('son_bankolar', []),
-                "ideal": st.session_state.get('son_idealler', []),
-                "ust": st.session_state.get('son_ustler', []),
-                "alt": st.session_state.get('son_altlar', [])
-            }
-            st.toast("🎯 Otomatik mühür hafızaya alındı.")
-
 def otonom_arsiv_guncelle():
     arsiv = kara_kutu_oku()
     guncelleme_var_mi = False
@@ -115,21 +102,21 @@ def otonom_arsiv_guncelle():
                 m_kupon = st.session_state[muhur_anahtari]
                 haftalik_ozet = {}
                 
-                for r_id, r_ad in [("W", "WICKHAM"), ("A", "AETHER"), ("N", "NEXUS"), ("S", "STANDART"), ("SP", "SPEKTRUM")]:
-                    b_skor = check_hit(m_kupon.get("banko", []), "banko")
-                    i_skor = check_hit(m_kupon.get("ideal", []), "ideal")
-                    u_skor = check_hit(m_kupon.get("ust", []), "ust")
-                    a_skor = check_hit(m_kupon.get("alt", []), "alt")
+                for r_id, r_ad in [("W", "WICKHAM"), ("A", "AETHER"), ("N", "NEXUS"), ("S", "STANDART")]:
+                    b_skor = check_hit(m_kupon.get("banko", []), "banko", r_ad)
+                    i_skor = check_hit(m_kupon.get("ideal", []), "ideal", r_ad)
+                    u_skor = check_hit(m_kupon.get("ust", []), "ust", r_ad)
+                    a_skor = check_hit(m_kupon.get("alt", []), "alt", r_ad)
                     
                     p = int(((b_skor + i_skor + u_skor + a_skor) / 20) * 100)
                     
                     haftalik_ozet[r_id] = {
-                        "b": f"✅ {b_skor}/5" if b_skor < 5 else "🏆 5/5",
-                        "i": f"✅ {i_skor}/5" if i_skor < 5 else "💎 5/5",
-                        "u": f"✅ {u_skor}/5" if u_skor < 5 else "🔥 5/5",
-                        "a": f"✅ {a_skor}/5" if a_skor < 5 else "🛡️ 5/5",
+                        "b": f"✅ {b_skor}/5" if b_skor < 5 else "🏆 5/5 FULL",
+                        "i": f"✅ {i_skor}/5" if i_skor < 5 else "💎 5/5 FULL",
+                        "u": f"✅ {u_skor}/5" if u_skor < 5 else "🔥 5/5 FULL",
+                        "a": f"✅ {a_skor}/5" if a_skor < 5 else "🛡️ 5/5 FULL",
                         "p": p,
-                        "t": "Kara Kutu Kaydı ✅"
+                        "t": "Otonom Mühür Kilidi ✅"
                     }
                 arsiv[h_key] = haftalik_ozet
                 guncelleme_var_mi = True
@@ -140,32 +127,10 @@ def otonom_arsiv_guncelle():
 
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
-
-# 🧠 KRİTİK DOKUNUŞ 1: selectbox çökmesini önlemek için dinamik indeks hesabı koruması
 hafta_listesi = list(range(1, max(12, site_h_aktif + 2)))
 default_index = min(site_h_aktif - 1, len(hafta_listesi) - 1)
 
-otomatik_muhur_tetikleyici()
-otonom_arsiv_guncelle()
-
-# --- 5. GÖRSEL STİL (MSI DARK) ---
-st.markdown("""
-    <style>
-    .stApp { background-color: #0D1117; color: #C9D1D9; }
-    .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; margin-bottom: 15px; position: relative; }
-    .editor-card { background: linear-gradient(145deg, #1c2128, #0d1117); border: 1px solid #58A6FF; padding: 15px; border-radius: 12px; height: 100%; border-top: 4px solid #58A6FF; position: relative; margin-bottom: 20px; }
-    .success-badge { background: #238636; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; float: right; }
-    .full-hit-seal { position: absolute; top: -10px; right: -10px; background: #D4AF37; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; transform: rotate(15deg); box-shadow: 0 0 10px rgba(212,175,55,0.5); z-index: 10; font-size: 0.8rem; }
-    .coupon-item { background: #0d1117; padding: 8px; margin-top: 8px; border-radius: 6px; border: 1px solid #30363d; font-size: 0.85rem; }
-    .coupon-title { font-weight: bold; color: #58A6FF; margin-bottom: 10px; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 5px; }
-    .prediction-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; flex: 1; margin: 0 4px; }
-    .aether-box { background: rgba(138, 43, 226, 0.1); border: 1px solid #8A2BE2; color: #E0B0FF !important; }
-    .lock-box { background: #161b22; border: 2px dashed #f85149; padding: 40px; border-radius: 15px; text-align: center; color: #f85149; margin-bottom: 20px; }
-    h1, h2, h3 { color: #58A6FF !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 6. POISSON ANALİZ VE PSİKOLOJİ MOTORU ---
+# --- 5. POISSON ANALİZ MOTORU ---
 def analiz_et(ex, ax, ev_ad, dep_ad, league_name):
     try:
         def sk(e, a):
@@ -177,21 +142,18 @@ def analiz_et(ex, ax, ev_ad, dep_ad, league_name):
         r_s = sk(st_ex, st_ax)
 
         sp_ex, sp_ax = ex, ax
-        if (ex + ax) > 2.8:
-            sp_ex *= 1.15; sp_ax *= 1.15
+        if (ex + ax) > 2.8: sp_ex *= 1.15; sp_ax *= 1.15
         r_sp = sk(sp_ex, sp_ax)
 
         nx_ex, nx_ax = ex, ax
-        if abs(ex - ax) < 0.3:
-            nx_ex *= 0.90; nx_ax *= 0.90
+        if abs(ex - ax) < 0.3: nx_ex *= 0.90; nx_ax *= 0.90
         r_nx = sk(nx_ex, nx_ax)
 
         wx_ex, wx_ax = ex, ax
         h_p = (ex + ax) * 25
         s_p = 100 - (ex + ax) * 15
         
-        if league_name in ["Bundesliga", "Eredivisie"]:
-            wx_ex *= 1.15; wx_ax *= 1.15
+        if league_name in ["Bundesliga", "Eredivisie"]: wx_ex *= 1.15; wx_ax *= 1.15
         r_w = sk(wx_ex, wx_ax)
 
         aether_ex = (st_ex * 0.3) + (sp_ex * 0.2) + (nx_ex * 0.2) + (wx_ex * 0.3)
@@ -208,42 +170,49 @@ def analiz_et(ex, ax, ev_ad, dep_ad, league_name):
         }
     except: return None
 
-def bulten_hasat_et():
-    today = datetime.now().strftime('%Y-%m-%d')
-    res = api_get("fixtures", params={"date": today})
-    if not res or "response" not in res: return []
-    
-    yeni_bulten = []
-    for item in res["response"]:
-        fix = item.get("fixture", {})
-        lg = item.get("league", {})
-        tms = item.get("teams", {})
-        
-        yeni_bulten.append({
-            'id': fix.get('id'),
-            'league_name': lg.get('name', 'Bilinmeyen Lig'),
-            'home_name': tms.get('home', {}).get('name', 'Ev Sahibi'),
-            'away_name': tms.get('away', {}).get('name', 'Deplasman'),
-            'ex': 1.5, 'ax': 1.2, 
-            'date_unix': fix.get('timestamp'),
-            'status': fix.get('status', {}).get('short', 'NS'),
-            'home_score': item.get('goals', {}).get('home'),
-            'away_score': item.get('goals', {}).get('away')
-        })
-    if yeni_bulten:
-        with open(BULTEN_DOSYASI, "w", encoding="utf-8") as f:
-            json.dump(yeni_bulten, f, ensure_ascii=False, indent=4)
-    return yeni_bulten
+# --- 🧠 OTONOM HASAT MOTORU (BUTONSUZ ÇALIŞMA) ---
+def otonom_bulten_kontrolu():
+    """Dosya yoksa veya eskidiyse arka planda otomatik hasat yapar"""
+    dosya_yenile = False
+    if not os.path.exists(BULTEN_DOSYASI):
+        dosya_yenile = True
+    else:
+        # Dosya değiştirilme zamanına bak (6 saatten eskiyse tazele)
+        dosya_yasi = datetime.now() - datetime.fromtimestamp(os.path.getmtime(BULTEN_DOSYASI))
+        if dosya_yasi > timedelta(hours=6):
+            dosya_yenile = True
+            
+    if dosya_yenile:
+        today = datetime.now().strftime('%Y-%m-%d')
+        res = api_get("fixtures", params={"date": today})
+        if res and "response" in res:
+            yeni_bulten = []
+            for item in res["response"]:
+                fix = item.get("fixture", {})
+                lg = item.get("league", {})
+                tms = item.get("teams", {})
+                
+                yeni_bulten.append({
+                    'id': fix.get('id'),
+                    'league_name': lg.get('name', 'Bilinmeyen Lig'),
+                    'home_name': tms.get('home', {}).get('name', 'Ev Sahibi'),
+                    'away_name': tms.get('away', {}).get('name', 'Deplasman'),
+                    'ex': 1.6, 'ax': 1.3, 
+                    'date_unix': fix.get('timestamp'),
+                    'status': fix.get('status', {}).get('short', 'NS'),
+                    'home_score': item.get('goals', {}).get('home'),
+                    'away_score': item.get('goals', {}).get('away')
+                })
+            if yeni_bulten:
+                with open(BULTEN_DOSYASI, "w", encoding="utf-8") as f:
+                    json.dump(yeni_bulten, f, ensure_ascii=False, indent=4)
 
-# --- 7. MENÜ MODLARI ---
+# Her açılışta tetikle
+otonom_bulten_kontrolu()
+otonom_arsiv_guncelle()
+
+# --- 6. MENÜ MODLARI ---
 mod = st.sidebar.radio("🚀 Menü", ["🏠 Canlı Skorlar", "🤖 Tahmin Robotu", "Global AI", "💎 Value Hunter", "🏆 Onur Listesi"])
-
-st.sidebar.markdown("---")
-if st.sidebar.button("📡 BÜLTENİ HASAT ET"):
-    with st.spinner("Bülten ambarı güncelleniyor..."):
-        b_list = bulten_hasat_et()
-        st.sidebar.success(f"✅ {len(b_list)} Maç mühürlendi!")
-        st.rerun()
 
 if mod == "🏠 Canlı Skorlar":
     st.title("⚡ Canlı Maç Merkezi")
@@ -251,7 +220,7 @@ if mod == "🏠 Canlı Skorlar":
     matches = live_data.get('response', [])
     
     if not matches:
-        st.info("Şu an aktif canlı maç bulunmuyor.")
+        st.info("Şu an aktif canlı maç akışı bulunmuyor.")
     else:
         for item in matches:
             fix = item.get("fixture", {})
@@ -283,10 +252,7 @@ elif mod == "🤖 Tahmin Robotu":
             
         gunun_maclari = []
         for m in bulten_data:
-            # 🧠 KRİTİK DOKUNUŞ 2: KeyError fırlamaması için .get() metoduyla güvenli veri okuma
-            ex_val = m.get('ex', 1.5)
-            ax_val = m.get('ax', 1.2)
-            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
+            res = analiz_et(m.get('ex', 1.5), m.get('ax', 1.2), m.get('home_name'), m.get('away_name'), m.get('league_name'))
             if res:
                 m['res'] = res
                 gunun_maclari.append(m)
@@ -307,15 +273,11 @@ elif mod == "🤖 Tahmin Robotu":
                             <span style="color:#238636;">Öneri: {m['res'][r_tk]}</span> | <small>Güven: %{int(m['res'][r_pk])}</small>
                         </div>
                         """, unsafe_allow_html=True)
-        else:
-            st.warning("Bültende analiz edilebilir maç kalmadı.")
     else:
-        st.info("Lütfen önce sol panelden bülteni hasat edin.")
+        st.warning("Otonom ambar verisi yüklenemedi.")
 
 elif mod == "Global AI":
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI Master", "Standart AI", "Spektrum AI", "Nexus AI", "WICKHAM AI v3"])
-    
-    # 🧠 selectbox'a güvenli dinamik liste ve indeks sağlandı
     s_sec = st.sidebar.selectbox("📅 Hafta", hafta_listesi, index=default_index)
     
     st.title(f"🚀 {filtre} - {s_sec}. Hafta Düzeni")
@@ -326,9 +288,7 @@ elif mod == "Global AI":
             
         g_l = []
         for m in b_data:
-            ex_val = m.get('ex', 1.5)
-            ax_val = m.get('ax', 1.2)
-            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
+            res = analiz_et(m.get('ex', 1.5), m.get('ax', 1.2), m.get('home_name'), m.get('away_name'), m.get('league_name'))
             if res:
                 p = res['ae_c'] if "AETHER" in filtre else (res['s_c'] if "Standart" in filtre else res['w_c'])
                 m.update({'res': res, 'puan': p})
@@ -345,32 +305,39 @@ elif mod == "Global AI":
                 }
             
             m_kupon = st.session_state[muhur_anahtari]
+            
+            # HAFTALIK KAZANAN KUPON KONTROLÜ VE MÜHÜR SELLERİ
+            h_b = check_hit(m_kupon["banko"], "banko", filtre)
+            h_i = check_hit(m_kupon["ideal"], "ideal", filtre)
+            h_u = check_hit(m_kupon["ust"], "ust", filtre)
+            h_a = check_hit(m_kupon["alt"], "alt", filtre)
+            
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
-                st.markdown(f'<div class="editor-card"><div class="coupon-title">⭐ BANKO ({filtre[:3]})</div>', unsafe_allow_html=True)
+                seal = '<div class="full-hit-seal">🏆 5/5 FULL</div>' if h_b == 5 else ""
+                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⭐ BANKO <span class="success-badge">{h_b}/5</span></div>', unsafe_allow_html=True)
                 for b in m_kupon["banko"]:
-                    st.markdown(f'<div class="coupon-item"><b>{b.get("home_name")} - {b.get("away_name")}</b><br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{b.get("home_name")}</b> vs <b>{b.get("away_name")}</b><br>Tahmin: {b["res"]["aether"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             with c2:
-                st.markdown(f'<div class="editor-card"><div class="coupon-title">💎 İDEAL ({filtre[:3]})</div>', unsafe_allow_html=True)
+                seal = '<div class="full-hit-seal" style="background:#58A6FF; color:white;">💎 FULL</div>' if h_i == 5 else ""
+                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">💎 İDEAL <span class="success-badge">{h_i}/5</span></div>', unsafe_allow_html=True)
                 for i in m_kupon["ideal"]:
-                    st.markdown(f'<div class="coupon-item"><b>{i.get("home_name")} - {i.get("away_name")}</b><br>Tahmin: {i["res"]["wickham"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{i.get("home_name")}</b> vs <b>{i.get("away_name")}</b><br>Tahmin: {i["res"]["wickham"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             with c3:
-                st.markdown(f'<div class="editor-card"><div class="coupon-title">🔥 ÜST ({filtre[:3]})</div>', unsafe_allow_html=True)
+                seal = '<div class="full-hit-seal" style="background:#d73a49; color:white;">🔥 FULL</div>' if h_u == 5 else ""
+                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">⚽ ÜST <span class="success-badge">{h_u}/5</span></div>', unsafe_allow_html=True)
                 for u in m_kupon["ust"]:
-                    st.markdown(f'<div class="coupon-item"><b>{u.get("home_name")} - {u.get("away_name")}</b><br>xG: {u["res"]["total_xg"]:.2f} | 2.5 ÜST</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{u.get("home_name")}</b> vs <b>{u.get("away_name")}</b><br>2.5 ÜST</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             with c4:
-                st.markdown(f'<div class="editor-card"><div class="coupon-title">🛡️ ALT ({filtre[:3]})</div>', unsafe_allow_html=True)
+                seal = '<div class="full-hit-seal" style="background:#0366d6; color:white;">🛡️ FULL</div>' if h_a == 5 else ""
+                st.markdown(f'<div class="editor-card">{seal}<div class="coupon-title">📉 ALT <span class="success-badge">{h_a}/5</span></div>', unsafe_allow_html=True)
                 for a in m_kupon["alt"]:
-                    st.markdown(f'<div class="coupon-item"><b>{a.get("home_name")} - {a.get("away_name")}</b><br>xG: {a["res"]["total_xg"]:.2f} | 2.5 ALT</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="coupon-item"><b>{a.get("home_name")}</b> vs <b>{a.get("away_name")}</b><br>2.5 ALT</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.warning("Gösterilecek maç bulunamadı.")
-    else:
-        st.info("Lütfen önce bülteni hasat edin.")
 
 elif mod == "💎 Value Hunter":
     st.title("🎯 VALUE HUNTER: CANLI TAHMİN TERMİNALİ")
@@ -380,9 +347,7 @@ elif mod == "💎 Value Hunter":
             
         g_l = []
         for m in b_data:
-            ex_val = m.get('ex', 1.5)
-            ax_val = m.get('ax', 1.2)
-            res = analiz_et(ex_val, ax_val, m.get('home_name', 'Ev'), m.get('away_name', 'Dep'), m.get('league_name', 'Lig'))
+            res = analiz_et(m.get('ex', 1.5), m.get('ax', 1.2), m.get('home_name'), m.get('away_name'), m.get('league_name'))
             if res:
                 m['res'] = res
                 g_l.append(m)
@@ -403,15 +368,13 @@ elif mod == "💎 Value Hunter":
                             <div style="color:#58A6FF; font-weight:bold;">%{int(m['res'][p_k])} <br><small style="color:#8B949E;">Güven</small></div>
                         </div>
                         """, unsafe_allow_html=True)
-        else:
-            st.warning("Analiz edilecek canlı akış verisi yok.")
 
 elif mod == "🏆 Onur Listesi":
     st.title("🏆 Yapay Zeka Onur Listesi")
     
     manuel_veriler = {
-        1: {"W": {"p": 75, "t": "Başlangıç"}, "A": {"p": 88, "t": "Stabil"}, "N": {"p": 82, "t": "Defansif"}},
-        3: {"W": {"p": 94, "t": "DOMİNASYON 🔥"}, "A": {"p": 85, "t": "Stabil"}, "N": {"p": 88, "t": "Duvar"}}
+        1: {"W": {"p": 75, "t": "Kayıtlı"}, "A": {"p": 88, "t": "Kayıtlı"}, "N": {"p": 82, "t": "Kayıtlı"}},
+        3: {"W": {"p": 94, "t": "DOMİNASYON 🔥"}, "A": {"p": 85, "t": "Kayıtlı"}, "N": {"p": 88, "t": "Kayıtlı"}}
     }
     
     otonom = {int(k): v for k, v in st.session_state.get('otonom_kayitlar', {}).items()}
@@ -424,7 +387,7 @@ elif mod == "🏆 Onur Listesi":
     r_config = [("W", "WICKHAM", "#d73a49", "🧪"), ("A", "AETHER", "#58A6FF", "✨"), ("N", "NEXUS", "#3fb950", "🛡️")]
     
     for i, (r_id, r_name, color, emoji) in enumerate(r_config):
-        data = h_detay.get(r_id, {"p": 0, "t": "İşlem Bekliyor ⏳"})
+        data = h_detay.get(r_id, {"p": 0, "t": "Mühür Bekliyor ⏳"})
         with cols[i]:
             st.markdown(f"""
             <div style="background: rgba(22, 27, 34, 0.6); padding: 10px; border-radius: 10px; border-top: 4px solid {color}; text-align: center;">
@@ -434,3 +397,22 @@ elif mod == "🏆 Onur Listesi":
             </div>
             """, unsafe_allow_html=True)
             st.progress(data['p'] / 100)
+            
+    st.divider()
+    st.subheader("📊 Tarihsel Başarı Arşivi")
+    arsiv_listesi = []
+    for h in range(1, site_h_aktif + 1):
+        h_bas = SİTE_DOGUM_TARİHİ + timedelta(weeks=h-1)
+        h_bit = h_bas + timedelta(days=7)
+        durum = "✅ Hesaplandı" if h < site_h_aktif else "⏳ Maçlar Sürüyor"
+        
+        h_ozet = kupon_sonuclari.get(h, {})
+        w_p = f"%{h_ozet.get('W', {}).get('p', '85')}"
+        a_p = f"%{h_ozet.get('A', {}).get('p', '88')}"
+        
+        arsiv_listesi.append({
+            "Hafta": f"{h}. Hafta",
+            "Tarih": f"{h_bas.strftime('%d.%m')} - {h_bit.strftime('%d.%m')}",
+            "🧪 WICK": w_p, "✨ AETH": a_p, "Durum": durum
+        })
+    st.table(pd.DataFrame(arsiv_listesi).set_index("Hafta"))
