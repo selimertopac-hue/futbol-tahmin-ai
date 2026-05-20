@@ -209,6 +209,29 @@ def titan_council_v19_5(m):
         }
     except: return None
 
+def kuponu_arsive_kilitle(kupon_adi, maclar, filtre_adi):
+    arsiv_verisi = []
+    if os.path.exists(ARSIV_DOSYASI):
+        with open(ARSIV_DOSYASI, "r", encoding="utf-8") as f:
+            try: arsiv_verisi = json.load(f)
+            except: arsiv_verisi = []
+    yeni_kayit = {"tarih": datetime.now().strftime("%Y-%m-%d %H:%M"), "kupon_adi": kupon_adi, "filtre": filtre_adi, "maclar": []}
+    
+    # 🧠 DÖNGÜ KAYMASI DÜZELTİLDİ: m artık doğru şekilde 'maclar' listesinden dönecek
+    for m in maclar:
+        karar = "2.5 ÜST" if m['c_res']['xg'] > 2.6 else f"MS {winner(m['c_res']['skor'])}"
+        yeni_kayit["maclar"].append({
+            "lig": m.get('league_name'), 
+            "karsilasma": f"{m.get('home_name')} - {m.get('away_name')}", 
+            "tahmin": karar, 
+            "beklenen_skor": m['c_res']['skor'], 
+            "guven": m['avg_conf']
+        })
+    arsiv_verisi.append(yeni_kayit)
+    with open(ARSIV_DOSYASI, "w", encoding="utf-8") as f:
+        json.dump(arsiv_verisi, f, ensure_ascii=False, indent=4)
+    st.toast(f"🎯 {kupon_adi} ai_arsiv.json Dosyasına İşlendi!")
+
 if 'bulten_verileri' not in st.session_state:
     if os.path.exists(BULTEN_DOSYASI):
         with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
@@ -219,7 +242,7 @@ if 'bulten_verileri' not in st.session_state:
 # --- 5. NAVİGASYON PANELİ ---
 mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "Global AI", "🔬 Titan Sentez Laboratuvarı", "📚 Kupon Arşivi", "📂 JSON Veri Merkezi"], key="main_menu")
 
-# --- 6. SENSEZ SAYFA MODLARI TASARIMI ---
+# --- 6. SAYFA MODLARI TASARIMI ---
 
 if mod == "🤖 Tahmin Robotu":
     st.title(f"🚀 Titan v19.7: {hafta_secim}. Hafta Mühürlü Kuponları")
@@ -250,6 +273,8 @@ if mod == "🤖 Tahmin Robotu":
                             <b>{match['home_name'][:12]} - {match['away_name'][:12]}</b><br>
                             <span style='color:{k_ayar['renk']}; font-weight:bold;'>{karar}</span> (%{int(match['avg_conf'])})
                         </div>""", unsafe_allow_html=True)
+                if st.button(f"Mühürle", key=f"btn_k_{i}"):
+                    kuponu_arsive_kilitle(k_ayar['ad'], kupon_maclari, "Titan Council v19.5")
 
         st.divider()
         st.subheader("🌐 Konsey Ortak Karar Terminali (En İyi 20 Fırsat)")
@@ -318,7 +343,7 @@ elif mod == "Global AI":
                             <small>Tahmin: {match['res']['skor']} (Güven: %{match['res']['guven']})</small>
                         </div>""", unsafe_allow_html=True)
 
-# --- 🔬 "TİTAN SENTEZ LABORATUVARI" (YAMALANMIŞ GÜVENLİ KOD) ---
+# --- 🔬 "TİTAN SENTEZ LABORATUVARI" (PANDAS ATTR HATASI DÜZELTİLDİ) ---
 elif mod == "🔬 Titan Sentez Laboratuvarı":
     st.title("🔬 Titan Sentez Laboratuvarı v1.0")
     st.subheader("🕵️ Özelleştirilmiş Matematiksel Korelasyon Odası")
@@ -332,26 +357,20 @@ elif mod == "🔬 Titan Sentez Laboratuvarı":
             
         df_arsiv = pd.DataFrame(arsiv_verileri)
         
-        # 🛡️ YAMA 1: KeyError Kalkanı - Eksik olan kolonları otonom tespit et ve güvenli varsayılan değerleri bas
+        # Sütun Güvenlik Kalkanı
         gerekli_kolonlar = {
-            'team_a_xg_prematch': 1.5,
-            'team_b_xg_prematch': 1.2,
-            'btts_potential': 50,
-            'o25_potential': 50,
-            'shot_conversion_rate_home': 10.0,
-            'seasonConcededAVG_away': 1.2,
-            'homeGoalCount': 0,
-            'awayGoalCount': 0,
-            'league_name': 'Bilinmeyen Lig'
+            'team_a_xg_prematch': 1.5, 'team_b_xg_prematch': 1.2,
+            'btts_potential': 50, 'o25_potential': 50,
+            'shot_conversion_rate_home': 10.0, 'seasonConcededAVG_away': 1.2,
+            'homeGoalCount': 0, 'awayGoalCount': 0, 'league_name': 'Bilinmeyen Lig'
         }
         for col, def_val in gerekli_kolonlar.items():
             if col not in df_arsiv.columns:
                 df_arsiv[col] = def_val
             else:
-                # Kolon var ama içi null/NaN ise doldur
                 df_arsiv[col] = df_arsiv[col].fillna(def_val)
         
-        # Tip Dönüşümleri (Korelasyon motorunun düzgün filtrelemesi için şart)
+        # Tip Normalizasyonları
         df_arsiv['team_a_xg_prematch'] = df_arsiv['team_a_xg_prematch'].astype(float)
         df_arsiv['team_b_xg_prematch'] = df_arsiv['team_b_xg_prematch'].astype(float)
         df_arsiv['btts_potential'] = df_arsiv['btts_potential'].astype(int)
@@ -389,9 +408,8 @@ elif mod == "🔬 Titan Sentez Laboratuvarı":
             min_home_conv = st.slider("Min Ev Şut/Gol Dönüşüm Oranı (%)", 0.0, 25.0, 11.5, step=0.5)
             max_away_conceded = st.slider("Max Dep Gol Yeme Ortalaması", 0.0, 3.5, 1.4, step=0.1)
 
-        # --- 🛡️ YAMA 2: GÜVENLİ VE BANTLI SORGULAMA DÖNGÜSÜ ---
+        # Filtreleme İşlemi
         df_filtreli = df_arsiv[df_arsiv['league_name'].isin(secilen_ligler)]
-        
         df_filtreli = df_filtreli[
             (df_filtreli['team_a_xg_prematch'] >= min_home_xg) &
             (df_filtreli['team_b_xg_prematch'] <= max_away_xg) &
@@ -403,11 +421,10 @@ elif mod == "🔬 Titan Sentez Laboratuvarı":
         
         st.divider()
         st.markdown("### 📊 Sentez Sonuç Karnesi")
-        
         toplam_eslesen = len(df_filtreli)
         
         if toplam_eslesen == 0:
-            st.info("🔎 Girdiğiniz ağır teorik kriterlere uyan geçmiş maç bulunamadı. Sürgüleri biraz esnetmeyi deneyin.")
+            st.info("🔎 Girdiğiniz ağır kriterlere uyan geçmiş maç bulunamadı. Sürgüleri biraz esnetmeyi deneyin.")
         else:
             btts_count = len(df_filtreli[(df_filtreli['homeGoalCount'] > 0) & (df_filtreli['awayGoalCount'] > 0)])
             o25_count = len(df_filtreli[(df_filtreli['homeGoalCount'] + df_filtreli['awayGoalCount']) > 2.5])
@@ -418,21 +435,19 @@ elif mod == "🔬 Titan Sentez Laboratuvarı":
             p_ms1 = (ms1_count / toplam_eslesen) * 100
             
             c_res1, c_res2, c_res3, c_res4 = st.columns(4)
-            with c_res1:
-                st.metric("📋 Eşleşen Maç Sayısı", toplam_eslesen)
-            with c_res2:
-                st.metric("🔥 2.5 Üst Başarısı", f"%{p_o25:.1f}", f"{o25_count} Maç")
-            with c_res3:
-                st.metric("⚽ KG Var Başarısı", f"%{p_btts:.1f}", f"{btts_count} Maç")
-            with c_res4:
-                st.metric("🎯 MS 1 (Ev Sahibi)", f"%{p_ms1:.1f}", f"{ms1_count} Maç")
+            with c_res1: st.metric("📋 Eşleşen Maç Sayısı", toplam_eslesen)
+            with c_res2: st.metric("🔥 2.5 Üst Başarısı", f"%{p_o25:.1f}", f"{o25_count} Maç")
+            with c_res3: st.metric("⚽ KG Var Başarısı", f"%{p_btts:.1f}", f"{btts_count} Maç")
+            with c_res4: st.metric("🎯 MS 1 (Ev Sahibi)", f"%{p_ms1:.1f}", f"{ms1_count} Maç")
                 
             st.write("---")
-            st.markdown("##### 🗂️ Bu Kriterlere Uyan Örnek Geçmiş Maçlar ve Skorları")
+            st.markdown("##### 🗂️ Bu Kriterlere Uyan Örnek Geçmiş Maçlar (Son 50 Kayıt)")
             
             df_display = df_filtreli[['league_name', 'home_name', 'away_name', 'homeGoalCount', 'awayGoalCount', 'team_a_xg_prematch', 'team_b_xg_prematch']].copy()
             df_display.columns = ['Lig', 'Ev Sahibi', 'Deplasman', 'Ev Gol', 'Dep Gol', 'Ev xG', 'Dep xG']
-            st.dataframe(df_display.reverse().head(50), use_container_width=True)
+            
+            # 🔧 ÇÖZÜM: .reverse() yerine Pandas standardı olan .iloc[::-1] entegre edildi
+            st.dataframe(df_display.iloc[::-1].head(50), use_container_width=True)
 elif mod == "📚 Kupon Arşivi":
     st.title("📂 Mühürlü Kupon Geçmişi (ai_arsiv.json)")
     if os.path.exists(ARSIV_DOSYASI):
