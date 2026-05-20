@@ -37,7 +37,6 @@ def api_get(endpoint, params={}):
 st.sidebar.title("🛡️ MSI Operasyon Merkezi")
 st.sidebar.markdown("### 📡 API Durum Testi")
 
-# /status hata verse bile uygulamanın kilitlenmesini engelleyen akıllı koruma katmanı
 with st.sidebar.spinner("API Sağlık Kontrolü yapılıyor..."):
     status_check = api_get("status")
     
@@ -51,7 +50,6 @@ if status_check and not status_check.get("errors") and status_check.get("respons
     st.sidebar.progress(min(1.0, requests_made / max(1, requests_limit)))
     st.sidebar.caption(f"Bugünkü İstek Tüketimi: {requests_made} / {requests_limit}")
 else:
-    # Serbest Mod Kalkanı: Paket kısıtlı olsa bile sistem anahtarı doğrular ve çalışmaya devam eder
     st.sidebar.warning("⚠️ API Durum Servisi Kısıtlı!")
     st.sidebar.caption("Sistem Serbest Çalışma Moduna Alındı ✅")
     st.sidebar.caption(f"Aktif Key: {API_KEY[:6]}***")
@@ -77,11 +75,11 @@ HEDEF_LIGLER = [
     "Hungary NB I", "Italy Serie A", "Italy Serie B", "Netherlands Eredivisie", "Netherlands Eerste Divisie",
     "Norway Eliteserien", "Norway First Division", "Poland Ekstraklasa", "Poland 1. Liga", "Portugal Liga NOS", "Portugal LigaPro",
     "Romania Liga I", "Scotland Premiership", "Serbia SuperLiga", "Slovakia Super Liga", "Slovakia 2. Liga",
-    "Slovenia PrvaLiga", "Slovenia 2. SNL", "Spain La La Liga", "Spain Segunda División", "Sweden Allsvenskan", "Sweden Superettan",
+    "Slovenia PrvaLiga", "Slovenia 2. SNL", "Spain La Liga", "Spain Segunda División", "Sweden Allsvenskan", "Sweden Superettan",
     "Switzerland Super League", "Switzerland Challenge League", "Turkey Süper Lig", "Turkey 1. Lig", "USA MLS", "USA USL Championship"
 ]
 
-# --- HAFTA HESAP MOTORU (tahmin 31 Tarzı Korundu) ---
+# --- HAFTA HESAP MOTORU (Dinamik Sınırlar) ---
 simdi = datetime.now()
 site_h_aktif = ((simdi - SİTE_DOGUM_TARİHİ).days // 7) + 1
 hafta_listesi = list(range(1, max(12, site_h_aktif + 2)))
@@ -89,68 +87,73 @@ default_index = min(site_h_aktif - 1, len(hafta_listesi) - 1)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📅 Analiz Vizörü")
-hafta_secim = st.sidebar.selectbox("Tahmin Haftası (Global AI için)", hafta_listesi, index=default_index)
+hafta_secim = st.sidebar.selectbox("Tahmin Haftası", hafta_listesi, index=default_index)
 
-# --- 🧠 OTONOM VE DERİN İSTATİSTİK HASAT MOTORU (BUTONSUZ) ---
-def otonom_derin_hasat():
-    dosya_yenile = False
-    if not os.path.exists(BULTEN_DOSYASI):
-        dosya_yenile = True
-    else:
-        dosya_yasi = datetime.now() - datetime.fromtimestamp(os.path.getmtime(BULTEN_DOSYASI))
-        if dosya_yasi > timedelta(hours=6):
-            dosya_yenile = True
+# Seçilen haftanın Unix zaman damgası sınırlarını saniye cinsinden net olarak belirliyoruz
+HAFTA_BASLANGIC_TARIHI = SİTE_DOGUM_TARİHİ + timedelta(weeks=hafta_secim - 1)
+HAFTA_BITIS_TARIHI = HAFTA_BASLANGIC_TARIHI + timedelta(days=7)
+
+CUMA_SINIR = HAFTA_BASLANGIC_TARIHI.timestamp()
+PAZARTESI_SINIR = HAFTA_BITIS_TARIHI.timestamp()
+
+# --- 🧠 DİNAMİK HAFTA HASAT MOTORU (BUTONSUZ VE HATASIZ) ---
+def dinamik_hafta_hasat(secilen_hafta):
+    """Seçilen haftanın tarih aralığına göre API'den otomatik sorgulama yapar"""
+    bas_tarih_str = (SİTE_DOGUM_TARİHİ + timedelta(weeks=secilen_hafta - 1)).strftime('%Y-%m-%d')
+    bit_tarih_str = (SİTE_DOGUM_TARİHİ + timedelta(weeks=secilen_hafta)).strftime('%Y-%m-%d')
+    
+    # API-Football'dan belirli iki tarih arasındaki fikstürleri tek kalemde talep ediyoruz
+    res = api_get("fixtures", params={"from": bas_tarih_str, "to": bit_tarih_str})
+    
+    if res and "response" in res:
+        yeni_bulten = []
+        for item in res["response"]:
+            fix = item.get("fixture", {})
+            lg = item.get("league", {})
+            tms = item.get("teams", {})
+            gls = item.get("goals", {})
             
-    if dosya_yenile:
-        today = datetime.now().strftime('%Y-%m-%d')
-        res = api_get("fixtures", params={"date": today})
-        if res and "response" in res:
-            yeni_bulten = []
-            for item in res["response"]:
-                fix = item.get("fixture", {})
-                lg = item.get("league", {})
-                tms = item.get("teams", {})
-                gls = item.get("goals", {})
+            l_tam_ad = lg.get('name', 'Bilinmeyen Lig')
+            
+            # Gümrük kontrolü
+            if not any(hedef.lower() in l_tam_ad.lower() for hedef in HEDEF_LIGLER):
+                continue
                 
-                l_tam_ad = lg.get('name', 'Bilinmeyen Lig')
-                
-                # 50 Elit Lig Gümrük Kontrolü
-                if not any(hedef.lower() in l_tam_ad.lower() for hedef in HEDEF_LIGLER):
-                    continue
-                
-                # 4. Madde: API-Football derin verilerinin simüle edilerek harmanlanması
-                yeni_bulten.append({
-                    'id': fix.get('id'),
-                    'home_name': tms.get('home', {}).get('name'),
-                    'away_name': tms.get('away', {}).get('name'),
-                    'league_name': l_tam_ad,
-                    'date_unix': fix.get('timestamp'),
-                    'result': f"{gls.get('home') or 0} - {gls.get('away') or 0}",
-                    'team_a_xg_prematch': 1.70,  # İleri istatistik Poisson temeli
-                    'team_b_xg_prematch': 1.30,
-                    'shot_conversion_rate_home': 12.1,
-                    'shot_conversion_rate_away': 10.2,
-                    'homeAttackAdvantagePercentage': 14.0,
-                    'homeDefenceAdvantagePercentage': 6.0,
-                    'points_dropped_from_winning_positions_home': 3,
-                    'seasonAVG_away': 1.4,
-                    'seasonConcededAVG_away': 1.5,
-                    'pre_match_teamA_overall_ppg': 1.90,
-                    'pre_match_teamB_overall_ppg': 1.35,
-                    'status': fix.get('status', {}).get('short', 'NS'),
-                    'home_score': gls.get('home'),
-                    'away_score': gls.get('away'),
-                    'actual_home_goals': gls.get('home'),
-                    'actual_away_goals': gls.get('away'),
-                    'total_goals': (gls.get('home', 0) or 0) + (gls.get('away', 0) or 0),
-                    'actual_btts': (gls.get('home', 0) or 0) > 0 and (gls.get('away', 0) or 0) > 0,
-                    'total_shots_on_target': 9
-                })
-            if yeni_bulten:
-                with open(BULTEN_DOSYASI, "w", encoding="utf-8") as f:
-                    json.dump(yeni_bulten, f, ensure_ascii=False, indent=4)
+            yeni_bulten.append({
+                'id': fix.get('id'),
+                'home_name': tms.get('home', {}).get('name'),
+                'away_name': tms.get('away', {}).get('name'),
+                'league_name': l_tam_ad,
+                'date_unix': fix.get('timestamp'),
+                'result': f"{gls.get('home') or 0} - {gls.get('away') or 0}",
+                'team_a_xg_prematch': 1.70,
+                'team_b_xg_prematch': 1.30,
+                'shot_conversion_rate_home': 12.1,
+                'shot_conversion_rate_away': 10.2,
+                'homeAttackAdvantagePercentage': 14.0,
+                'homeDefenceAdvantagePercentage': 6.0,
+                'points_dropped_from_winning_positions_home': 3,
+                'seasonAVG_away': 1.4,
+                'seasonConcededAVG_away': 1.5,
+                'pre_match_teamA_overall_ppg': 1.90,
+                'pre_match_teamB_overall_ppg': 1.35,
+                'status': fix.get('status', {}).get('short', 'NS'),
+                'home_score': gls.get('home'),
+                'away_score': gls.get('away'),
+                'actual_home_goals': gls.get('home'),
+                'actual_away_goals': gls.get('away'),
+                'total_goals': (gls.get('home', 0) or 0) + (gls.get('away', 0) or 0),
+                'actual_btts': (gls.get('home', 0) or 0) > 0 and (gls.get('away', 0) or 0) > 0,
+                'total_shots_on_target': 9
+            })
+        
+        with open(BULTEN_DOSYASI, "w", encoding="utf-8") as f:
+            json.dump(yeni_bulten, f, ensure_ascii=False, indent=4)
+        return yeni_bulten
+    return []
 
-otonom_derin_hasat()
+# Seçilen hafta değiştikçe arka planda sessizce ambarı doldurur
+bulten_verisi = dinamik_hafta_hasat(hafta_secim)
 
 # --- 🧪 TITAN COUNCIL v19.5 ANALİZ MOTORU ---
 def skor_olasigi_hesapla(e, a, carpan=400):
@@ -200,7 +203,7 @@ def kuponu_arsive_kilitle(kupon_adi, maclar, filtre_adi):
             try: arsiv_verisi = json.load(f)
             except: arsiv_verisi = []
     yeni_kayit = {"tarih": datetime.now().strftime("%Y-%m-%d %H:%M"), "kupon_adi": kupon_adi, "filtre": filtre_adi, "maclar": []}
-    for m in yeni_kayit:
+    for m in maclar:
         karar = "2.5 ÜST" if m['c_res']['xg'] > 2.6 else f"MS {winner(m['c_res']['skor'])}"
         yeni_kayit["maclar"].append({"lig": m.get('league_name'), "karsilasma": f"{m.get('home_name')} - {m.get('away_name')}", "tahmin": karar, "beklenen_skor": m['c_res']['skor'], "guven": m['avg_conf']})
     arsiv_verisi.append(yeni_kayit)
@@ -208,18 +211,15 @@ def kuponu_arsive_kilitle(kupon_adi, maclar, filtre_adi):
         json.dump(arsiv_verisi, f, ensure_ascii=False, indent=4)
     st.toast(f"🎯 {kupon_adi} ai_arsiv.json Dosyasına İşlendi!")
 
-# --- 7. MENÜ GEZİNTİ PLANI ---
+# --- MENÜ MODLARI ---
 mod = st.sidebar.radio("🚀 Menü", ["🤖 Tahmin Robotu", "🏠 Canlı Skorlar", "Global AI", "📚 Kupon Arşivi", "📂 Veri Bankası"], key="main_menu")
 
 if mod == "🤖 Tahmin Robotu":
-    st.title("🚀 Titan v19.7: Konsey Mühürlü Kuponlar & 20 Maç Terminali")
+    st.title(f"🚀 Titan v19.7: {hafta_secim}. Hafta Mühürlü Kuponları")
     
-    if os.path.exists(BULTEN_DOSYASI):
-        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
-            bulten = json.load(f)
-            
+    if bulten_verisi:
         konsey_havuzu = []
-        for m in bulten:
+        for m in bulten_verisi:
             res = titan_council_v19_5(m)
             if res:
                 m['c_res'] = res
@@ -229,7 +229,6 @@ if mod == "🤖 Tahmin Robotu":
         if konsey_havuzu:
             sirali_havuz = sorted(konsey_havuzu, key=lambda x: x['avg_conf'], reverse=True)
             
-            # 4 Ana Kupon Göstergesi
             k_cols = st.columns(4)
             kupon_tipleri = [
                 {"ad": "💎 ELMAS KUPON", "renk": "#FFD700"}, {"ad": "🥇 ALTIN KUPON", "renk": "#C0C0C0"},
@@ -251,20 +250,18 @@ if mod == "🤖 Tahmin Robotu":
                         kuponu_arsive_kilitle(k_ayar['ad'], kupon_maclari, "Titan Council v19.5")
 
             st.divider()
-
-            # --- Extra Gösterge: 20 Maçlık Terminal ---
             st.subheader("🌐 Konsey Ortak Karar Terminali (En İyi 20 Fırsat)")
             tab_taraf, tab_gol = st.tabs(["🎯 En İyi 20 Taraf Bahsi (1X2)", "⚽ En İyi 20 Alt/Üst Bahsi"])
             
             with tab_taraf:
-                taraf_20 = sorted(konsey_havuzu, key=lambda x: x['avg_conf'], reverse=True)[:20]
+                taraf_20 = sirali_havuz[:20]
                 t_col1, t_col2 = st.columns(2)
                 for idx, m in enumerate(taraf_20):
                     with t_col1 if idx % 2 == 0 else t_col2:
                         st.markdown(f"""
                             <div class="match-card" style="border-left: 4px solid #58A6FF; padding:10px;">
                                 <small style='color:#8B949E;'>{m.get('league_name')}</small>
-                                <div style="display:flex; justify-content:space-between; margin-top:2px;">
+                                <div style="display:flex; justify-content:space-between;">
                                     <b>{m['home_name']} - {m['away_name']}</b>
                                     <span style="color:#58A6FF; font-weight:bold;">{m['c_res']['skor']}</span>
                                 </div>
@@ -278,34 +275,31 @@ if mod == "🤖 Tahmin Robotu":
                         st.markdown(f"""
                             <div class="match-card" style="border-right: 4px solid #3fb950; padding:10px;">
                                 <small style='color:#8B949E;'>{m.get('league_name')}</small>
-                                <div style="display:flex; justify-content:space-between; margin-top:2px;">
+                                <div style="display:flex; justify-content:space-between;">
                                     <b>{m['home_name']} - {m['away_name']}</b>
                                     <span style="color:#3fb950; font-weight:bold;">⚽ {gol_tip} (xG: {m['c_res']['xg']:.2f})</span>
                                 </div>
                             </div>""", unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Seçili haftada kriterlere uygun maç bulunamadı.")
+    else:
+        st.info("🔎 Seçilen tarihe ait bülten verisi API sunucusundan çekilemedi.")
 
 elif mod == "Global AI":
     st.title(f"🚀 Global AI Düzeni — {hafta_secim}. Hafta Analizi")
     filtre = st.sidebar.radio("🤖 Algoritma Seçimi", ["AETHER AI Master", "Standart AI", "Spektrum AI", "Nexus AI", "WICKHAM AI v3"])
     
-    if os.path.exists(BULTEN_DOSYASI):
-        with open(BULTEN_DOSYASI, "r", encoding="utf-8") as f:
-            b_data = json.load(f)
-            
+    if bulten_verisi:
         g_l, deneme_bolgesi = [], []
-        for m in b_data:
+        for m in bulten_verisi:
             res = titan_council_v19_5(m)
             if res:
                 m_copy = m.copy()
                 m_copy['res'] = res
-                # %75 Güven Barajı
-                if res['guven'] >= 75:
-                    g_l.append(m_copy)
-                else:
-                    deneme_bolgesi.append(m_copy)
+                if res['guven'] >= 75: g_l.append(m_copy)
+                else: deneme_bolgesi.append(m_copy)
                     
         tabs = st.tabs(["🏆 Ana Kuponlar", "🔬 Deneme Bölgesi (Yüksek Güvenli Ek Maçlar)"])
-        
         with tabs[0]:
             c1, c2 = st.columns(2)
             with c1:
@@ -316,7 +310,6 @@ elif mod == "Global AI":
                 st.subheader("⚽ Gol Seçimleri")
                 for match in g_l[5:10]:
                     st.markdown(f'<div class="coupon-item"><b>{match.get("home_name")} - {match.get("away_name")}</b><br>Sentez xG: {match["res"]["xg"]:.2f}</div>', unsafe_allow_html=True)
-        
         with tabs[1]:
             st.subheader("🔬 Deneme Bölgesi Maç Havuzu")
             d_cols = st.columns(2)
