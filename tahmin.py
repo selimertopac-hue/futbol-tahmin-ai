@@ -151,16 +151,15 @@ def derin_gecmis_hasat_et():
         if res and 'data' in res:
             for m in res['data']:
                 if m.get('id') not in kayitli_idlar:
-                    # Gelişmiş veri analizi uyumluluğu için veri türlerini normalize ediyoruz
                     m['league_name'] = l_tam_ad
-                    m['team_a_xg_prematch'] = float(m.get('team_a_xg_prematch' or 1.5))
-                    m['team_b_xg_prematch'] = float(m.get('team_b_xg_prematch' or 1.2))
-                    m['homeGoalCount'] = int(m.get('homeGoalCount' or 0))
-                    m['awayGoalCount'] = int(m.get('awayGoalCount' or 0))
-                    m['btts_potential'] = int(m.get('btts_potential' or 50))
-                    m['o25_potential'] = int(m.get('o25_potential' or 50))
-                    m['shot_conversion_rate_home'] = float(m.get('shot_conversion_rate_home' or 10.0))
-                    m['seasonConcededAVG_away'] = float(m.get('seasonConcededAVG_away' or 1.2))
+                    m['team_a_xg_prematch'] = float(m.get('team_a_xg_prematch') if m.get('team_a_xg_prematch') is not None else 1.5)
+                    m['team_b_xg_prematch'] = float(m.get('team_b_xg_prematch') if m.get('team_b_xg_prematch') is not None else 1.2)
+                    m['homeGoalCount'] = int(m.get('homeGoalCount') if m.get('homeGoalCount') is not None else 0)
+                    m['awayGoalCount'] = int(m.get('awayGoalCount') if m.get('awayGoalCount') is not None else 0)
+                    m['btts_potential'] = int(m.get('btts_potential') if m.get('btts_potential') is not None else 50)
+                    m['o25_potential'] = int(m.get('o25_potential') if m.get('o25_potential') is not None else 50)
+                    m['shot_conversion_rate_home'] = float(m.get('shot_conversion_rate_home') if m.get('shot_conversion_rate_home') is not None else 10.0)
+                    m['seasonConcededAVG_away'] = float(m.get('seasonConcededAVG_away') if m.get('seasonConcededAVG_away') is not None else 1.2)
                     mevcut_arsiv.append(m)
                     kayitli_idlar.add(m.get('id'))
                     yeni_sayac += 1
@@ -251,8 +250,6 @@ if mod == "🤖 Tahmin Robotu":
                             <b>{match['home_name'][:12]} - {match['away_name'][:12]}</b><br>
                             <span style='color:{k_ayar['renk']}; font-weight:bold;'>{karar}</span> (%{int(match['avg_conf'])})
                         </div>""", unsafe_allow_html=True)
-                if st.button(f"Mühürle", key=f"btn_k_{i}"):
-                    pass
 
         st.divider()
         st.subheader("🌐 Konsey Ortak Karar Terminali (En İyi 20 Fırsat)")
@@ -321,7 +318,7 @@ elif mod == "Global AI":
                             <small>Tahmin: {match['res']['skor']} (Güven: %{match['res']['guven']})</small>
                         </div>""", unsafe_allow_html=True)
 
-# --- 🔬 ENTEGRE EDİLEN YENİ "TİTAN SENTEZ LABORATUVARI" ---
+# --- 🔬 "TİTAN SENTEZ LABORATUVARI" (YAMALANMIŞ GÜVENLİ KOD) ---
 elif mod == "🔬 Titan Sentez Laboratuvarı":
     st.title("🔬 Titan Sentez Laboratuvarı v1.0")
     st.subheader("🕵️ Özelleştirilmiş Matematiksel Korelasyon Odası")
@@ -335,12 +332,39 @@ elif mod == "🔬 Titan Sentez Laboratuvarı":
             
         df_arsiv = pd.DataFrame(arsiv_verileri)
         
-        # Kullanılabilir benzersiz lig listesini gümrük listesine göre ayıkla
+        # 🛡️ YAMA 1: KeyError Kalkanı - Eksik olan kolonları otonom tespit et ve güvenli varsayılan değerleri bas
+        gerekli_kolonlar = {
+            'team_a_xg_prematch': 1.5,
+            'team_b_xg_prematch': 1.2,
+            'btts_potential': 50,
+            'o25_potential': 50,
+            'shot_conversion_rate_home': 10.0,
+            'seasonConcededAVG_away': 1.2,
+            'homeGoalCount': 0,
+            'awayGoalCount': 0,
+            'league_name': 'Bilinmeyen Lig'
+        }
+        for col, def_val in gerekli_kolonlar.items():
+            if col not in df_arsiv.columns:
+                df_arsiv[col] = def_val
+            else:
+                # Kolon var ama içi null/NaN ise doldur
+                df_arsiv[col] = df_arsiv[col].fillna(def_val)
+        
+        # Tip Dönüşümleri (Korelasyon motorunun düzgün filtrelemesi için şart)
+        df_arsiv['team_a_xg_prematch'] = df_arsiv['team_a_xg_prematch'].astype(float)
+        df_arsiv['team_b_xg_prematch'] = df_arsiv['team_b_xg_prematch'].astype(float)
+        df_arsiv['btts_potential'] = df_arsiv['btts_potential'].astype(int)
+        df_arsiv['o25_potential'] = df_arsiv['o25_potential'].astype(int)
+        df_arsiv['shot_conversion_rate_home'] = df_arsiv['shot_conversion_rate_home'].astype(float)
+        df_arsiv['seasonConcededAVG_away'] = df_arsiv['seasonConcededAVG_away'].astype(float)
+        df_arsiv['homeGoalCount'] = df_arsiv['homeGoalCount'].astype(int)
+        df_arsiv['awayGoalCount'] = df_arsiv['awayGoalCount'].astype(int)
+
         mevcut_ligler = sorted(list(df_arsiv['league_name'].unique()))
         
         st.markdown("### 🗺️ Sentez Filtre Paneli")
         
-        # --- LİG SEÇİM PANELİ (Ayrı ayrı, kimisini ya da hepsini seçme altyapısı) ---
         lig_secim_modu = st.radio("Lig Filtreleme Düzeni", ["Tüm Elit Ligleri Kapsa", "Özel Lig Grupları Seç"], horizontal=True)
         if lig_secim_modu == "Özel Lig Grupları Seç":
             secilen_ligler = st.multiselect("Analiz Edilecek Ligleri Seçin", mevcut_ligler, default=mevcut_ligler[:3])
@@ -365,11 +389,9 @@ elif mod == "🔬 Titan Sentez Laboratuvarı":
             min_home_conv = st.slider("Min Ev Şut/Gol Dönüşüm Oranı (%)", 0.0, 25.0, 11.5, step=0.5)
             max_away_conceded = st.slider("Max Dep Gol Yeme Ortalaması", 0.0, 3.5, 1.4, step=0.1)
 
-        # --- VERİ BAĞLAMA VE SORGULAMA MOTORU ---
-        # Seçilen lig filtrelemesi
+        # --- 🛡️ YAMA 2: GÜVENLİ VE BANTLI SORGULAMA DÖNGÜSÜ ---
         df_filtreli = df_arsiv[df_arsiv['league_name'].isin(secilen_ligler)]
         
-        # Rakamsal koşulları birbirine 'AND' mantığıyla bağlıyoruz
         df_filtreli = df_filtreli[
             (df_filtreli['team_a_xg_prematch'] >= min_home_xg) &
             (df_filtreli['team_b_xg_prematch'] <= max_away_xg) &
@@ -387,7 +409,6 @@ elif mod == "🔬 Titan Sentez Laboratuvarı":
         if toplam_eslesen == 0:
             st.info("🔎 Girdiğiniz ağır teorik kriterlere uyan geçmiş maç bulunamadı. Sürgüleri biraz esnetmeyi deneyin.")
         else:
-            # İstatistiksel başarı oranlarının otonom hesabı
             btts_count = len(df_filtreli[(df_filtreli['homeGoalCount'] > 0) & (df_filtreli['awayGoalCount'] > 0)])
             o25_count = len(df_filtreli[(df_filtreli['homeGoalCount'] + df_filtreli['awayGoalCount']) > 2.5])
             ms1_count = len(df_filtreli[df_filtreli['homeGoalCount'] > df_filtreli['awayGoalCount']])
@@ -409,14 +430,9 @@ elif mod == "🔬 Titan Sentez Laboratuvarı":
             st.write("---")
             st.markdown("##### 🗂️ Bu Kriterlere Uyan Örnek Geçmiş Maçlar ve Skorları")
             
-            # Sonuçları ekranda şık bir tablo düzeninde listele
             df_display = df_filtreli[['league_name', 'home_name', 'away_name', 'homeGoalCount', 'awayGoalCount', 'team_a_xg_prematch', 'team_b_xg_prematch']].copy()
             df_display.columns = ['Lig', 'Ev Sahibi', 'Deplasman', 'Ev Gol', 'Dep Gol', 'Ev xG', 'Dep xG']
-            st.dataframe(df_display.tail(30), use_container_width=True)
-            
-            # İleride kuracağımız Simülasyon Motoru için veri iskeleti hazırlandı
-            st.caption("💡 Titan Notu: Yukarıdaki istatistiksel karne, bir sonraki aşamada kuracağımız Simülasyon Motoru'nun algoritma ağırlıklarını (weight) otomatik belirleyecektir.")
-
+            st.dataframe(df_display.reverse().head(50), use_container_width=True)
 elif mod == "📚 Kupon Arşivi":
     st.title("📂 Mühürlü Kupon Geçmişi (ai_arsiv.json)")
     if os.path.exists(ARSIV_DOSYASI):
