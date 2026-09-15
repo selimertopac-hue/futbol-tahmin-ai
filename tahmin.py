@@ -11,6 +11,15 @@ LIGLER = {"İngiltere": "PL", "İspanya": "PD", "İtalya": "SA", "Almanya": "BL1
 SİTE_DOGUM_TARİHİ = datetime(2026, 2, 20) 
 
 st.set_page_config(page_title="UltraSkor Pro: AETHER Intelligence", page_icon="🎯", layout="wide")
+# --- GEÇİCİ API TESTİ ---
+test_res = requests.get(
+    "https://api.football-data.org/v4/competitions/PL/matches?status=SCHEDULED", 
+    headers={"X-Auth-Token": FOOTBALL_DATA_KEY}
+)
+st.subheader("🔍 API Bağlantı Testi")
+st.write(f"**Durum Kodu:** {test_res.status_code}")
+st.json(test_res.json())
+st.divider()
 
 # --- 2. GÖRSEL STİL ---
 st.markdown("""
