@@ -107,7 +107,7 @@ def nesine_tum_oranlari_coz(ham_metin):
     return mac_listesi
 
 def kuponu_metne_cevir(mac_listesi):
-    metin = "=== NESİNE MODÜLER ORAN ANALİZ RAPORU ===\n"
+    metin = "=== NESİNE KOMBİNASYON ORAN ANALİZ RAPORU ===\n"
     metin += f"Tarih: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
     metin += "-" * 40 + "\n\n"
     for i, m in enumerate(mac_listesi, 1):
@@ -128,7 +128,7 @@ mod_secimi = st.sidebar.radio(
     "Operasyon Modu Seçin:",
     [
         "📦 Bülten Arşivi & Oto-İndirici",
-        "📊 Modüler Oran Panoraması & Filtreleme"
+        "📊 Kombinasyon Panoraması & Filtreleme"
     ]
 )
 
@@ -162,11 +162,11 @@ if mod_secimi == "📦 Bülten Arşivi & Oto-İndirici":
                 st.session_state["nesine_json_hafiza"] = f.read()
             st.success(f"✅ `{secilen_arsiv}` arşivi belleğe yüklendi!")
 
-# --- MOD 2: MODÜLER ORAN PANORAMASI & FİLTRELEME ---
-elif mod_secimi == "📊 Modüler Oran Panoraması & Filtreleme":
-    st.title("📊 Nesine Çoklu Bülten & Modüler Oran Filtreleme Merkezi")
+# --- MOD 2: KOMBİNASYON PANORAMASI & FİLTRELEME ---
+elif mod_secimi == "📊 Kombinasyon Panoraması & Filtreleme":
+    st.title("📊 Nesine Çoklu Bülten & Detaylı Kombinasyon Filtreleme Merkezi")
     st.markdown("""
-    Arşivden dilediğiniz kadar bülteni seçip ortak bir havuz oluşturun. Ardından **istediğiniz oran gruplarını (İstediğinizi açıp kapatarak)** filtreleyip anomali avı başlatın!
+    Arşivden dilediğiniz bültenleri seçip ortak havuz oluşturun. Aşağıdan **istediğiniz oran seçeneklerini tek tek seçip (VE mantığıyla)** çapraz arama yapın!
     """)
 
     mevcut_arsivler = glob.glob(os.path.join(ARSIV_DIR, "*.json"))
@@ -189,16 +189,15 @@ elif mod_secimi == "📊 Modüler Oran Panoraması & Filtreleme":
 
     elif veri_kaynagi == "Arşivden Çoklu Bülten Seç (Karma Analiz)":
         if not mevcut_arsivler:
-            st.warning("⚠️ Arşiv klasöründe hiç JSON bülteni bulunamadı. Önce bülten arşivi modundan bülten indirin.")
+            st.warning("⚠️ Arşiv klasöründe hiç JSON bülteni bulunamadı.")
         else:
             secilen_dosyalar = st.multiselect(
-                "Analize dahil etmek istediğiniz bültenleri seçin (Birden fazla seçebilirsiniz):",
+                "Analize dahil etmek istediğiniz bültenleri seçin:",
                 sorted(mevcut_arsivler, reverse=True)
             )
             for dosya in secilen_dosyalar:
                 with open(dosya, "r", encoding="utf-8") as f:
-                    icerik = f.read()
-                    secilen_maclar_ham.extend(nesine_tum_oranlari_coz(icerik))
+                    secilen_maclar_ham.extend(nesine_tum_oranlari_coz(f.read()))
 
     elif veri_kaynagi == "Tüm Arşivdeki Bültenleri Birleştir (Global Karma Analiz)":
         if not mevcut_arsivler:
@@ -206,8 +205,7 @@ elif mod_secimi == "📊 Modüler Oran Panoraması & Filtreleme":
         else:
             for dosya in mevcut_arsivler:
                 with open(dosya, "r", encoding="utf-8") as f:
-                    icerik = f.read()
-                    secilen_maclar_ham.extend(nesine_tum_oranlari_coz(icerik))
+                    secilen_maclar_ham.extend(nesine_tum_oranlari_coz(f.read()))
 
     # Mükerrer maçları temizleme (Deduplication)
     gorulen_maclar = set()
@@ -221,62 +219,66 @@ elif mod_secimi == "📊 Modüler Oran Panoraması & Filtreleme":
     st.divider()
     st.markdown(f"📊 **Toplam Havuzdaki Benzersiz Maç Sayısı:** {len(benzersiz_maclar)}")
 
-    st.markdown("### 🎛️ Modüler Oran Filtre Paneli")
-    st.markdown("İstediğiniz kategoriye ait kutucuğu işaretleyin ve açılan kaydırıcılar ile oran aralığını belirleyin.")
+    st.markdown("### 🎛️ Bağımsız Seçenekli Kombinasyon Filtre Paneli")
+    st.markdown("İstediğiniz oran türünü ayrı ayrı işaretleyin. İşaretlenen tüm filtreler **birlikte (VE / AND)** aranacaktır.")
 
-    # Modüler Seçim Kutuları ve Sliderlar
-    col_m1, col_m2, col_m3 = st.columns(3)
+    # 1. Satır: Maç Sonucu Seçenekleri (MS1, MSX, MS2)
+    st.markdown("#### 🏠 Maç Sonucu (1X2) Filtreleri")
+    c_ms1, c_msx, c_ms2 = st.columns(3)
+    with c_ms1:
+        f_ms1 = st.checkbox("MS 1 Filtrele", value=False)
+        ms1_min, ms1_max = st.slider("MS 1 Aralığı:", 1.01, 10.0, (1.30, 3.00), disabled=not f_ms1)
+    with c_msx:
+        f_msx = st.checkbox("MS X Filtrele", value=False)
+        msx_min, msx_max = st.slider("MS X Aralığı:", 2.00, 6.0, (2.80, 3.60), disabled=not f_msx)
+    with c_ms2:
+        f_ms2 = st.checkbox("MS 2 Filtrele", value=False)
+        ms2_min, ms2_max = st.slider("MS 2 Aralığı:", 1.01, 10.0, (1.50, 4.50), disabled=not f_ms2)
 
-    with col_m1:
-        filtre_ms_acik = st.checkbox("🏠 Maç Sonucu (MS) Filtresi", value=False)
-        ms1_min, ms1_max = st.slider("MS 1 Oran Aralığı:", 1.01, 10.0, (1.30, 3.00), disabled=not filtre_ms_acik)
-        msx_min, msx_max = st.slider("MS X Oran Aralığı:", 2.00, 6.0, (2.80, 3.60), disabled=not filtre_ms_acik)
-        ms2_min, ms2_max = st.slider("MS 2 Oran Aralığı:", 1.01, 10.0, (1.50, 4.50), disabled=not filtre_ms_acik)
+    st.divider()
 
-    with col_m2:
-        filtre_gol_acik = st.checkbox("⚽ 2.5 Alt / Üst Filtresi", value=True)
-        ust_min, ust_max = st.slider("2.5 Üst Oran Aralığı:", 1.10, 5.0, (1.40, 2.30), disabled=not filtre_gol_acik)
-        alt_min, alt_max = st.slider("2.5 Alt Oran Aralığı:", 1.10, 5.0, (1.40, 2.30), disabled=not filtre_gol_acik)
+    # 2. Satır: Gol Alt / Üst Seçenekleri (2.5 Üst, 2.5 Alt)
+    st.markdown("#### ⚽ Gol Alt / Üst Filtreleri")
+    c_ust, c_alt = st.columns(2)
+    with c_ust:
+        f_ust = st.checkbox("2.5 Üst Filtrele", value=False)
+        ust_min, ust_max = st.slider("2.5 Üst Aralığı:", 1.10, 5.0, (1.40, 2.30), disabled=not f_ust)
+    with c_alt:
+        f_alt = st.checkbox("2.5 Alt Filtrele", value=False)
+        alt_min, alt_max = st.slider("2.5 Alt Aralığı:", 1.10, 5.0, (1.40, 2.30), disabled=not f_alt)
 
-    with col_m3:
-        filtre_kg_acik = st.checkbox("🥅 Karşılıklı Gol (KG) Filtresi", value=False)
-        kg_var_min, kg_var_max = st.slider("KG Var Oran Aralığı:", 1.20, 3.5, (1.50, 2.10), disabled=not filtre_kg_acik)
-        kg_yok_min, kg_yok_max = st.slider("KG Yok Oran Aralığı:", 1.20, 3.5, (1.50, 2.10), disabled=not filtre_kg_acik)
+    st.divider()
 
-    if st.button("🚀 Karma Bülteni Modüler Olarak Tara ve Listele", use_container_width=True):
+    # 3. Satır: Karşılıklı Gol Seçenekleri (KG Var, KG Yok)
+    st.markdown("#### 🥅 Karşılıklı Gol (KG) Filtreleri")
+    c_kgv, c_kgy = st.columns(2)
+    with c_kgv:
+        f_kgv = st.checkbox("KG Var Filtrele", value=False)
+        kgv_min, kgv_max = st.slider("KG Var Aralığı:", 1.20, 3.5, (1.50, 2.10), disabled=not f_kgv)
+    with c_kgy:
+        f_kgy = st.checkbox("KG Yok Filtrele", value=False)
+        kgy_min, kgy_max = st.slider("KG Yok Aralığı:", 1.20, 3.5, (1.50, 2.10), disabled=not f_kgy)
+
+    if st.button("🚀 Kombinasyon Filtresini Çalıştır ve Eşleşenleri Listele", use_container_width=True):
         if not benzersiz_maclar:
-            st.error("❌ Analiz edilecek bülten verisi veya maçı bulunamadı. Lütfen üstteki moddan bülten seçin.")
+            st.error("❌ Analiz edilecek bülten verisi veya maçı bulunamadı.")
         else:
             filtrelenmis = []
             for m in benzersiz_maclar:
                 match_uyuyor = True
 
-                # 1. Maç Sonucu Kontrolü (Eğer aktifse)
-                if filtre_ms_acik:
-                    if not (ms1_min <= m["ms1"] <= ms1_max and msx_min <= m["msx"] <= msx_max and ms2_min <= m["ms2"] <= ms2_max):
-                        match_uyuyor = False
-
-                # 2. Gol Kontrolü (Eğer aktifse)
-                if filtre_gol_acik and match_uyuyor:
-                    u_val = m["ust"] if m["ust"] > 0 else 0.0
-                    a_val = m["alt"] if m["alt"] > 0 else 0.0
-                    # Belirtilen aralığa uymalı
-                    if u_val > 0 and not (ust_min <= u_val <= ust_max):
-                        match_uyuyor = False
-                    if a_val > 0 and not (alt_min <= a_val <= alt_max):
-                        match_uyuyor = False
-
-                # 3. KG Kontrolü (Eğer aktifse)
-                if filtre_kg_acik and match_uyuyor:
-                    kv_val = m["kg_var"] if m["kg_var"] > 0 else 0.0
-                    ky_val = m["kg_yok"] if m["kg_yok"] > 0 else 0.0
-                    if kv_val > 0 and not (kg_var_min <= kv_val <= kg_var_max):
-                        match_uyuyor = False
-                    if ky_val > 0 and not (kg_yok_min <= ky_val <= kg_yok_max):
-                        match_uyuyor = False
+                # Her bir seçeneği bağımsız ve kümülatif (VE) olarak test et
+                if f_ms1 and not (ms1_min <= m["ms1"] <= ms1_max): match_uyuyor = False
+                if f_msx and not (msx_min <= m["msx"] <= msx_max): match_uyuyor = False
+                if f_ms2 and not (ms2_min <= m["ms2"] <= ms2_max): match_uyuyor = False
+                
+                if f_ust and (m["ust"] == 0 or not (ust_min <= m["ust"] <= ust_max)): match_uyuyor = False
+                if f_alt and (m["alt"] == 0 or not (alt_min <= m["alt"] <= alt_max)): match_uyuyor = False
+                
+                if f_kgv and (m["kg_var"] == 0 or not (kgv_min <= m["kg_var"] <= kgv_max)): match_uyuyor = False
+                if f_kgy and (m["kg_yok"] == 0 or not (kgy_min <= m["kg_yok"] <= kgy_max)): match_uyuyor = False
 
                 if match_uyuyor:
-                    # Piyasa sinyali üretimi
                     if m["ust"] > 0 and m["ust"] < 1.65:
                         egilim = "🔥 Piyasa Beklentisi: YÜKSEK ÜST"
                     elif m["ms1"] > 1.0 and m["ms1"] < 1.55:
@@ -301,7 +303,7 @@ elif mod_secimi == "📊 Modüler Oran Panoraması & Filtreleme":
 
             if filtrelenmis:
                 df_filt = pd.DataFrame(filtrelenmis)
-                st.success(f"🎯 Modüler kriterlerinize uyan **{len(df_filt)}** maç filtrelendi!")
+                st.success(f"🎯 Kombinasyon kriterlerinize uyan **{len(df_filt)}** maç bulundu!")
                 st.dataframe(df_filt, use_container_width=True, hide_index=True)
 
                 # Dışa Aktarma Butonları
@@ -314,20 +316,20 @@ elif mod_secimi == "📊 Modüler Oran Panoraması & Filtreleme":
                     st.download_button(
                         label="📄 Liste Olarak (.txt) İndir",
                         data=txt_ciktisi,
-                        file_name="moduler_oran_analiz.txt",
+                        file_name="kombinasyon_oran_analiz.txt",
                         mime="text/plain",
                         use_container_width=True
                     )
                 with col_d2:
                     buffer = io.BytesIO()
                     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                        df_filt.to_excel(writer, sheet_name='ModulerOranAnaliz', index=False)
+                        df_filt.to_excel(writer, sheet_name='KombinasyonAnaliz', index=False)
                     st.download_button(
                         label="📊 Excel Olarak (.xlsx) İndir",
                         data=buffer.getvalue(),
-                        file_name="moduler_oran_analiz.xlsx",
+                        file_name="kombinasyon_oran_analiz.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
             else:
-                st.warning("Seçtiğiniz kriterlere ve aktif bülten havuzuna uyan maç bulunamadı. Filtre kutucuklarını veya oran aralıklarını esnetebilirsiniz.")
+                st.warning("Seçtiğiniz kriterlerin tamamını aynı anda sağlayan maç bulunamadı. Kriterleri veya oran aralıklarını esnetebilirsiniz.")
