@@ -1,0 +1,35 @@
+name: Otomatik Nesine Bülten Çekici
+
+on:
+  schedule:
+    # Her Salı (2) ve Perşembe (4) saat 07:00 UTC'de (Türkiye saati ile 10:00) çalışır
+    - cron: '0 7 * * 2,4'
+  workflow_dispatch: // Manuel test etmek istersen siteden tetikleyebilmen için
+
+jobs:
+  bulten-indir:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Depoyu Kopyala (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Python Kurulumu
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Gerekli Paketleri Yükle
+        run: pip install requests
+
+      - name: Bülten Çekici Betiği Çalıştır
+        run: python otomatik_cek.py
+
+      - name: Değişiklikleri Depoya Kaydet ve Gönder (Commit & Push)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]ms"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add bulten_arsivleri/
+          git commit -m "🤖 Otomatik bülten arşivi güncellendi: $(date +'%Y-%m-%d %H:%M')" || echo "Değişiklik yok"
+          git push
